@@ -1,0 +1,117 @@
+{
+  "common": {
+    "continue": "Continuar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "done": "Hecho",
+    "loading": "Cargando...",
+    "error": "Algo salió mal",
+    "retry": "Intentar de nuevo",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "skip": "Omitir",
+    "close": "Cerrar"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "loginWithGoogle": "Continuar con Google",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "dontHaveAccount": "¿No tienes una cuenta?",
+    "resetPassword": "Restablecer Contraseña",
+    "checkEmail": "Revisa tu correo para las instrucciones"
+  },
+  "onboarding": {
+    "welcome": "Bienvenido a Genie",
+    "subtitle": "Tu compañero de crecimiento personal",
+    "description": "Transforma tus deseos en planes diarios alcanzables",
+    "summonGenie": "Invoca a tu Genio",
+    "slide1Title": "Pide un Deseo",
+    "slide1Description": "Dile a Genie lo que quieres lograr",
+    "slide2Title": "Obtén tu Plan",
+    "slide2Description": "Recibe tareas diarias personalizadas",
+    "slide3Title": "Sigue tu Progreso",
+    "slide3Description": "Mira cómo tus sueños se hacen realidad"
+  },
+  "dashboard": {
+    "title": "Panel Principal",
+    "greeting": "¡Hola, {{name}}!",
+    "todaysTasks": "Tareas de Hoy",
+    "activeGoals": "Metas Activas",
+    "progress": "Progreso",
+    "addGoal": "Agregar Nueva Meta",
+    "noGoals": "Aún no hay metas activas",
+    "noGoalsDescription": "Comienza tu viaje creando tu primera meta"
+  },
+  "goals": {
+    "title": "Metas",
+    "newGoal": "Nueva Meta",
+    "editGoal": "Editar Meta",
+    "goalTitle": "¿Qué deseas lograr?",
+    "goalDescription": "Describe tu meta en detalle",
+    "category": "Categoría",
+    "categories": {
+      "lifestyle": "Estilo de Vida",
+      "career": "Carrera",
+      "mindset": "Mentalidad",
+      "character": "Carácter",
+      "custom": "Personalizado"
+    },
+    "createPlan": "Crear Plan",
+    "goalCreated": "¡Meta creada exitosamente!",
+    "goalUpdated": "¡Meta actualizada exitosamente!",
+    "goalDeleted": "¡Meta eliminada exitosamente!"
+  },
+  "tasks": {
+    "title": "Tareas",
+    "todaysTasks": "Tareas de Hoy",
+    "completedTasks": "Tareas Completadas",
+    "pendingTasks": "Tareas Pendientes",
+    "markComplete": "Marcar Completa",
+    "markIncomplete": "Marcar Incompleta",
+    "editTask": "Editar Tarea",
+    "deleteTask": "Eliminar Tarea",
+    "taskCompleted": "¡Tarea completada!",
+    "times": {
+      "morning": "Mañana",
+      "afternoon": "Tarde",
+      "evening": "Noche"
+    }
+  },
+  "profile": {
+    "title": "Perfil",
+    "editProfile": "Editar Perfil",
+    "fullName": "Nombre Completo",
+    "timezone": "Zona Horaria",
+    "language": "Idioma",
+    "notifications": "Notificaciones",
+    "darkMode": "Modo Oscuro",
+    "logout": "Cerrar Sesión",
+    "profileUpdated": "¡Perfil actualizado exitosamente!"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "enableNotifications": "Habilitar Notificaciones",
+    "notificationTimes": "Horarios de Notificación",
+    "morning": "Recordatorio Matutino",
+    "afternoon": "Revisión de Tarde",
+    "evening": "Reflexión Nocturna",
+    "motivational": "Mensajes Motivacionales"
+  },
+  "progress": {
+    "title": "Progreso",
+    "streak": "Racha de Días",
+    "completionRate": "Tasa de Finalización",
+    "totalTasks": "Tareas Totales",
+    "completedTasks": "Completadas",
+    "thisWeek": "Esta Semana",
+    "thisMonth": "Este Mes",
+    "allTime": "Todo el Tiempo"
+  }
+}

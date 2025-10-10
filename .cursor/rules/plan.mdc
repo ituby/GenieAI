@@ -1,0 +1,592 @@
+# Genie App Development Plan
+
+## Project Overview
+Building a personal growth companion app with React Native + Expo and Supabase backend. The app helps users achieve goals through personalized daily plans, notifications, and progress tracking with a magical Aladdin Genie theme and technological dark UI design.
+
+## Design System
+- **Theme**: Technological dark theme with dark backgrounds
+- **Colors**: Dark backgrounds with bright vivid purple shades (#8B5CF6, #A855F7, #C084FC)
+- **Accent Colors**: Electric blue (#06B6D4), neon green (#10B981) for success states
+- **Typography**: Modern, clean fonts with good contrast
+- **UI Style**: Sleek, technological aesthetic with subtle gradients and glowing effects
+
+---
+
+## Phase 1: Project Setup & Foundation
+
+### 1.1 Initialize Project Structure
+- [ ] Create new Expo React Native project with TypeScript
+- [ ] Set up project directory structure
+- [ ] Configure ESLint and Prettier
+- [ ] Install core dependencies (React Navigation, Expo modules)
+- [ ] Set up Git repository and initial commit
+- [ ] Install and configure react-i18next for internationalization
+- [ ] Set up i18n folder structure with language files
+- [ ] Configure language detection and fallback system
+
+### 1.2 Supabase Backend Setup
+- [ ] Create new Supabase project
+- [ ] Set up database schema (users, goals, goal_tasks, push_tokens tables)
+- [ ] Configure Row Level Security (RLS) policies
+- [ ] Set up Supabase Auth configuration
+- [ ] Create environment variables for Supabase connection
+
+### 1.3 Design System Implementation
+- [ ] Create color palette constants with dark theme and purple shades
+- [ ] Set up typography system with font weights and sizes
+- [ ] Create reusable UI components (Button, Input, Card, etc.)
+- [ ] Implement dark theme provider and context
+- [ ] Create gradient and glow effect utilities
+- [ ] Set up RTL (Right-to-Left) layout support for Arabic/Hebrew languages
+- [ ] Create responsive text scaling for different languages
+
+---
+
+## Phase 2: Authentication & User Management
+
+### 2.1 Authentication Setup
+- [ ] Install and configure Supabase Auth
+- [ ] Create login screen with dark theme design
+- [ ] Create registration screen with form validation
+- [ ] Implement Google OAuth integration
+- [ ] Add password reset functionality
+- [ ] Create auth context and protected routes
+
+### 2.2 User Profile Management
+- [ ] Create user profile screen
+- [ ] Implement profile editing functionality
+- [ ] Add timezone selection
+- [ ] Create settings screen with theme preferences
+- [ ] Add language selection dropdown with 18+ language options
+- [ ] Implement language preference persistence
+- [ ] Implement logout functionality
+
+---
+
+## Phase 3: Core App Screens & Navigation
+
+### 3.1 Navigation Structure
+- [ ] Set up React Navigation with stack and tab navigators
+- [ ] Create bottom tab navigation with purple accent colors
+- [ ] Implement authentication flow navigation
+- [ ] Add screen transitions and animations
+- [ ] Create custom header components with dark theme
+
+### 3.2 Onboarding Experience
+- [ ] Create welcome screen with Genie animation
+- [ ] Design magic lamp logo and animations
+- [ ] Implement "Summon Your Genie" onboarding flow
+- [ ] Add app introduction slides
+- [ ] Create smooth transitions between onboarding screens
+
+### 3.3 Main Dashboard
+- [ ] Create dashboard layout with dark background
+- [ ] Implement active goals overview cards
+- [ ] Add progress visualization with purple gradients
+- [ ] Create quick action buttons
+- [ ] Add motivational daily greeting section
+
+---
+
+## Phase 4: Goal Creation & Management
+
+### 4.1 Goal Creation Flow
+- [ ] Create "Add Goal" screen with dark theme form
+- [ ] Implement category selection (Lifestyle, Career, Mindset, Character, Custom)
+- [ ] Add goal description input with character limits
+- [ ] Create goal preview and confirmation screen
+- [ ] Implement goal validation and error handling
+
+### 4.2 Goal Management
+- [ ] Create goal details screen with task list
+- [ ] Implement goal editing functionality
+- [ ] Add goal status management (active, paused, completed)
+- [ ] Create goal deletion with confirmation
+- [ ] Implement goal archiving system
+
+---
+
+## Phase 5: Daily Tasks & Planning System
+
+### 5.1 Task Display & Interaction
+- [ ] Create daily task list component with dark cards
+- [ ] Implement task completion toggle with animations
+- [ ] Add task time indicators (morning, afternoon, evening)
+- [ ] Create task detail modal/screen
+- [ ] Implement task editing and postponing
+
+### 5.2 Progress Tracking
+- [ ] Create progress visualization components
+- [ ] Implement streak counter with purple highlights
+- [ ] Add completion percentage calculations
+- [ ] Create milestone celebration animations
+- [ ] Implement progress history charts
+
+---
+
+## Phase 6: Backend Functions & API Integration
+
+### 6.1 Supabase Edge Functions
+- [ ] Create `generate-plan` edge function for AI/template-based plan generation
+- [ ] Implement `update-progress` function for task completion
+- [ ] Create `push-dispatcher` function for notification scheduling
+- [ ] Set up Supabase cron jobs for automated notifications
+- [ ] Add error handling and logging to all functions
+
+### 6.2 API Integration
+- [ ] Create API service layer for Supabase calls
+- [ ] Implement goal CRUD operations
+- [ ] Add task management API calls
+- [ ] Create user profile API integration
+- [ ] Add offline data caching with AsyncStorage
+
+---
+
+## Phase 7: Push Notifications
+
+### 7.1 Notification Setup
+- [ ] Install and configure Expo Notifications
+- [ ] Implement push token registration
+- [ ] Create notification permission handling
+- [ ] Set up notification categories and actions
+- [ ] Add notification sound and vibration settings
+
+### 7.2 Notification Logic
+- [ ] Implement scheduled notification system
+- [ ] Create motivational notification content
+- [ ] Add deep linking from notifications to tasks
+- [ ] Implement notification history screen
+- [ ] Add notification preferences and timing controls
+
+---
+
+## Phase 8: Enhanced Features & Polish
+
+### 8.1 Animations & Interactions
+- [ ] Add Lottie animations for Genie character
+- [ ] Implement smooth page transitions
+- [ ] Create task completion celebration effects
+- [ ] Add loading states with purple spinners
+- [ ] Implement gesture-based interactions
+
+### 8.2 Data Visualization
+- [ ] Create progress charts with Chart.js or Victory
+- [ ] Implement goal completion statistics
+- [ ] Add weekly/monthly progress summaries
+- [ ] Create achievement badges system
+- [ ] Implement data export functionality
+
+### 8.3 Internationalization Implementation
+- [ ] Create translation files for 18+ languages (EN, ES, FR, DE, IT, PT, RU, ZH, JA, KO, AR, HI, etc.)
+- [ ] Implement dynamic text loading based on selected language
+- [ ] Add date/time formatting for different locales
+- [ ] Implement number and currency formatting per region
+- [ ] Create language-specific notification templates
+- [ ] Add cultural adaptations for motivational content
+- [ ] Test text overflow and layout in different languages
+- [ ] Implement pluralization rules for different languages
+
+### 8.4 Performance Optimization
+- [ ] Implement lazy loading for screens
+- [ ] Add image optimization and caching
+- [ ] Optimize database queries and indexing
+- [ ] Add error boundaries and crash reporting
+- [ ] Implement app performance monitoring
+- [ ] Optimize translation file loading and caching
+
+---
+
+## Phase 9: Testing & Quality Assurance
+
+### 9.1 Testing Implementation
+- [ ] Set up Jest and React Native Testing Library
+- [ ] Write unit tests for utility functions
+- [ ] Create component tests for UI elements
+- [ ] Implement integration tests for user flows
+- [ ] Add E2E tests with Detox
+
+### 9.2 Quality Assurance
+- [ ] Test on multiple device sizes and orientations
+- [ ] Verify dark theme consistency across all screens
+- [ ] Test notification delivery and timing
+- [ ] Validate data persistence and sync
+- [ ] Perform accessibility testing and improvements
+- [ ] Test all 18+ languages for UI consistency and text overflow
+- [ ] Validate RTL layout functionality for Arabic/Hebrew
+- [ ] Test date/time formatting across different locales
+- [ ] Verify cultural appropriateness of content in different languages
+
+---
+
+## Phase 10: Deployment & Distribution
+
+### 10.1 Build Configuration
+- [ ] Configure Expo EAS Build for iOS and Android
+- [ ] Set up production environment variables
+- [ ] Create app icons and splash screens with Genie theme
+- [ ] Configure app store metadata and descriptions
+- [ ] Set up code signing and certificates
+
+### 10.2 Release Preparation
+- [ ] Create app store screenshots with dark theme for multiple languages
+- [ ] Write app store descriptions in 18+ languages emphasizing Genie concept
+- [ ] Translate app store keywords and metadata for global markets
+- [ ] Set up analytics and crash reporting
+- [ ] Create privacy policy and terms of service in multiple languages
+- [ ] Prepare marketing materials with purple branding for different regions
+
+### 10.3 Deployment
+- [ ] Deploy Supabase functions to production
+- [ ] Submit app to Apple App Store
+- [ ] Submit app to Google Play Store
+- [ ] Set up monitoring and alerting
+- [ ] Create user feedback collection system
+
+---
+
+## Technical Stack Summary
+
+**Frontend:**
+- React Native with Expo SDK
+- TypeScript for type safety
+- React Navigation for routing
+- Expo Notifications for push notifications
+- AsyncStorage for local data caching
+- react-i18next for internationalization
+- Expo Localization for device language detection
+
+**Backend:**
+- Supabase PostgreSQL database
+- Supabase Auth for user management
+- Supabase Edge Functions for business logic
+- Supabase Storage for file uploads
+- Supabase Realtime for live updates
+
+**Design & UI:**
+- Dark theme with purple accent colors (#8B5CF6, #A855F7, #C084FC)
+- Technological aesthetic with gradients and glows
+- Lottie animations for Genie character
+- Custom components with consistent dark styling
+- RTL layout support for Arabic/Hebrew languages
+- Responsive text scaling for different languages
+- Cultural adaptations for global markets
+
+**Development Tools:**
+- Expo CLI and EAS Build
+- ESLint and Prettier for code quality
+- Jest and React Native Testing Library
+- Git for version control
+
+
+FULL DIRECTORY TREE PLAN INCLUDE COMPONENTS AND REUSABLES!
+
+genie/
+├─ .editorconfig
+├─ .env                         # local env (never commit)
+├─ .env.example                 # document required env vars
+├─ .gitignore
+├─ app.json
+├─ app.config.ts                # Expo config w/ EAS channels, scheme, deep links
+├─ package.json
+├─ tsconfig.json
+├─ babel.config.js
+├─ metro.config.js
+├─ jest.config.js
+├─ eas.json                     # EAS build/profiles
+├─ README.md
+│
+├─ assets/
+│  ├─ fonts/
+│  │  ├─ Inter-Regular.ttf
+│  │  ├─ Inter-Medium.ttf
+│  │  └─ Inter-Bold.ttf
+│  ├─ icons/
+│  │  ├─ lamp.svg               # app logo icon
+│  │  ├─ lamp-filled.svg
+│  │  ├─ bell.svg
+│  │  ├─ check.svg
+│  │  ├─ user.svg
+│  │  ├─ goal.svg
+│  │  └─ calendar.svg
+│  ├─ images/
+│  │  ├─ splash.png
+│  │  ├─ onboarding-1.png
+│  │  ├─ onboarding-2.png
+│  │  └─ onboarding-3.png
+│  └─ lottie/
+│     ├─ genie-lamp.json
+│     └─ confetti.json
+│
+├─ src/
+│  ├─ app/                      # (expo-router) or replace with /navigation if using react-navigation only
+│  │  ├─ _layout.tsx            # Root layout (theme, providers)
+│  │  ├─ index.tsx              # Home -> Dashboard
+│  │  ├─ (auth)/
+│  │  │  ├─ login.tsx
+│  │  │  └─ register.tsx
+│  │  ├─ (onboarding)/
+│  │  │  └─ onboarding.tsx
+│  │  ├─ (dashboard)/
+│  │  │  └─ dashboard.tsx
+│  │  ├─ (goals)/
+│  │  │  ├─ new-goal.tsx
+│  │  │  ├─ goal/[goalId].tsx
+│  │  │  ├─ goal/[goalId]/edit-task/[taskId].tsx
+│  │  │  └─ planner/[goalId].tsx
+│  │  ├─ (notifications)/
+│  │  │  └─ center.tsx
+│  │  ├─ (profile)/
+│  │  │  └─ profile.tsx
+│  │  ├─ (settings)/
+│  │  │  └─ settings.tsx
+│  │  └─ (summary)/
+│  │     └─ daily-summary.tsx
+│  │
+│  ├─ navigation/               # if not using expo-router stacks directly
+│  │  ├─ RootNavigator.tsx
+│  │  ├─ AuthNavigator.tsx
+│  │  └─ types.ts
+│  │
+│  ├─ components/               # Reusable UI library
+│  │  ├─ primitives/            # low-level building blocks
+│  │  │  ├─ Button/
+│  │  │  │  ├─ Button.tsx
+│  │  │  │  ├─ Button.types.ts
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Icon/
+│  │  │  │  ├─ Icon.tsx
+│  │  │  │  ├─ icons.ts         # mapping to svg assets
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Text/
+│  │  │  │  ├─ Text.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Input/
+│  │  │  │  ├─ TextField.tsx
+│  │  │  │  ├─ TextArea.tsx
+│  │  │  │  ├─ PasswordField.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Switch/
+│  │  │  │  ├─ Switch.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Checkbox/
+│  │  │  │  ├─ Checkbox.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Radio/
+│  │  │  │  ├─ RadioGroup.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Card/
+│  │  │  │  ├─ Card.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Modal/
+│  │  │  │  ├─ Modal.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Divider/
+│  │  │  │  ├─ Divider.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Avatar/
+│  │  │  │  ├─ Avatar.tsx
+│  │  │  │  └─ index.ts
+│  │  │  └─ Loader/
+│  │  │     ├─ Spinner.tsx
+│  │  │     └─ index.ts
+│  │  ├─ complex/               # mid-level reusable
+│  │  │  ├─ HeaderBar/
+│  │  │  │  ├─ HeaderBar.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ ScreenContainer/
+│  │  │  │  ├─ ScreenContainer.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ SectionHeader/
+│  │  │  │  ├─ SectionHeader.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ EmptyState/
+│  │  │  │  ├─ EmptyState.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ Form/
+│  │  │  │  ├─ Form.tsx
+│  │  │  │  ├─ useForm.ts
+│  │  │  │  └─ validators.ts
+│  │  │  ├─ ListItem/
+│  │  │  │  ├─ ListItem.tsx
+│  │  │  │  └─ index.ts
+│  │  │  └─ Tabs/
+│  │  │     ├─ Tabs.tsx
+│  │  │     └─ index.ts
+│  │  ├─ domain/                # high-level app-specific
+│  │  │  ├─ GoalCard/
+│  │  │  │  ├─ GoalCard.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ TaskItem/
+│  │  │  │  ├─ TaskItem.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ ProgressRing/
+│  │  │  │  ├─ ProgressRing.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ StreakCounter/
+│  │  │  │  ├─ StreakCounter.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ NotificationToggle/
+│  │  │  │  ├─ NotificationToggle.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ InsightCard/
+│  │  │  │  ├─ InsightCard.tsx
+│  │  │  │  └─ index.ts
+│  │  │  └─ GenieBanner/
+│  │  │     ├─ GenieBanner.tsx
+│  │  │     └─ index.ts
+│  │  └─ index.ts               # central exports for components
+│  │
+│  ├─ screens/                  # screen implementations (if not colocated under /app routes)
+│  │  ├─ OnboardingScreen.tsx
+│  │  ├─ LoginScreen.tsx
+│  │  ├─ RegisterScreen.tsx
+│  │  ├─ DashboardScreen.tsx
+│  │  ├─ NewGoalScreen.tsx
+│  │  ├─ GoalDetailsScreen.tsx
+│  │  ├─ PlannerScreen.tsx
+│  │  ├─ EditTaskScreen.tsx
+│  │  ├─ NotificationsCenterScreen.tsx
+│  │  ├─ ProfileScreen.tsx
+│  │  ├─ SettingsScreen.tsx
+│  │  └─ DailySummaryScreen.tsx
+│  │
+│  ├─ features/                 # feature-oriented logic & UI composition
+│  │  ├─ auth/
+│  │  │  ├─ hooks/useAuth.ts
+│  │  │  ├─ components/AuthForm.tsx
+│  │  │  └─ services/auth.service.ts
+│  │  ├─ goals/
+│  │  │  ├─ hooks/useGoals.ts
+│  │  │  ├─ hooks/useGoalForm.ts
+│  │  │  ├─ services/goals.service.ts
+│  │  │  └─ utils/goal.mappers.ts
+│  │  ├─ tasks/
+│  │  │  ├─ hooks/useTasks.ts
+│  │  │  ├─ services/tasks.service.ts
+│  │  │  └─ utils/task.schedule.ts
+│  │  └─ insights/
+│  │     ├─ hooks/useInsights.ts
+│  │     └─ services/insights.service.ts
+│  │
+│  ├─ services/                 # app-wide services
+│  │  ├─ supabase/
+│  │  │  ├─ client.ts           # createClient, helpers
+│  │  │  ├─ types.gen.ts        # generated types from Supabase
+│  │  │  └─ rls.ts              # helper for RLS policies on client
+│  │  ├─ notifications/
+│  │  │  ├─ expoPush.ts         # register, send (serverless), parse receipts
+│  │  │  └─ permissions.ts
+│  │  ├─ storage/
+│  │  │  └─ storage.service.ts
+│  │  └─ analytics/
+│  │     └─ analytics.service.ts
+│  │
+│  ├─ store/                    # state management (Zustand or Jotai)
+│  │  ├─ useThemeStore.ts
+│  │  ├─ useAuthStore.ts
+│  │  ├─ useGoalStore.ts
+│  │  └─ persist.ts             # storage adapters
+│  │
+│  ├─ hooks/
+│  │  ├─ useColorScheme.ts
+│  │  ├─ useDebounce.ts
+│  │  ├─ useInterval.ts
+│  │  ├─ useTimezone.ts
+│  │  └─ useAppState.ts
+│  │
+│  ├─ utils/
+│  │  ├─ dates.ts               # tz helpers, run_at builders, UTC converts
+│  │  ├─ validation.ts
+│  │  ├─ formatting.ts
+│  │  ├─ navigation.ts
+│  │  └─ logger.ts
+│  │
+│  ├─ theme/
+│  │  ├─ colors.ts
+│  │  ├─ spacing.ts
+│  │  ├─ typography.ts
+│  │  └─ index.ts               # ThemeProvider
+│  │
+│  ├─ config/
+│  │  ├─ env.ts                 # read env vars w/ zod
+│  │  ├─ constants.ts
+│  │  └─ featureFlags.ts
+│  │
+│  ├─ i18n/
+│  │  ├─ index.ts
+│  │  ├─ en.json
+│  │  └─ he.json
+│  │
+│  ├─ types/
+│  │  ├─ goal.ts                # Goal, GoalCategory, GoalStatus
+│  │  ├─ task.ts                # Task, TaskStatus
+│  │  ├─ user.ts
+│  │  ├─ notifications.ts
+│  │  └─ index.ts
+│  │
+│  ├─ styles/
+│  │  ├─ layout.ts
+│  │  └─ shadows.ts
+│  │
+│  └─ tests/
+│     ├─ unit/
+│     │  ├─ utils.dates.test.ts
+│     │  └─ task.schedule.test.ts
+│     ├─ components/
+│     │  ├─ GoalCard.test.tsx
+│     │  └─ TaskItem.test.tsx
+│     └─ e2e/                   # Detox
+│        ├─ init.js
+│        ├─ dashboard.e2e.ts
+│        └─ auth.e2e.ts
+│
+└─ supabase/                    # backend project root
+   ├─ .env
+   ├─ config.toml
+   ├─ migrations/
+   │  ├─ 0001_init.sql          # tables (users, goals, goal_tasks, push_tokens)
+   │  ├─ 0002_indexes.sql
+   │  └─ 0003_policies.sql      # RLS policies
+   ├─ seed/
+   │  └─ dev_seed.sql
+   ├─ types/
+   │  └─ database.types.ts      # for codegen to src/services/supabase/types.gen.ts
+   ├─ functions/
+   │  ├─ generate-plan/
+   │  │  ├─ index.ts            # returns JSON plan, inserts goal_tasks
+   │  │  └─ deno.json
+   │  ├─ push-dispatcher/
+   │  │  ├─ index.ts            # runs by Cron; sends due notifications
+   │  │  └─ deno.json
+   │  ├─ update-progress/
+   │  │  ├─ index.ts            # recompute completion, update goal status
+   │  │  └─ deno.json
+   │  └─ _shared/
+   │     ├─ client.ts           # service-role client factory
+   │     ├─ logger.ts
+   │     └─ notifications.ts    # Expo push helper (fetch wrapper)
+   ├─ cron/                      # scheduled tasks and docs
+   │  └─ push-dispatcher.cron.md
+   ├─ policies/
+   │  ├─ users.sql
+   │  ├─ goals.sql
+   │  ├─ goal_tasks.sql
+   │  └─ push_tokens.sql
+   └─ docs/
+      ├─ schema.md
+      ├─ api.md
+      └─ operations.md
+
+      
+---
+
+## Success Metrics
+- [ ] User onboarding completion rate > 80%
+- [ ] Daily active user engagement > 60%
+- [ ] Goal completion rate > 40%
+- [ ] App store rating > 4.5 stars across all regions
+- [ ] Push notification open rate > 25%
+- [ ] Global user adoption across 18+ supported languages
+- [ ] Cultural content appropriateness score > 90%
+
+

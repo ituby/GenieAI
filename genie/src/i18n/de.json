@@ -1,0 +1,117 @@
+{
+  "common": {
+    "continue": "Weiter",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "done": "Fertig",
+    "loading": "Lädt...",
+    "error": "Etwas ist schief gelaufen",
+    "retry": "Erneut versuchen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "skip": "Überspringen",
+    "close": "Schließen"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "forgotPassword": "Passwort vergessen?",
+    "loginWithGoogle": "Mit Google fortfahren",
+    "alreadyHaveAccount": "Haben Sie bereits ein Konto?",
+    "dontHaveAccount": "Haben Sie noch kein Konto?",
+    "resetPassword": "Passwort zurücksetzen",
+    "checkEmail": "Überprüfen Sie Ihre E-Mail für Anweisungen"
+  },
+  "onboarding": {
+    "welcome": "Willkommen bei Genie",
+    "subtitle": "Ihr persönlicher Wachstumsbegleiter",
+    "description": "Verwandeln Sie Ihre Wünsche in erreichbare Tagespläne",
+    "summonGenie": "Beschwören Sie Ihren Geist",
+    "slide1Title": "Äußern Sie einen Wunsch",
+    "slide1Description": "Sagen Sie Genie, was Sie erreichen möchten",
+    "slide2Title": "Erhalten Sie Ihren Plan",
+    "slide2Description": "Erhalten Sie personalisierte tägliche Aufgaben",
+    "slide3Title": "Verfolgen Sie Ihren Fortschritt",
+    "slide3Description": "Sehen Sie, wie Ihre Träume Wirklichkeit werden"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "greeting": "Hallo, {{name}}!",
+    "todaysTasks": "Heutige Aufgaben",
+    "activeGoals": "Aktive Ziele",
+    "progress": "Fortschritt",
+    "addGoal": "Neues Ziel hinzufügen",
+    "noGoals": "Noch keine aktiven Ziele",
+    "noGoalsDescription": "Beginnen Sie Ihre Reise, indem Sie Ihr erstes Ziel erstellen"
+  },
+  "goals": {
+    "title": "Ziele",
+    "newGoal": "Neues Ziel",
+    "editGoal": "Ziel bearbeiten",
+    "goalTitle": "Was möchten Sie erreichen?",
+    "goalDescription": "Beschreiben Sie Ihr Ziel im Detail",
+    "category": "Kategorie",
+    "categories": {
+      "lifestyle": "Lebensstil",
+      "career": "Karriere",
+      "mindset": "Denkweise",
+      "character": "Charakter",
+      "custom": "Benutzerdefiniert"
+    },
+    "createPlan": "Plan erstellen",
+    "goalCreated": "Ziel erfolgreich erstellt!",
+    "goalUpdated": "Ziel erfolgreich aktualisiert!",
+    "goalDeleted": "Ziel erfolgreich gelöscht!"
+  },
+  "tasks": {
+    "title": "Aufgaben",
+    "todaysTasks": "Heutige Aufgaben",
+    "completedTasks": "Erledigte Aufgaben",
+    "pendingTasks": "Ausstehende Aufgaben",
+    "markComplete": "Als erledigt markieren",
+    "markIncomplete": "Als unerledigt markieren",
+    "editTask": "Aufgabe bearbeiten",
+    "deleteTask": "Aufgabe löschen",
+    "taskCompleted": "Aufgabe erledigt!",
+    "times": {
+      "morning": "Morgen",
+      "afternoon": "Nachmittag",
+      "evening": "Abend"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "editProfile": "Profil bearbeiten",
+    "fullName": "Vollständiger Name",
+    "timezone": "Zeitzone",
+    "language": "Sprache",
+    "notifications": "Benachrichtigungen",
+    "darkMode": "Dunkler Modus",
+    "logout": "Abmelden",
+    "profileUpdated": "Profil erfolgreich aktualisiert!"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "enableNotifications": "Benachrichtigungen aktivieren",
+    "notificationTimes": "Benachrichtigungszeiten",
+    "morning": "Morgenerinnerung",
+    "afternoon": "Nachmittags-Check",
+    "evening": "Abendreflexion",
+    "motivational": "Motivationsnachrichten"
+  },
+  "progress": {
+    "title": "Fortschritt",
+    "streak": "Tage-Serie",
+    "completionRate": "Abschlussrate",
+    "totalTasks": "Gesamtaufgaben",
+    "completedTasks": "Erledigt",
+    "thisWeek": "Diese Woche",
+    "thisMonth": "Diesen Monat",
+    "allTime": "Alle Zeit"
+  }
+}
