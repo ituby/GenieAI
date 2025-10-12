@@ -43,6 +43,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   scheme: process.env.EXPO_PUBLIC_SCHEME || 'genie',
   plugins: [
     'expo-localization',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/notification-icon.png',
+        color: '#FFFF68',
+        defaultChannel: 'default',
+      },
+    ],
   ],
   extra: {
     EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://mabekpsigcgnszmudxjt.supabase.co',
@@ -53,7 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     GOOGLE_PROJECT_ID: process.env.GOOGLE_PROJECT_ID,
     GOOGLE_PROJECT_NUMBER: process.env.GOOGLE_PROJECT_NUMBER,
     eas: {
-      projectId: process.env.EAS_PROJECT_ID || 'your-eas-project-id',
+      projectId: process.env.EAS_PROJECT_ID,
     },
   },
 };

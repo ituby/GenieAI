@@ -6,11 +6,14 @@ import {
   RefreshControl,
   Alert,
   Image,
+  TouchableOpacity,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Button, Text, Card, Icon } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { TaskItem } from '../components/domain/TaskItem';
+import { TaskDetailsScreen } from './TaskDetailsScreen';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { useTheme } from '../theme/index';
@@ -33,6 +36,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [dailyTasks, setDailyTasks] = useState<DailyTasks[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskWithGoal | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -75,7 +79,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         .from('goal_tasks')
         .select(`
           *,
-          goal:goals(id, title, category)
+          goal:goals(id, title, category, color)
         `)
         .eq('goal_id', goal.id)
         .order('run_at', { ascending: true });
@@ -108,13 +112,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     }
   };
 
-  const handleToggleTask = async (taskId: string, completed: boolean) => {
+  const handleToggleTask = async (taskId: string, markAsCompleted: boolean) => {
     try {
       const { error } = await supabase
         .from('goal_tasks')
         .update({
-          completed: !completed,
-          completed_at: !completed ? new Date().toISOString() : null,
+          completed: markAsCompleted,
+          completed_at: markAsCompleted ? new Date().toISOString() : null,
         })
         .eq('id', taskId);
 
@@ -123,14 +127,14 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       // Update local state
       const updatedTasks = tasks.map(task => 
         task.id === taskId 
-          ? { ...task, completed: !completed, completed_at: !completed ? new Date().toISOString() : undefined }
+          ? { ...task, completed: markAsCompleted, completed_at: markAsCompleted ? new Date().toISOString() : undefined }
           : task
       );
       setTasks(updatedTasks);
       setDailyTasks(organizeTasksByDay(updatedTasks));
 
       // Check for unlocked rewards after task completion
-      if (!completed) {
+      if (markAsCompleted) {
         checkUnlockedRewards();
       }
     } catch (error) {
@@ -156,9 +160,9 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     return icons[category as keyof typeof icons] || icons.custom;
   };
 
-  const getGoalColor = (category: string, aiColor?: string) => {
+  const getGoalColor = (goalColor?: string) => {
     // Use AI-selected color if available
-    if (aiColor) {
+    if (goalColor) {
       const colorMap = {
         yellow: '#FFFF68',
         green: '#00FF88',
@@ -171,7 +175,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         lime: '#88FF44',
         magenta: '#FF44FF',
       };
-      return colorMap[aiColor as keyof typeof colorMap] || colorMap.yellow;
+      return colorMap[goalColor as keyof typeof colorMap] || colorMap.yellow;
     }
     
     // Fallback to neutral colors when no AI color is provided
@@ -284,6 +288,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
+        {/* Blur overlay */}
+        <View style={styles.blurOverlay} />
+        {/* Additional blur effect */}
+        <View style={styles.blurEffect} />
+        {/* Extra blur layers */}
+        <View style={styles.blurEffect2} />
+        <View style={styles.blurEffect3} />
         <Button 
           variant="ghost" 
           onPress={onBack}
@@ -311,18 +322,18 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           <Card variant="gradient" padding="lg" style={styles.goalInfoCard}>
             <View style={styles.goalHeader}>
               <View style={styles.goalTitleContainer}>
-                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.category, goal.color) + '20' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
                   <Icon 
                     name={getCategoryIcon(goal.category, goal.icon_name) as any}
                     size={24}
-                    color={getGoalColor(goal.category, goal.color)}
+                    color={getGoalColor(goal.color)}
                   />
                 </View>
                 <View>
                   <Text variant="h4" style={styles.goalTitle}>
                     {formatTitle(goal.title)}
                   </Text>
-                  <Text variant="caption" style={[styles.categoryText, { color: getGoalColor(goal.category, goal.color) }]}>
+                  <Text variant="caption" style={[styles.categoryText, { color: getGoalColor(goal.color) }]}>
                     {goal.category.toUpperCase()}
                   </Text>
                 </View>
@@ -374,26 +385,32 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         <View style={styles.content}>
           <View style={styles.sectionHeader}>
             <Text variant="h3">Tasks ({totalTasks})</Text>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              leftIcon={<Icon name="brain" size={16} color={theme.colors.text.secondary} />}
-              onPress={() => {
-                  Alert.alert(
-                    'Update Plan',
-                    'Genie will create a new plan based on your progress. Continue?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Update', onPress: () => {
-                      // TODO: Implement plan update logic
-                      console.log('Updating plan for goal:', goal.id);
-                    }}
-                  ]
-                );
-              }}
+            <LinearGradient
+              colors={['#FFFF68', '#FFFFFF']}
+              style={styles.updatePlanGradientBorder}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <TouchableOpacity 
+                onPress={() => {
+                    Alert.alert(
+                      'Update Plan',
+                      'Genie will create a new plan based on your progress. Continue?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update', onPress: () => {
+                        // TODO: Implement plan update logic
+                        console.log('Updating plan for goal:', goal.id);
+                      }}
+                    ]
+                  );
+                }}
+                style={styles.updatePlanButton}
               >
-                Update Plan
-              </Button>
+                <Icon name="brain" size={16} color="#FFFFFF" />
+                <Text style={styles.updatePlanText}>Update Plan</Text>
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
 
           {dailyTasks.length === 0 ? (
@@ -404,13 +421,19 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                 <Text variant="body" color="secondary" style={styles.emptyDescription}>
                   Genie will create a personalized 21-day plan with daily tasks
                 </Text>
-              <Button 
-                variant="primary" 
-                style={styles.emptyAction}
-                leftIcon={<Icon name="brain" size={18} color={theme.colors.text.primary} />}
+              <LinearGradient
+                colors={['#FFFF68', '#FFFFFF']}
+                style={styles.createPlanGradientBorder}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
-                Create Plan
-              </Button>
+                <TouchableOpacity
+                  style={styles.createPlanButton}
+                >
+                  <Icon name="brain" size={18} color="#FFFFFF" />
+                  <Text style={styles.createPlanText}>Create Plan</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             </Card>
           ) : (
             <View style={styles.dailyTasksContainer}>
@@ -448,8 +471,10 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                       <TaskItem
                         key={task.id}
                         task={task}
-                        onToggleComplete={() => handleToggleTask(task.id, task.completed)}
-                        onPress={() => console.log('Task details:', task.id)}
+                        allTasks={dayTasks.tasks}
+                        onComplete={() => handleToggleTask(task.id, true)}
+                        onIncomplete={() => handleToggleTask(task.id, false)}
+                        onPress={() => setSelectedTask(task)}
                       />
                     ))}
                   </View>
@@ -483,6 +508,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           </View>
         )}
       </ScrollView>
+      {/* Task Details Screen */}
+      {selectedTask && (
+        <TaskDetailsScreen
+          task={selectedTask}
+          onBack={() => setSelectedTask(null)}
+        />
+      )}
     </View>
   );
 };
@@ -490,11 +522,11 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50, // Top safe area padding
+    paddingTop: 20, // Top safe area padding
   },
   scrollView: {
     flex: 1,
-    paddingTop: 100, // Space for absolute header
+    paddingTop: 60, // Space for absolute header
   },
   scrollContent: {
     paddingBottom: 20,
@@ -511,7 +543,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
     paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: -1,
+  },
+  blurEffect: {
+    position: 'absolute',
+    top: -20,
+    left: -20,
+    right: -20,
+    bottom: -20,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 30,
+    zIndex: -2,
+  },
+  blurEffect2: {
+    position: 'absolute',
+    top: -30,
+    left: -30,
+    right: -30,
+    bottom: -30,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 40,
+    zIndex: -3,
+  },
+  blurEffect3: {
+    position: 'absolute',
+    top: -40,
+    left: -40,
+    right: -40,
+    bottom: -40,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 50,
+    zIndex: -4,
   },
   headerSpacer: {
     flex: 1,
@@ -642,5 +721,48 @@ const styles = StyleSheet.create({
   },
   rewardsList: {
     gap: 0,
+  },
+  createPlanGradientBorder: {
+    borderRadius: 12,
+    padding: 2,
+    width: '50%',
+    alignSelf: 'center',
+  },
+  createPlanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    width: '100%',
+  },
+  createPlanText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  updatePlanGradientBorder: {
+    borderRadius: 8,
+    padding: 2,
+    width: '35%',
+  },
+  updatePlanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    width: '100%',
+  },
+  updatePlanText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

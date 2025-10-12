@@ -27,6 +27,11 @@ import { testDatabaseConnection, createTestUser, createSampleGoals } from '../ut
 import { supabase } from '../services/supabase/client';
 import { NewGoalScreen } from './NewGoalScreen';
 import { GoalDetailsScreen } from './GoalDetailsScreen';
+import { TaskDetailsScreen } from './TaskDetailsScreen';
+import { NotificationsScreen } from './NotificationsScreen';
+import { ProfileScreen } from './ProfileScreen';
+import { SettingsScreen } from './SettingsScreen';
+import { HelpSupportScreen } from './HelpSupportScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 
@@ -38,6 +43,11 @@ export const DashboardScreen: React.FC = () => {
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
   const [showNewGoal, setShowNewGoal] = React.useState(false);
   const [selectedGoal, setSelectedGoal] = React.useState<GoalWithProgress | null>(null);
+  const [selectedTask, setSelectedTask] = React.useState<TaskWithGoal | null>(null);
+  const [showNotifications, setShowNotifications] = React.useState(false);
+  const [showProfile, setShowProfile] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
+  const [showHelpSupport, setShowHelpSupport] = React.useState(false);
   const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
   const [showSideMenu, setShowSideMenu] = React.useState(false);
   const [showGoalMenu, setShowGoalMenu] = React.useState<string | null>(null);
@@ -71,12 +81,12 @@ export const DashboardScreen: React.FC = () => {
         Animated.sequence([
           Animated.timing(addGoalAnimation, {
             toValue: 1,
-            duration: 2000,
+            duration: 3000,
             useNativeDriver: true,
           }),
           Animated.timing(addGoalAnimation, {
             toValue: 0,
-            duration: 2000,
+            duration: 3000,
             useNativeDriver: true,
           }),
         ])
@@ -133,7 +143,8 @@ export const DashboardScreen: React.FC = () => {
             id,
             title,
             category,
-            user_id
+            user_id,
+            color
           )
         `)
         .eq('goals.user_id', user.id)
@@ -266,12 +277,12 @@ export const DashboardScreen: React.FC = () => {
       Animated.sequence([
         Animated.timing(borderAnimation, {
           toValue: 1,
-          duration: 1500,
+          duration: 2500,
           useNativeDriver: false,
         }),
         Animated.timing(borderAnimation, {
           toValue: 0,
-          duration: 1500,
+          duration: 2500,
           useNativeDriver: false,
         }),
       ])
@@ -305,13 +316,13 @@ export const DashboardScreen: React.FC = () => {
     setShowNewGoal(true);
   };
 
-  const handleToggleTask = async (taskId: string, completed: boolean) => {
+  const handleToggleTask = async (taskId: string, markAsCompleted: boolean) => {
     try {
       const { error } = await supabase
         .from('goal_tasks')
         .update({ 
-          completed: !completed,
-          completed_at: !completed ? new Date().toISOString() : null
+          completed: markAsCompleted,
+          completed_at: markAsCompleted ? new Date().toISOString() : null
         })
         .eq('id', taskId);
 
@@ -321,7 +332,7 @@ export const DashboardScreen: React.FC = () => {
       setTodaysTasks(prevTasks => 
         prevTasks.map(task => 
           task.id === taskId 
-            ? { ...task, completed: !completed, completed_at: !completed ? new Date().toISOString() : undefined }
+            ? { ...task, completed: markAsCompleted, completed_at: markAsCompleted ? new Date().toISOString() : undefined }
             : task
         )
       );
@@ -355,8 +366,15 @@ export const DashboardScreen: React.FC = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
+        {/* Blur overlay */}
+        <View style={styles.blurOverlay} />
+        {/* Additional blur effect */}
+        <View style={styles.blurEffect} />
+        {/* Extra blur layers */}
+        <View style={styles.blurEffect2} />
+        <View style={styles.blurEffect3} />
         <View style={styles.headerLeft}>
-          <Button variant="ghost">
+          <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <Icon name="bell" size={20} color={theme.colors.text.secondary} />
           </Button>
         </View>
@@ -544,13 +562,13 @@ export const DashboardScreen: React.FC = () => {
                          {
                            scale: borderAnimation.interpolate({
                              inputRange: [0, 0.5, 1],
-                             outputRange: [1, 1.05, 1],
+                             outputRange: [1, 1.02, 1],
                            }),
                          },
                        ],
                        opacity: borderAnimation.interpolate({
                          inputRange: [0, 0.5, 1],
-                         outputRange: [0.8, 1, 0.8],
+                         outputRange: [0.9, 1, 0.9],
                        }),
                      },
                    ]}
@@ -611,13 +629,13 @@ export const DashboardScreen: React.FC = () => {
                     {
                       scale: addGoalAnimation.interpolate({
                         inputRange: [0, 0.5, 1],
-                        outputRange: [1, 1.05, 1],
+                        outputRange: [1, 1.02, 1],
                       }),
                     },
                   ],
                   opacity: addGoalAnimation.interpolate({
                     inputRange: [0, 0.5, 1],
-                    outputRange: [0.8, 1, 0.8],
+                    outputRange: [0.9, 1, 0.9],
                   }),
                 },
               ]}
@@ -675,13 +693,12 @@ export const DashboardScreen: React.FC = () => {
                 <TaskItem
                   key={task.id}
                   task={task}
-                  onToggleComplete={() => handleToggleTask(task.id, task.completed)}
+                  allTasks={todaysTasks}
+                  onComplete={() => handleToggleTask(task.id, true)}
+                  onIncomplete={() => handleToggleTask(task.id, false)}
                   onPress={() => {
-                    // Find the goal for this task and navigate to it
-                    const goal = activeGoals.find(g => g.id === task.goal_id);
-                    if (goal) {
-                      setSelectedGoal(goal);
-                    }
+                    // Navigate to task details
+                    setSelectedTask(task);
                   }}
                 />
               ))}
@@ -774,6 +791,7 @@ export const DashboardScreen: React.FC = () => {
                 fullWidth 
                 onPress={() => {
                   setShowSideMenu(false);
+                  setShowProfile(true);
                 }}
                 leftIcon={<Icon name="user" size={20} color={theme.colors.text.secondary} />}
                 style={styles.sideMenuButton}
@@ -785,6 +803,7 @@ export const DashboardScreen: React.FC = () => {
                 fullWidth 
                 onPress={() => {
                   setShowSideMenu(false);
+                  setShowSettings(true);
                 }}
                 leftIcon={<Icon name="gear" size={20} color={theme.colors.text.secondary} />}
                 style={styles.sideMenuButton}
@@ -796,8 +815,9 @@ export const DashboardScreen: React.FC = () => {
                 fullWidth 
                 onPress={() => {
                   setShowSideMenu(false);
+                  setShowHelpSupport(true);
                 }}
-                leftIcon={<Icon name="check-circle" size={20} color={theme.colors.text.secondary} />}
+                leftIcon={<Icon name="question" size={20} color={theme.colors.text.secondary} />}
                 style={styles.sideMenuButton}
               >
                 Help & Support
@@ -818,6 +838,42 @@ export const DashboardScreen: React.FC = () => {
             </View>
           </View>
         </View>
+      )}
+
+      {/* Task Details Screen */}
+      {selectedTask && (
+        <TaskDetailsScreen
+          task={selectedTask}
+          onBack={() => setSelectedTask(null)}
+        />
+      )}
+
+      {/* Notifications Screen */}
+      {showNotifications && (
+        <NotificationsScreen
+          onBack={() => setShowNotifications(false)}
+        />
+      )}
+
+      {/* Profile Screen */}
+      {showProfile && (
+        <ProfileScreen
+          onBack={() => setShowProfile(false)}
+        />
+      )}
+
+      {/* Settings Screen */}
+      {showSettings && (
+        <SettingsScreen
+          onBack={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Help & Support Screen */}
+      {showHelpSupport && (
+        <HelpSupportScreen
+          onBack={() => setShowHelpSupport(false)}
+        />
       )}
     </View>
   );
@@ -846,7 +902,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
     paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: -1,
+  },
+  blurEffect: {
+    position: 'absolute',
+    top: -20,
+    left: -20,
+    right: -20,
+    bottom: -20,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 30,
+    zIndex: -2,
+  },
+  blurEffect2: {
+    position: 'absolute',
+    top: -30,
+    left: -30,
+    right: -30,
+    bottom: -30,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 40,
+    zIndex: -3,
+  },
+  blurEffect3: {
+    position: 'absolute',
+    top: -40,
+    left: -40,
+    right: -40,
+    bottom: -40,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 50,
+    zIndex: -4,
   },
   headerLeft: {
     flex: 1,
@@ -954,7 +1057,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 8,
   },
   sectionCompact: {
     paddingHorizontal: 20,

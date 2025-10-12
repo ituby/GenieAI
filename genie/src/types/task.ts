@@ -19,6 +19,7 @@ export interface TaskWithGoal extends Task {
     id: string;
     title: string;
     category: string;
+    color?: string;
   };
 }
 

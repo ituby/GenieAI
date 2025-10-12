@@ -19,9 +19,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 }) => {
   const theme = useTheme();
 
-  const getGoalColor = (category: string, aiColor?: string) => {
+  const getGoalColor = (goalColor?: string) => {
     // Use AI-selected color if available
-    if (aiColor) {
+    if (goalColor) {
       const colorMap = {
         yellow: '#FFFF68',
         green: '#00FF88',
@@ -34,7 +34,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         lime: '#88FF44',
         magenta: '#FF44FF',
       };
-      return colorMap[aiColor as keyof typeof colorMap] || colorMap.yellow;
+      return colorMap[goalColor as keyof typeof colorMap] || colorMap.yellow;
     }
     
     // Fallback to neutral colors when no AI color is provided
@@ -64,11 +64,11 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.category, goal.color) + '20' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
                   <Icon 
                     name={getCategoryIcon(goal.category, goal.icon_name) as any}
                     size={20}
-                    color={getGoalColor(goal.category, goal.color)}
+                    color={getGoalColor(goal.color)}
                   />
                 </View>
             <View style={styles.titleText}>
@@ -77,7 +77,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               </Text>
                   <Text 
                     variant="caption" 
-                    style={[styles.category, { color: getGoalColor(goal.category, goal.color) }]}
+                    style={[styles.category, { color: getGoalColor(goal.color) }]}
                   >
                     {goal.category.toUpperCase()}
                   </Text>
@@ -118,7 +118,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 styles.progressFill,
                 {
                   width: `${goal.completion_percentage}%`,
-                  backgroundColor: getGoalColor(goal.category, goal.color),
+                  backgroundColor: getGoalColor(goal.color),
                 },
               ]}
             />
@@ -158,6 +158,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
   },
   header: {
     flexDirection: 'row',
