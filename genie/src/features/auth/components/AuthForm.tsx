@@ -8,9 +8,10 @@ import { useAuthStore } from '../../../store/useAuthStore';
 interface AuthFormProps {
   mode: 'login' | 'register';
   onToggleMode: () => void;
+  onOTPRequired?: () => void;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
+export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onOTPRequired }) => {
   const { t } = useTranslation();
   const theme = useTheme();
   const { signIn, signUp, loading } = useAuthStore();
@@ -50,6 +51,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
       }
     }
 
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -60,8 +62,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     try {
       if (mode === 'login') {
         await signIn(formData.email, formData.password);
+        // After successful login, trigger OTP verification
+        if (onOTPRequired) {
+          onOTPRequired();
+        }
       } else {
         await signUp(formData.email, formData.password, formData.fullName);
+        // After successful registration, trigger OTP verification
+        if (onOTPRequired) {
+          onOTPRequired();
+        }
       }
     } catch (error: any) {
       Alert.alert('Error', error.message);
@@ -113,6 +123,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
           secureTextEntry
           textContentType="password"
         />
+
 
         {mode === 'register' && (
           <TextField

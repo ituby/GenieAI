@@ -16,7 +16,7 @@ const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 export default function App() {
   const { t } = useTranslation();
-  const { initialize, loading, isAuthenticated } = useAuthStore();
+  const { initialize, loading, isAuthenticated, otpVerified } = useAuthStore();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -107,6 +107,19 @@ export default function App() {
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <LoginScreen />
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show login screen if authenticated but OTP not verified
+  // (LoginScreen will handle showing OTP screen internally)
+  if (!otpVerified) {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
