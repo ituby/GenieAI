@@ -55,6 +55,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
   ],
+  updates: {
+    url: "https://u.expo.dev/0c3c8130-5044-4a33-ab3d-dcf1fb1a77a0"
+  },
+  runtimeVersion: {
+    policy: "appVersion"
+  },
   extra: {
     EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://mabekpsigcgnszmudxjt.supabase.co',
     EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hYmVrcHNpZ2NnbnN6bXVkeGp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwODk4NzIsImV4cCI6MjA3NTY2NTg3Mn0.h0qYEwo1V_unuHSRsxjkwmGLHWdQiY79F-mknqOkppk',

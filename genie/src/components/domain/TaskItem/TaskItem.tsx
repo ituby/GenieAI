@@ -72,8 +72,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   };
 
   const getTaskPoints = (intensity?: string) => {
-    const intensityMultiplier = intensity === 'easy' ? 1 : intensity === 'medium' ? 2 : 4;
-    return 10 * intensityMultiplier; // Base 10 points * multiplier
+    // Default to 'easy' if intensity is undefined or null
+    const actualIntensity = intensity || 'easy';
+    const intensityMultiplier = actualIntensity === 'easy' ? 1 : actualIntensity === 'medium' ? 2 : 4;
+    return 20 * intensityMultiplier; // Base 20 points * multiplier
   };
 
   const isTaskTimeReached = (runAt: string) => {

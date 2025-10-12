@@ -31,6 +31,7 @@
     "expo-localization": "^17.0.7",
     "expo-notifications": "~0.32.12",
     "expo-status-bar": "~3.0.8",
+    "expo-updates": "~29.0.12",
     "expo-web-browser": "^15.0.8",
     "lottie-react-native": "^7.3.4",
     "phosphor-react-native": "^3.0.1",
