@@ -26,7 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ituby.genie.ai',
-    buildNumber: '2',
+    buildNumber: '3',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -37,7 +37,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       backgroundColor: '#0A0A0B',
     },
     package: 'com.ituby.genie.ai',
-    versionCode: 2,
+    versionCode: 3,
   },
   web: {
     favicon: './assets/favicon.png',
@@ -46,6 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   scheme: process.env.EXPO_PUBLIC_SCHEME || 'genie-ai',
   plugins: [
     'expo-localization',
+    'expo-font',
     [
       'expo-notifications',
       {
