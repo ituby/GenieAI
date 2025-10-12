@@ -12,6 +12,7 @@ export interface Task {
   completed_at?: string;
   created_at: string;
   updated_at?: string;
+  intensity?: string;
 }
 
 export interface TaskWithGoal extends Task {

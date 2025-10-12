@@ -742,6 +742,36 @@ serve(async (req) => {
       .update({ icon_name: iconName, color: color })
       .eq('id', goal_id);
 
+    // Send immediate notification for the first task
+    if (insertedTasks.length > 0) {
+      const firstTask = insertedTasks[0];
+      try {
+        const notificationResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-task-notification`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id,
+            task_id: firstTask.id,
+            task_title: firstTask.title,
+            task_description: firstTask.description,
+            goal_title: title
+          }),
+        });
+
+        if (notificationResponse.ok) {
+          console.log('✅ Immediate task notification sent');
+        } else {
+          console.warn('⚠️ Failed to send immediate task notification');
+        }
+      } catch (error) {
+        console.error('❌ Error sending immediate task notification:', error);
+        // Don't fail the whole process for notification errors
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

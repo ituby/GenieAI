@@ -72,17 +72,17 @@ serve(async (req) => {
     }
 
     // Get task intensity level
-    const { data: task, error: taskError } = await supabaseClient
+    const { data: taskData, error: taskError } = await supabaseClient
       .from('goal_tasks')
       .select('intensity')
       .eq('id', task_id)
       .single();
 
-    if (taskError || !task) {
+    if (taskError || !taskData) {
       console.log('Task not found, using default intensity');
     }
 
-    const intensity = task?.intensity || 'easy';
+    const intensity = taskData?.intensity || 'easy';
 
     // Calculate points based on action and intensity
     let pointsChange = 0;

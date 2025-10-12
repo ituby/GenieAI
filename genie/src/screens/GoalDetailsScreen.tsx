@@ -41,12 +41,25 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskWithGoal | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [pointsEarned, setPointsEarned] = useState(0);
 
-  useEffect(() => {
-    fetchTasks();
-    fetchRewards();
-    checkSubscription();
-  }, [goal.id]);
+  const fetchPointsEarned = async () => {
+    if (user?.id) {
+      try {
+        const { data } = await supabase
+          .from('user_points')
+          .select('total_earned')
+          .eq('user_id', user.id)
+          .eq('goal_id', goal.id)
+          .single();
+        
+        setPointsEarned(data?.total_earned || 0);
+      } catch (error) {
+        console.log('Points fetch failed:', error);
+        setPointsEarned(0);
+      }
+    }
+  };
 
   const checkSubscription = async () => {
     if (user?.id) {
@@ -64,6 +77,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       }
     }
   };
+
+  useEffect(() => {
+    fetchTasks();
+    fetchRewards();
+    checkSubscription();
+    fetchPointsEarned();
+  }, [goal.id]);
 
   const organizeTasksByDay = (tasks: TaskWithGoal[]): DailyTasks[] => {
     const tasksByDate = new Map<string, TaskWithGoal[]>();
@@ -166,6 +186,9 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
             action: action
           }
         });
+        
+        // Refresh points display
+        fetchPointsEarned();
       } catch (pointsError) {
         console.error('Error updating points:', pointsError);
         // Don't fail the task update if points update fails
@@ -341,6 +364,10 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
             Back
           </Button>
         <View style={styles.headerSpacer} />
+        <View style={styles.pointsContainer}>
+          <Icon name="trophy" size={16} color={theme.colors.yellow[500]} weight="fill" />
+          <Text style={styles.pointsText}>+{pointsEarned}</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -701,6 +728,22 @@ const styles = StyleSheet.create({
   headerSpacer: {
     flex: 1,
   },
+  pointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 104, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+  },
+  pointsText: {
+    color: '#FFFF68',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   title: {
     flex: 1,
     textAlign: 'center',
@@ -851,7 +894,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   updatePlanGradientBorder: {
-    borderRadius: 8,
+    borderRadius: 25,
     padding: 2,
     width: '35%',
   },
@@ -861,9 +904,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 23,
     gap: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     width: '100%',
   },
   updatePlanText: {

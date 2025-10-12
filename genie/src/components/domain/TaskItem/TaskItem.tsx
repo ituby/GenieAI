@@ -71,6 +71,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     return theme.colors.yellow[500];
   };
 
+  const getTaskPoints = (intensity?: string) => {
+    const intensityMultiplier = intensity === 'easy' ? 1 : intensity === 'medium' ? 2 : 4;
+    return 10 * intensityMultiplier; // Base 10 points * multiplier
+  };
+
   const isTaskTimeReached = (runAt: string) => {
     const now = new Date();
     const taskTime = new Date(runAt);
@@ -242,6 +247,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 • {getTimeOfDayText(task.run_at)}
               </Text>
             </View>
+            
+            {/* Points Display - Bottom Right Corner */}
+            <View style={styles.pointsContainer}>
+              <Icon name="trophy" size={12} color="#FFFF68" weight="fill" />
+              <Text variant="caption" style={styles.pointsText}>
+                +{getTaskPoints(task.intensity)}
+              </Text>
+            </View>
           </View>
         </View>
       </Card>
@@ -295,7 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
+    borderRadius: 16,
   },
   completedContainer: {
     opacity: 0.7,
@@ -338,7 +351,7 @@ const styles = StyleSheet.create({
   },
   completionButton: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
@@ -357,7 +370,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 6,
     minHeight: 36,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   completedButtonText: {
     color: '#000000',
@@ -389,6 +402,7 @@ const styles = StyleSheet.create({
   },
   taskContent: {
     flex: 1,
+    position: 'relative',
   },
   taskHeader: {
     flexDirection: 'row',
@@ -422,6 +436,25 @@ const styles = StyleSheet.create({
   },
   timerText: {
     color: '#FF4444',
+    fontWeight: '600',
+    fontSize: 10,
+  },
+  pointsContainer: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(255, 255, 104, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+  },
+  pointsText: {
+    color: '#FFFF68',
     fontWeight: '600',
     fontSize: 10,
   },

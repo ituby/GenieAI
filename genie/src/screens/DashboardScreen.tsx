@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { Svg, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
-import { Text, Card, Icon } from '../components';
+import { Text, Card, Icon, Badge } from '../components';
 import { Button } from '../components/primitives/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard } from '../components/domain/GoalCard';
@@ -35,12 +37,14 @@ import { SettingsScreen } from './SettingsScreen';
 import { HelpSupportScreen } from './HelpSupportScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
+import { useNotificationCount } from '../hooks/useNotificationCount';
 
 export const DashboardScreen: React.FC = () => {
   const { t } = useTranslation();
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
   const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal } = useGoalStore();
+  const { unreadCount, refreshCount } = useNotificationCount();
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
   const [showNewGoal, setShowNewGoal] = React.useState(false);
   const [selectedGoal, setSelectedGoal] = React.useState<GoalWithProgress | null>(null);
@@ -68,8 +72,8 @@ export const DashboardScreen: React.FC = () => {
   const borderAnimation = useRef(new Animated.Value(0)).current;
   // Animation for Add Goal button
   const addGoalAnimation = useRef(new Animated.Value(0)).current;
-  // Animation for Genie logo
-  const genieOpacity = useRef(new Animated.Value(1)).current;
+  // Animation for gradient movement
+  const gradientAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (user?.id) {
@@ -108,33 +112,21 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [activeGoals.length, addGoalAnimation]);
 
-  // Start Genie logo animation loop
+  // Start gradient animation on component mount
   useEffect(() => {
-    const runAnimationCycle = () => {
-      // Fade in
-      Animated.timing(genieOpacity, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        // Stay visible for 10 seconds
-        setTimeout(() => {
-          // Fade out
-          Animated.timing(genieOpacity, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }).start(() => {
-            // Wait 3 seconds then start next cycle
-            setTimeout(runAnimationCycle, 3000);
-          });
-        }, 10000);
-      });
+    const startGradientAnimation = () => {
+      Animated.loop(
+        Animated.timing(gradientAnimation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      ).start();
     };
     
-    // Start first cycle
-    runAnimationCycle();
-  }, []);
+    startGradientAnimation();
+  }, [gradientAnimation]);
+
 
   const fetchRecentRewards = async () => {
     if (!user?.id) return;
@@ -530,19 +522,17 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.blurEffect3} />
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
-            <Icon name="bell" size={20} color={theme.colors.text.secondary} />
+            <View style={styles.notificationIconContainer}>
+              <Icon name="bell" size={20} color={theme.colors.text.secondary} />
+              <Badge count={unreadCount} size="small" />
+            </View>
           </Button>
         </View>
         
         <View style={styles.headerCenter}>
-          <Animated.Image 
+          <Image 
             source={require('../../assets/LogoSymbol.webp')} 
-            style={[
-              styles.headerLogo,
-              {
-                opacity: genieOpacity,
-              }
-            ]}
+            style={styles.headerLogo}
             resizeMode="contain"
           />
         </View>
@@ -849,10 +839,22 @@ export const DashboardScreen: React.FC = () => {
                 },
               ]}
             >
-              <LinearGradient
-                colors={['#FFFF68', '#FFFFFF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <AnimatedLinearGradient
+                colors={['#FFFF68', '#FFFFFF', '#FFFF68']}
+                start={{
+                  x: gradientAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 1],
+                  }),
+                  y: 0,
+                }}
+                end={{
+                  x: gradientAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 0],
+                  }),
+                  y: 1,
+                }}
                 style={styles.addGoalButtonGradient}
               >
                 <TouchableOpacity
@@ -861,11 +863,11 @@ export const DashboardScreen: React.FC = () => {
                   style={styles.addGoalButton}
                 >
                   <View style={styles.addGoalButtonContent}>
-                    <Icon name="sparkle" size={16} color="#FFFFFF" weight="fill" />
+                    <Icon name="sparkle" size={16} color="#FFFF68" weight="fill" />
                     <Text style={styles.addGoalButtonText}>Add Goal</Text>
                   </View>
                 </TouchableOpacity>
-              </LinearGradient>
+              </AnimatedLinearGradient>
             </Animated.View>
           </View>
         )}
@@ -1064,6 +1066,7 @@ export const DashboardScreen: React.FC = () => {
       {showNotifications && (
         <NotificationsScreen
           onBack={() => setShowNotifications(false)}
+          onNotificationRead={refreshCount}
         />
       )}
 
@@ -1104,7 +1107,7 @@ export const DashboardScreen: React.FC = () => {
             
             <View style={styles.modalContent}>
               <View style={styles.modalIconContainer}>
-                <Icon name="crown" size={48} color="#FFFF68" weight="fill" />
+                <Icon name="crown" size={24} color="#FFFF68" weight="fill" />
               </View>
               
               <Text variant="h4" style={styles.modalSubtitle}>
@@ -1112,27 +1115,45 @@ export const DashboardScreen: React.FC = () => {
               </Text>
               
               <Text variant="body" color="secondary" style={styles.modalDescription}>
-                Get unlimited goal creation, advanced AI insights, and priority support with our premium subscription.
+                Unlock the full potential of Genie with unlimited goals, advanced AI features, premium rewards, and exclusive benefits.
               </Text>
               
               <View style={styles.modalFeatures}>
                 <View style={styles.modalFeature}>
-                  <Icon name="check" size={16} color="#FFFF68" weight="fill" />
                   <Text variant="body" color="secondary" style={styles.modalFeatureText}>
                     Unlimited goal creation
                   </Text>
+                  <Icon name="infinity" size={16} color="#FFFF68" weight="fill" />
                 </View>
                 <View style={styles.modalFeature}>
-                  <Icon name="check" size={16} color="#FFFF68" weight="fill" />
                   <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Advanced AI insights
+                    Advanced AI insights & analytics
                   </Text>
+                  <Icon name="brain" size={16} color="#FFFF68" weight="fill" />
                 </View>
                 <View style={styles.modalFeature}>
-                  <Icon name="check" size={16} color="#FFFF68" weight="fill" />
                   <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Priority support
+                    Update plan feature
                   </Text>
+                  <Icon name="update-plan" size={16} color="#FFFF68" weight="fill" />
+                </View>
+                <View style={styles.modalFeature}>
+                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
+                    Premium rewards & achievements
+                  </Text>
+                  <Icon name="trophy" size={16} color="#FFFF68" weight="fill" />
+                </View>
+                <View style={styles.modalFeature}>
+                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
+                    Priority customer support
+                  </Text>
+                  <Icon name="headset" size={16} color="#FFFF68" weight="fill" />
+                </View>
+                <View style={styles.modalFeature}>
+                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
+                    Early access to new features
+                  </Text>
+                  <Icon name="sparkle" size={16} color="#FFFF68" weight="fill" />
                 </View>
               </View>
               
@@ -1242,6 +1263,9 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
     alignItems: 'flex-start',
+  },
+  notificationIconContainer: {
+    position: 'relative',
   },
   headerCenter: {
     flex: 1,
@@ -1604,7 +1628,7 @@ const styles = StyleSheet.create({
       addGoalButtonGradient: {
         borderRadius: 25,
         padding: 2,
-        width: '90%',
+        width: '95%',
         alignSelf: 'center',
         marginBottom: 20,
       },
@@ -1613,7 +1637,7 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         paddingHorizontal: 12,
         width: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
         alignItems: 'center',
         justifyContent: 'center',
       },
@@ -1781,11 +1805,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContainer: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     borderRadius: 20,
     width: '100%',
     maxWidth: 400,
     maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: '#FFFF68',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1808,9 +1834,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 104, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1835,10 +1861,16 @@ const styles = StyleSheet.create({
   modalFeature: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
   modalFeatureText: {
     flex: 1,
+    textAlign: 'left',
   },
   modalActions: {
     width: '100%',
@@ -1860,6 +1892,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
+    marginTop: 16,
   },
   modalCancelButtonText: {
     color: 'rgba(255, 255, 255, 0.6)',

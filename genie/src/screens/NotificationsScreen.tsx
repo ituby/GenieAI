@@ -28,7 +28,7 @@ interface Notification {
   read_at?: string;
 }
 
-export const NotificationsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const NotificationsScreen: React.FC<{ onBack: () => void; onNotificationRead?: () => void }> = ({ onBack, onNotificationRead }) => {
   const theme = useTheme();
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -86,6 +86,9 @@ export const NotificationsScreen: React.FC<{ onBack: () => void }> = ({ onBack }
             : notif
         )
       );
+      
+      // Notify parent component to refresh notification count
+      onNotificationRead?.();
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -113,6 +116,9 @@ export const NotificationsScreen: React.FC<{ onBack: () => void }> = ({ onBack }
           read_at: new Date().toISOString() 
         }))
       );
+      
+      // Notify parent component to refresh notification count
+      onNotificationRead?.();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
