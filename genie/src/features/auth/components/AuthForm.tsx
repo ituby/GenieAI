@@ -64,13 +64,19 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onOTPReq
         await signIn(formData.email, formData.password);
         // After successful login, trigger OTP verification
         if (onOTPRequired) {
-          onOTPRequired();
+          // Wait a bit for the store to update
+          setTimeout(() => {
+            onOTPRequired();
+          }, 100);
         }
       } else {
         await signUp(formData.email, formData.password, formData.fullName);
         // After successful registration, trigger OTP verification
         if (onOTPRequired) {
-          onOTPRequired();
+          // Wait a bit for the store to update
+          setTimeout(() => {
+            onOTPRequired();
+          }, 100);
         }
       }
     } catch (error: any) {

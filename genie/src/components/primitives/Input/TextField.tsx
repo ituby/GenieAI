@@ -93,6 +93,7 @@ export const TextField: React.FC<TextFieldProps> = ({
       fontSize: theme.typography.sizes.base,
       fontFamily: theme.typography.fonts.regular,
       textAlign: 'center',
+      letterSpacing: 0,
     };
 
     return [baseStyle, inputStyle];

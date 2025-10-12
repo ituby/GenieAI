@@ -67,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           console.log('✅ Login successful:', data.user?.email);
+          console.log('🔍 User data:', data.user);
 
           set({
             user: data.user,
@@ -75,6 +76,8 @@ export const useAuthStore = create<AuthState>()(
             otpVerified: false,
             loading: false,
           });
+          
+          console.log('🔍 User set in store:', data.user);
         } catch (error) {
           set({ loading: false });
           throw error;

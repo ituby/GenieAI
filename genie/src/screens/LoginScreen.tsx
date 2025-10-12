@@ -23,7 +23,9 @@ export const LoginScreen: React.FC = () => {
     otpVerified,
     showOTPScreen,
     showPhoneNumber,
-    userEmail: user?.email
+    userEmail: user?.email,
+    userId: user?.id,
+    user: user
   });
 
   // Log when showOTPScreen changes
@@ -38,6 +40,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleOTPRequired = async () => {
     try {
+      console.log('🔍 handleOTPRequired called, user:', user);
       // Check if user has phone number
       if (user) {
         const { data: userData } = await supabase
