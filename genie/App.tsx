@@ -3,7 +3,6 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, StyleSheet, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Updates from 'expo-updates';
 import { ThemeProvider } from './src/theme/index';
 import { useAuthStore } from './src/store/useAuthStore';
 import { Text, Icon } from './src/components';
@@ -24,24 +23,27 @@ export default function App() {
     const initializeApp = async () => {
       console.log('🚀 Initializing app...');
       
-      // Check for OTA updates
-      try {
-        if (!__DEV__ && Updates && Updates.isEnabled) {
-          console.log('🔄 Checking for updates...');
-          const update = await Updates.checkForUpdateAsync();
-          if (update.isAvailable) {
-            console.log('📱 Update available, downloading...');
-            await Updates.fetchUpdateAsync();
-            console.log('✅ Update downloaded, restarting app...');
-            await Updates.reloadAsync();
-          } else {
-            console.log('✅ App is up to date');
+      // Check for OTA updates (only in production)
+      if (!__DEV__) {
+        try {
+          const Updates = await import('expo-updates');
+          if (Updates.default && Updates.default.isEnabled) {
+            console.log('🔄 Checking for updates...');
+            const update = await Updates.default.checkForUpdateAsync();
+            if (update.isAvailable) {
+              console.log('📱 Update available, downloading...');
+              await Updates.default.fetchUpdateAsync();
+              console.log('✅ Update downloaded, restarting app...');
+              await Updates.default.reloadAsync();
+            } else {
+              console.log('✅ App is up to date');
+            }
           }
-        } else {
-          console.log('🔄 OTA updates disabled in development mode or module not available');
+        } catch (error) {
+          console.log('❌ Error checking for updates:', error);
         }
-      } catch (error) {
-        console.log('❌ Error checking for updates:', error);
+      } else {
+        console.log('🔄 OTA updates disabled in development mode');
       }
       
       // Check if user has seen onboarding
