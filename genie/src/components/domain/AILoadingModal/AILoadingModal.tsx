@@ -174,11 +174,11 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
               <Icon 
                 name={currentStepData.icon as any} 
                 size={32} 
-                color="#FFFF68" 
+                color="#FFFFFF" 
                 weight="fill" 
               />
             </View>
-            <Text variant="h3" style={[styles.title, { color: '#FFFFFF' }]}>
+            <Text variant="h4" style={[styles.title, { color: '#FFFFFF' }]}>
               {currentStepData.title}
             </Text>
             <Text variant="body" style={[styles.subtitle, { color: '#FFFFFF', opacity: 0.8 }]}>
@@ -253,10 +253,10 @@ const styles = StyleSheet.create({
   iconContainer: {
     marginBottom: 16,
     padding: 12,
-    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 104, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   title: {
     textAlign: 'center',

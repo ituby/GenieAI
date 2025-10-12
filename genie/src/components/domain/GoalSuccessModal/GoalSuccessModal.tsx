@@ -86,7 +86,7 @@ export const GoalSuccessModal: React.FC<GoalSuccessModalProps> = ({
             {/* Success content */}
             <View style={styles.content}>
               <Text variant="h3" style={[styles.title, { color: '#FFFFFF' }]}>
-                Amazing! Your Goal is Ready! 🎉
+                Your Goal is Ready!
               </Text>
               
               <Text variant="body" style={[styles.subtitle, { color: '#FFFFFF', opacity: 0.8 }]}>

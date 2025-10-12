@@ -259,7 +259,8 @@ export const DashboardScreen: React.FC = () => {
         goal: {
           id: (task.goals as any).id,
           title: (task.goals as any).title,
-          category: (task.goals as any).category
+          category: (task.goals as any).category,
+          color: (task.goals as any).color
         }
       }));
       
@@ -748,13 +749,13 @@ export const DashboardScreen: React.FC = () => {
                 <View style={[styles.createGoalIcon, { backgroundColor: theme.colors.yellow[500] + '20' }]}>
                   <Icon 
                     name="target" 
-                    size={48} 
+                    size={24} 
                     color={theme.colors.yellow[500]} 
                     weight="fill"
                   />
                 </View>
                 
-                <Text variant="h2" style={styles.createGoalTitle}>
+                <Text variant="h3" style={styles.createGoalTitle}>
                   Create Your First Goal
                 </Text>
                 
@@ -764,6 +765,7 @@ export const DashboardScreen: React.FC = () => {
                 
                  <Animated.View
                    style={[
+                     styles.createGoalButtonContainer,
                      {
                        transform: [
                          {
@@ -792,7 +794,7 @@ export const DashboardScreen: React.FC = () => {
                        style={styles.createGoalButton}
                      >
                        <View style={styles.createGoalButtonContent}>
-                         <Icon name="star" size={20} color="#FFFFFF" weight="fill" />
+                         <Icon name="star" size={16} color="#FFFFFF" weight="fill" />
                          <Text style={styles.createGoalButtonText}>Begin Your Transformation</Text>
                        </View>
                      </TouchableOpacity>
@@ -869,7 +871,7 @@ export const DashboardScreen: React.FC = () => {
         )}
 
         {/* Today's Tasks Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.todayTasksSection]}>
           <View style={styles.sectionHeader}>
             <Text variant="h4">Today's Tasks</Text>
             <Button variant="ghost" size="xs">
@@ -1363,6 +1365,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
+  todayTasksSection: {
+    paddingTop: 24,
+  },
   sectionCompact: {
     paddingHorizontal: 20,
     marginBottom: 8,
@@ -1417,7 +1422,7 @@ const styles = StyleSheet.create({
   },
       createGoalCard: {
         alignItems: 'center',
-        paddingVertical: 60,
+        paddingVertical: 20,
         borderWidth: 1,
         borderColor: '#FFFF68', // Official yellow
         backgroundColor: 'transparent',
@@ -1432,9 +1437,9 @@ const styles = StyleSheet.create({
         width: '100%',
       },
       createGoalButton: {
-        borderRadius: 10,
-        paddingVertical: 16,
-        paddingHorizontal: 20,
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         width: '100%',
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         alignItems: 'center',
@@ -1448,9 +1453,13 @@ const styles = StyleSheet.create({
       },
       createGoalButtonText: {
         color: '#FFFFFF',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',
+      },
+      createGoalButtonContainer: {
+        marginTop: 16,
+        marginBottom: 16,
       },
       usageRateCard: {
         marginBottom: 0,
@@ -1569,21 +1578,21 @@ const styles = StyleSheet.create({
         fontWeight: '600',
       },
       createGoalIcon: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
       },
       createGoalTitle: {
         textAlign: 'center',
-        marginBottom: 16,
+        marginBottom: 8,
       },
       createGoalDescription: {
         textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 32,
+        lineHeight: 20,
+        marginBottom: 16,
       },
       smallGlassButton: {
         paddingVertical: 8,

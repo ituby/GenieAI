@@ -250,32 +250,37 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
   
   targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
   
-  // For the first day (dayNumber === 1), check if we should start today or tomorrow
+  // For the first day (dayNumber === 1), calculate smart timing based on current time
   if (dayNumber === 1) {
-    // If current time is before 15:00 (3 PM), start today
-    if (currentHour < 15) {
+    // If current time is before 22:00 (10 PM), start today
+    if (currentHour < 22) {
       startDay = 0; // Start today
       
-      // Find the next available time slot today
-      if (currentHour < 8) {
-        targetHour = 8; // Morning
-      } else if (currentHour < 10) {
-        targetHour = 10; // Mid-Morning
-      } else if (currentHour < 14) {
-        targetHour = 14; // Afternoon
-      } else if (currentHour < 16) {
-        targetHour = 16; // Mid-Afternoon
-      } else if (currentHour < 20) {
-        targetHour = 20; // Evening
-      } else if (currentHour < 22) {
-        targetHour = 22; // Night
+      // Calculate smart timing for first day tasks based on current time
+      const currentTimeMinutes = currentHour * 60 + currentMinute;
+      
+      if (timeLabel === "Morning") {
+        // First task: start soon (30 minutes from now, but not before 8:00)
+        const nextSlotMinutes = Math.max(8 * 60, currentTimeMinutes + 30);
+        targetHour = Math.floor(nextSlotMinutes / 60);
+      } else if (timeLabel === "Afternoon") {
+        // Second task: afternoon (14:00-16:00)
+        targetHour = Math.max(14, currentHour + 1);
+      } else if (timeLabel === "Evening") {
+        // Third task: evening (18:00-20:00)
+        targetHour = Math.max(18, currentHour + 2);
       } else {
-        // After 22:00, start tomorrow morning
-        startDay = 1;
+        // Fallback for other time labels
+        targetHour = Math.max(8, currentHour + 1);
+      }
+      
+      // Ensure we don't schedule too late in the day
+      if (targetHour > 22) {
+        startDay = 1; // Move to tomorrow
         targetHour = 8;
       }
     } else {
-      // If current time is after 15:00 (3 PM), start tomorrow
+      // If current time is after 22:00 (10 PM), start tomorrow
       startDay = 1;
       targetHour = 8; // Tomorrow morning
     }
@@ -312,10 +317,13 @@ INTENSITY LEVELS:
 
 Current intensity level: ${intensity.toUpperCase()}
 
-IMPORTANT TIME LOGIC:
-- If goal is created before 15:00 (3 PM), first task will be scheduled for the next available time slot today
-- If goal is created after 15:00 (3 PM), first task will be scheduled for tomorrow morning
-- Use appropriate time labels: Morning (8:00), Mid-Morning (10:00), Afternoon (14:00), Mid-Afternoon (16:00), Evening (20:00), Night (22:00)
+SMART TIME LOGIC FOR DAY 1:
+- If goal is created before 22:00 (10 PM), tasks will be scheduled intelligently based on current time
+- First task (Morning): Starts 30 minutes from now (minimum 8:00 AM)
+- Second task (Afternoon): Scheduled for afternoon hours (14:00-16:00)
+- Third task (Evening): Scheduled for evening hours (18:00-20:00)
+- If goal is created after 22:00 (10 PM), all tasks start tomorrow morning
+- For subsequent days, use standard time slots: Morning (8:00), Afternoon (14:00), Evening (20:00)
 
 CRITICAL REQUIREMENTS:
 1. Week 1 (Days 1-7): Foundation & Awareness - Focus on building habits, research, and initial steps
@@ -329,7 +337,7 @@ Each task must be:
 - Directly related to the goal
 - Appropriate for the selected intensity level
 
-Choose an appropriate Phosphor icon and vibrant color for this goal:
+Choose an appropriate Phosphor icon for this goal:
 
 ICON CATEGORIES:
 - lifestyle: heart, leaf, sun, moon, tree, bicycle, running, music, camera, book
@@ -338,22 +346,9 @@ ICON CATEGORIES:
 - character: user-circle, users, handshake, heart, shield, star, medal, trophy, compass
 - custom: star, heart, lightbulb, target, rocket, trophy, medal, tree
 
-COLOR OPTIONS (choose one vibrant color that matches the goal's energy):
-- yellow: #FFFF68 (primary yellow - optimistic, creative, achievement)
-- green: #00FF88 (vibrant green - growth, success, nature)
-- red: #FF4444 (energetic red - passion, action, urgency)
-- blue: #4488FF (calm blue - trust, stability, focus)
-- orange: #FF8844 (warm orange - enthusiasm, creativity, energy)
-- purple: #8844FF (rich purple - wisdom, creativity, luxury)
-- pink: #FF4488 (playful pink - joy, creativity, fun)
-- cyan: #44FFFF (fresh cyan - clarity, innovation, freshness)
-- lime: #88FF44 (bright lime - energy, vitality, growth)
-- magenta: #FF44FF (bold magenta - creativity, uniqueness, boldness)
-
 Return ONLY valid JSON in this exact format:
 {
   "icon_name": "chosen-icon-name",
-  "color": "chosen-color-key",
   "days": [
     {
       "day": 1,
@@ -461,7 +456,14 @@ Each task should be specific enough that someone could follow it without additio
       
       // Extract icon name and color from AI response
       const iconName = planData.icon_name || 'star'; // Default fallback
-      const color = planData.color || 'yellow'; // Default fallback
+      
+      // Always choose a random color from our approved list
+      const validColors = ['yellow', 'green', 'red', 'blue', 'orange', 'purple', 'pink', 'cyan', 'lime', 'magenta'];
+      const randomIndex = Math.floor(Math.random() * validColors.length);
+      const color = validColors[randomIndex];
+      
+      console.log(`🎲 Random color selected: ${color}`);
+      
       console.log(`🎨 AI selected icon: ${iconName}, color: ${color}`);
       
       return { tasks, iconName, color };

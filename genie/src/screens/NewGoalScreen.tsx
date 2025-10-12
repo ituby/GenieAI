@@ -147,7 +147,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           }
           return prev + 1;
         });
-      }, 800); // Change step every 800ms
+      }, 1200); // Change step every 1200ms
       
       setLoadingInterval(interval);
 
