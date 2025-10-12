@@ -64,15 +64,6 @@ export const RewardCard: React.FC<RewardCardProps> = ({
         ]}
       >
         <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Icon 
-              name={getRewardIcon(reward.type) as any}
-              size={24}
-              color={isActive ? getRewardColor(reward.type) : theme.colors.text.tertiary}
-              weight={isActive ? 'fill' : 'regular'}
-            />
-          </View>
-          
           <View style={styles.content}>
             <Text 
               variant="h4" 
@@ -93,36 +84,56 @@ export const RewardCard: React.FC<RewardCardProps> = ({
             </Text>
           </View>
           
-          {reward.unlocked && (
-            <View style={styles.unlockedBadge}>
-              <Icon name="check-circle" size={16} color={theme.colors.status.success} weight="fill" />
-            </View>
-          )}
-          
-          {hasProgress && (
-            <View style={styles.progressBadge}>
-              <Icon name="clock" size={16} color={theme.colors.yellow[500]} weight="fill" />
-            </View>
-          )}
+          <View style={styles.iconContainer}>
+            <Icon 
+              name={getRewardIcon(reward.type) as any}
+              size={24}
+              color={isActive ? getRewardColor(reward.type) : theme.colors.text.tertiary}
+              weight={isActive ? 'fill' : 'regular'}
+            />
+          </View>
         </View>
         
-        {reward.type === 'daily' && todayProgress && !reward.unlocked ? (
+        {(reward.type === 'daily' && todayProgress && !reward.unlocked) || reward.day_offset !== undefined || reward.unlocked || hasProgress ? (
           <View style={styles.dayInfo}>
-            <Icon name="target" size={12} color={theme.colors.text.tertiary} />
-            <Text variant="caption" color="tertiary">
-              Today: {todayProgress.completed}/{todayProgress.total} tasks completed
-            </Text>
-          </View>
-        ) : reward.day_offset !== undefined ? (
-          <View style={styles.dayInfo}>
-            <Icon name="calendar" size={12} color={theme.colors.text.tertiary} />
-            <Text variant="caption" color="tertiary">
-              {reward.day_offset === 2 ? 'After 3 days' : 
-               reward.day_offset === 6 ? 'After 1 week' :
-               reward.day_offset === 13 ? 'After 2 weeks' :
-               reward.day_offset === 20 ? 'After 3 weeks' :
-               `Day ${reward.day_offset + 1}`}
-            </Text>
+            <View style={styles.dayInfoLeft}>
+              {reward.type === 'daily' && todayProgress && !reward.unlocked ? (
+                <>
+                  <Icon name="target" size={12} color={theme.colors.text.tertiary} />
+                  <Text variant="caption" color="tertiary">
+                    Today: {todayProgress.completed}/{todayProgress.total} tasks completed
+                  </Text>
+                </>
+              ) : reward.day_offset !== undefined ? (
+                <>
+                  <Icon name="calendar" size={12} color={theme.colors.text.tertiary} />
+                  <Text variant="caption" color="tertiary">
+                    {reward.day_offset === 2 ? 'After 3 days' : 
+                     reward.day_offset === 6 ? 'After 1 week' :
+                     reward.day_offset === 13 ? 'After 2 weeks' :
+                     reward.day_offset === 20 ? 'After 3 weeks' :
+                     `Day ${reward.day_offset + 1}`}
+                  </Text>
+                </>
+              ) : null}
+            </View>
+            
+            <View style={styles.statusIcons}>
+              {reward.unlocked && (
+                <View style={styles.completedBadge}>
+                  <Icon name="trophy" size={14} color={theme.colors.yellow[500]} weight="fill" />
+                  <Text variant="caption" style={[styles.completedText, { color: theme.colors.yellow[500] }]}>
+                    Completed
+                  </Text>
+                </View>
+              )}
+              
+              {hasProgress && (
+                <View style={styles.progressBadge}>
+                  <Icon name="clock" size={20} color={theme.colors.yellow[500]} weight="fill" />
+                </View>
+              )}
+            </View>
           </View>
         ) : null}
       </Card>
@@ -145,7 +156,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginLeft: 12,
     backgroundColor: 'rgba(255, 255, 104, 0.15)',
   },
   content: {
@@ -157,18 +168,40 @@ const styles = StyleSheet.create({
   description: {
     lineHeight: 20,
   },
-  unlockedBadge: {
-    marginLeft: 8,
-    paddingTop: 4,
-  },
-  progressBadge: {
-    marginLeft: 8,
-    paddingTop: 4,
-  },
   dayInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
     marginTop: 8,
+  },
+  dayInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  statusIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completedBadge: {
+    backgroundColor: 'rgba(255, 255, 104, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  completedText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

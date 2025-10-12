@@ -70,7 +70,7 @@ export const Badge: React.FC<BadgeProps> = ({
         style={[
           styles.text,
           {
-            color: color || theme.colors.text.onPrimary,
+            color: color || theme.colors.text.primary,
             fontSize: sizeStyles.fontSize,
           },
         ]}

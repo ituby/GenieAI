@@ -464,6 +464,28 @@ export const DashboardScreen: React.FC = () => {
             : task
         )
       );
+
+      // Update points system
+      try {
+        const task = todaysTasks.find(t => t.id === taskId);
+        if (task) {
+          const action = markAsCompleted ? 'complete' : 'incomplete';
+          await supabase.functions.invoke('update-points', {
+            body: {
+              goal_id: task.goal_id,
+              task_id: taskId,
+              user_id: user?.id,
+              action: action
+            }
+          });
+          
+          // Refresh total points display
+          fetchTotalPoints();
+        }
+      } catch (pointsError) {
+        console.error('Error updating points:', pointsError);
+        // Don't fail the task update if points update fails
+      }
       
       // Refresh tasks count
       fetchTodaysTasks();
@@ -505,6 +527,14 @@ export const DashboardScreen: React.FC = () => {
       <GoalDetailsScreen
         goal={selectedGoal}
         onBack={() => setSelectedGoal(null)}
+        onGoalUpdate={(updatedGoal) => {
+          setSelectedGoal(updatedGoal);
+          // Refresh goals from the store to get updated data
+          if (user?.id) {
+            fetchGoals(user.id);
+            fetchTotalPoints(); // Update total points when goal is updated
+          }
+        }}
       />
     );
   }
@@ -523,8 +553,17 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <View style={styles.notificationIconContainer}>
-              <Icon name="bell" size={20} color={theme.colors.text.secondary} />
-              <Badge count={unreadCount} size="small" />
+              <Icon 
+                name="bell" 
+                size={20} 
+                color={unreadCount > 0 ? theme.colors.yellow[500] : theme.colors.text.secondary} 
+              />
+              <Badge 
+                count={unreadCount} 
+                size="small" 
+                backgroundColor="#FFFFFF"
+                color="#000000"
+              />
             </View>
           </Button>
         </View>
@@ -1059,6 +1098,13 @@ export const DashboardScreen: React.FC = () => {
         <TaskDetailsScreen
           task={selectedTask}
           onBack={() => setSelectedTask(null)}
+          onTaskUpdate={() => {
+            // Refresh data when task is updated
+            if (user?.id) {
+              fetchTotalPoints();
+              fetchTodaysTasks();
+            }
+          }}
         />
       )}
 

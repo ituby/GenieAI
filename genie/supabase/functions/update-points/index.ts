@@ -9,7 +9,44 @@ const corsHeaders = {
 interface UpdatePointsRequest {
   goal_id: string;
   task_id: string;
+  user_id: string;
   action: 'complete' | 'incomplete' | 'expire';
+}
+
+function calculateCurrentStreak(completedTasks: any[]): number {
+  if (!completedTasks || completedTasks.length === 0) {
+    return 0;
+  }
+
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // End of today
+  
+  let streak = 0;
+  let currentDate = new Date(today);
+  
+  // Group completed tasks by date
+  const tasksByDate = new Map<string, boolean>();
+  completedTasks.forEach(task => {
+    if (task.completed_at) {
+      const taskDate = new Date(task.completed_at);
+      const dateKey = taskDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      tasksByDate.set(dateKey, true);
+    }
+  });
+
+  // Count consecutive days backwards from today
+  while (true) {
+    const dateKey = currentDate.toISOString().split('T')[0];
+    
+    if (tasksByDate.has(dateKey)) {
+      streak++;
+      currentDate.setDate(currentDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 }
 
 serve(async (req) => {
@@ -21,33 +58,16 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { goal_id, task_id, action }: UpdatePointsRequest = await req.json();
+    const { goal_id, task_id, user_id, action }: UpdatePointsRequest = await req.json();
 
-    if (!goal_id || !task_id || !action) {
+    if (!goal_id || !task_id || !user_id || !action) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Get user from auth
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -110,7 +130,7 @@ serve(async (req) => {
     const { data: existingPoints, error: pointsError } = await supabaseClient
       .from('user_points')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user_id)
       .eq('goal_id', goal_id)
       .single();
 
@@ -128,7 +148,7 @@ serve(async (req) => {
     const { error: upsertError } = await supabaseClient
       .from('user_points')
       .upsert({
-        user_id: user.id,
+        user_id: user_id,
         goal_id: goal_id,
         points: newPoints,
         total_earned: newTotalEarned,
@@ -151,7 +171,7 @@ serve(async (req) => {
     const { error: historyError } = await supabaseClient
       .from('points_history')
       .insert({
-        user_id: user.id,
+        user_id: user_id,
         goal_id: goal_id,
         task_id: task_id,
         points_change: pointsChange,
@@ -202,6 +222,40 @@ serve(async (req) => {
         if (unlockError) {
           console.error('Error unlocking rewards:', unlockError);
         }
+      }
+    }
+
+    // Calculate and update streak
+    if (action === 'complete') {
+      try {
+        // Get all completed tasks for this goal
+        const { data: completedTasks, error: tasksError } = await supabaseClient
+          .from('goal_tasks')
+          .select('completed_at')
+          .eq('goal_id', goal_id)
+          .eq('completed', true)
+          .not('completed_at', 'is', null)
+          .order('completed_at', { ascending: false });
+
+        if (tasksError) {
+          console.error('Error fetching completed tasks for streak calculation:', tasksError);
+        } else {
+          // Calculate current streak
+          const currentStreak = calculateCurrentStreak(completedTasks || []);
+          
+          // Update goal streak
+          const { error: streakError } = await supabaseClient
+            .from('goals')
+            .update({ current_streak: currentStreak })
+            .eq('id', goal_id);
+
+          if (streakError) {
+            console.error('Error updating goal streak:', streakError);
+          }
+        }
+      } catch (streakError) {
+        console.error('Error calculating streak:', streakError);
+        // Don't fail the points update if streak calculation fails
       }
     }
 

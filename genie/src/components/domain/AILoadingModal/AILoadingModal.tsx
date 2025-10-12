@@ -170,14 +170,6 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
 
           {/* Dynamic content */}
           <View style={styles.content}>
-            <View style={styles.iconContainer}>
-              <Icon 
-                name={currentStepData.icon as any} 
-                size={32} 
-                color="#FFFFFF" 
-                weight="fill" 
-              />
-            </View>
             <Text variant="h4" style={[styles.title, { color: '#FFFFFF' }]}>
               {currentStepData.title}
             </Text>
@@ -249,14 +241,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     marginBottom: 24,
-  },
-  iconContainer: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   title: {
     textAlign: 'center',

@@ -113,7 +113,7 @@ const getSpecificGuidelines = (category: string, title: string, description: str
     - Address potential obstacles and solutions`;
 };
 
-const generateRewards = async (goalId: string, supabase: any, category: string, title: string, tasks: any[], intensity: 'easy' | 'medium' | 'hard' = 'easy'): Promise<void> => {
+const generateRewards = async (goalId: string, supabase: any, category: string, title: string, tasks: any[], intensity: 'easy' | 'medium' | 'hard' = 'easy'): Promise<any[]> => {
   // Generate personalized rewards based on tasks
   const getPersonalizedRewards = (category: string, goalTitle: string, tasks: any[]): RewardTemplate[] => {
     const rewards: RewardTemplate[] = [];
@@ -213,8 +213,9 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
   const rewards = getPersonalizedRewards(category, title, tasks);
 
   // Insert rewards into database
+  const insertedRewards = [];
   for (const reward of rewards) {
-    await supabase
+    const { data: insertedReward, error } = await supabase
       .from('rewards')
       .insert({
         goal_id: goalId,
@@ -223,8 +224,18 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
         description: reward.description,
         day_offset: reward.day_offset,
         unlocked: false
-      });
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error inserting reward:', error);
+    } else {
+      insertedRewards.push(insertedReward);
+    }
   }
+  
+  return insertedRewards;
 };
 
 
@@ -233,10 +244,6 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
-  
-  // Determine start day and time based on current time
-  let startDay = 0; // Default: start today
-  let targetHour = 8; // Default morning hour
   
   // Define time slots and their hours
   const timeSlots = {
@@ -248,55 +255,47 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
     "Night": 22
   };
   
-  targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
+  let targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
+  let startDay = 0; // Start from today
   
   // For the first day (dayNumber === 1), calculate smart timing based on current time
   if (dayNumber === 1) {
-    // If current time is before 22:00 (10 PM), start today
-    if (currentHour < 22) {
+    // If current time is after 20:00 (8 PM), start tomorrow
+    if (currentHour >= 20) {
+      startDay = 1; // Start tomorrow
+      targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
+    } else {
+      // If current time is before 20:00 (8 PM), start today
       startDay = 0; // Start today
       
-      // Calculate smart timing for first day tasks based on current time
-      const currentTimeMinutes = currentHour * 60 + currentMinute;
+      // Get the standard time for this task
+      const standardHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
       
-      if (timeLabel === "Morning") {
-        // First task: start soon (30 minutes from now, but not before 8:00)
-        const nextSlotMinutes = Math.max(8 * 60, currentTimeMinutes + 30);
-        targetHour = Math.floor(nextSlotMinutes / 60);
-      } else if (timeLabel === "Afternoon") {
-        // Second task: afternoon (14:00-16:00)
-        targetHour = Math.max(14, currentHour + 1);
-      } else if (timeLabel === "Evening") {
-        // Third task: evening (18:00-20:00)
-        targetHour = Math.max(18, currentHour + 2);
+      // If the standard time has already passed today, make it available immediately
+      if (currentHour >= standardHour) {
+        // Task time has passed - make it available now (current time minus 1 minute to ensure it's available)
+        targetHour = currentHour;
+        const currentMinutes = new Date().getMinutes();
+        // Set to current time minus 1 minute to ensure task is available
+        const base = new Date();
+        base.setHours(targetHour, Math.max(0, currentMinutes - 1), 0, 0);
+        return base.toISOString();
       } else {
-        // Fallback for other time labels
-        targetHour = Math.max(8, currentHour + 1);
+        // Task time hasn't passed yet - schedule for the standard time
+        targetHour = standardHour;
       }
-      
-      // Ensure we don't schedule too late in the day
-      if (targetHour > 22) {
-        startDay = 1; // Move to tomorrow
-        targetHour = 8;
-      }
-    } else {
-      // If current time is after 22:00 (10 PM), start tomorrow
-      startDay = 1;
-      targetHour = 8; // Tomorrow morning
     }
   } else {
-    // For subsequent days, use the original logic
-    if (currentHour < 12) {
-      startDay = 0; // Start today
-    } else if (currentHour < 18) {
-      startDay = 0; // Start today
-    } else {
-      startDay = 1; // Start tomorrow
-    }
+    // For subsequent days (dayNumber > 1), always schedule for future days
+    // Don't schedule tasks for today if they're not day 1
+    startDay = dayNumber - 1; // dayNumber 2 = tomorrow, dayNumber 3 = day after tomorrow, etc.
+    
+    // Reset to standard time slots for future days
+    targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
   }
   
   const base = new Date();
-  base.setDate(base.getDate() + startDay + dayNumber - 1);
+  base.setDate(base.getDate() + startDay);
   base.setHours(targetHour, 0, 0, 0);
   
   return base.toISOString();
@@ -712,7 +711,7 @@ serve(async (req) => {
     }
 
     // Generate rewards for the goal
-    await generateRewards(goal_id, supabaseClient, category, title, taskTemplates, intensity);
+    const rewards = await generateRewards(goal_id, supabaseClient, category, title, taskTemplates, intensity);
 
     // Create reward notification templates
     const rewardNotifications = [
@@ -776,9 +775,10 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         tasks: insertedTasks,
+        rewards: rewards,
         icon_name: iconName,
         color: color,
-        message: `Generated ${insertedTasks.length} tasks for your goal`,
+        message: `Generated ${insertedTasks.length} tasks and ${rewards.length} rewards for your goal`,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

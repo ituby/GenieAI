@@ -306,6 +306,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 30,
     paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   absoluteHeader: {
     position: 'absolute',

@@ -111,7 +111,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         <View style={styles.progressContainer}>
           <View style={styles.progressInfo}>
             <Text variant="caption" color="tertiary">
-              {goal.completed_tasks}/{goal.total_tasks} משימות
+              {goal.completed_tasks}/{goal.total_tasks} tasks
             </Text>
             <Text variant="caption" color="primary-color">
               {Math.round(goal.completion_percentage)}%
@@ -135,7 +135,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <View style={styles.streakContainer}>
               <Icon name="fire" size={12} color={theme.colors.status.success} />
               <Text variant="caption" color="success" style={styles.streakText}>
-                {goal.current_streak} ימים ברצף
+                {goal.current_streak} day streak
               </Text>
             </View>
           )}
@@ -234,15 +234,15 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     marginTop: 12,
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
   },
 });

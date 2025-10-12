@@ -61,7 +61,6 @@ export default function App() {
               {t('onboarding.subtitle')}
             </Text>
             <View style={styles.loadingIconContainer}>
-              <Icon name="brain" size={24} color="#A855F7" weight="duotone" />
               <Text variant="body" color="secondary" style={styles.loadingText}>{t('common.loading')}</Text>
             </View>
           </View>
@@ -132,10 +131,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   loadingIconContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
     marginTop: 16,
-    gap: 8,
   },
   loadingText: {
     fontSize: 16,

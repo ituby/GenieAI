@@ -89,7 +89,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     // Task is available for reading if its time has been reached
     if (now >= taskTime) return true;
     
-    // Check if this is the closest upcoming task among all tasks
+    // For future tasks, only show the next upcoming task as available for reading
     if (allTasks.length === 0) return true;
     
     const upcomingTasks = allTasks
@@ -98,6 +98,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     
     if (upcomingTasks.length === 0) return true;
     
+    // Only the closest upcoming task should be available for reading
     const closestTask = upcomingTasks[0];
     return closestTask.id === task.id;
   };
@@ -221,23 +222,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               {task.description}
             </Text>
 
-            {/* Completion Status */}
-                  {task.completed ? (
-                    <View style={[styles.statusBadge, { backgroundColor: theme.colors.status.success + '20' }]}>
-                      <Icon name="check" size={14} color={theme.colors.status.success} weight="fill" />
-                      <Text variant="caption" style={[styles.statusText, { color: theme.colors.status.success }]}>
-                        Completed
-                      </Text>
-                    </View>
-            ) : !canCompleteTask ? (
-              <View style={[styles.statusBadge, { backgroundColor: theme.colors.text.disabled + '20' }]}>
-                <Icon name="clock" size={14} color={theme.colors.text.disabled} weight="fill" />
-                <Text variant="caption" style={[styles.statusText, { color: theme.colors.text.disabled }]}>
-                  Waiting
-                </Text>
-              </View>
-            ) : null}
-
             {/* Goal Info */}
             <View style={styles.goalInfo}>
               <Text variant="caption" color="primary-color">
@@ -248,12 +232,34 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               </Text>
             </View>
             
-            {/* Points Display - Bottom Right Corner */}
-            <View style={styles.pointsContainer}>
-              <Icon name="trophy" size={12} color="#FFFF68" weight="fill" />
-              <Text variant="caption" style={styles.pointsText}>
-                +{getTaskPoints(task.intensity)}
-              </Text>
+            {/* Bottom Row - Status and Points */}
+            <View style={styles.bottomRow}>
+              {/* Status Badge - Left Side */}
+              {task.completed ? (
+                <View style={[styles.statusBadge, { backgroundColor: theme.colors.status.success + '20' }]}>
+                  <Icon name="check" size={14} color={theme.colors.status.success} weight="fill" />
+                  <Text variant="caption" style={[styles.statusText, { color: theme.colors.status.success }]}>
+                    Completed
+                  </Text>
+                </View>
+              ) : !canCompleteTask ? (
+                <View style={[styles.statusBadge, { backgroundColor: theme.colors.text.disabled + '20' }]}>
+                  <Icon name="clock" size={14} color={theme.colors.text.disabled} weight="fill" />
+                  <Text variant="caption" style={[styles.statusText, { color: theme.colors.text.disabled }]}>
+                    Waiting
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.emptySpace} />
+              )}
+              
+              {/* Points Display - Right Side */}
+              <View style={styles.pointsContainer}>
+                <Icon name="trophy" size={12} color="#FFFF68" weight="fill" />
+                <Text variant="caption" style={styles.pointsText}>
+                  +{getTaskPoints(task.intensity)}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -328,10 +334,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
-    marginBottom: 12,
     alignSelf: 'flex-start',
   },
   statusText: {
@@ -439,16 +444,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 10,
   },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 8,
+    minHeight: 24,
+  },
+  emptySpace: {
+    flex: 1,
+  },
   pointsContainer: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
     backgroundColor: 'rgba(255, 255, 104, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 104, 0.3)',

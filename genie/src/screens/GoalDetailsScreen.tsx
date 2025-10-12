@@ -26,11 +26,13 @@ import { useAuthStore } from '../store/useAuthStore';
 interface GoalDetailsScreenProps {
   goal: GoalWithProgress;
   onBack?: () => void;
+  onGoalUpdate?: (updatedGoal: GoalWithProgress) => void;
 }
 
 export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   goal,
   onBack,
+  onGoalUpdate,
 }) => {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -42,18 +44,19 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [selectedTask, setSelectedTask] = useState<TaskWithGoal | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
+  const [currentGoal, setCurrentGoal] = useState<GoalWithProgress>(goal);
 
   const fetchPointsEarned = async () => {
     if (user?.id) {
       try {
         const { data } = await supabase
           .from('user_points')
-          .select('total_earned')
+          .select('points')
           .eq('user_id', user.id)
           .eq('goal_id', goal.id)
           .single();
         
-        setPointsEarned(data?.total_earned || 0);
+        setPointsEarned(data?.points || 0);
       } catch (error) {
         console.log('Points fetch failed:', error);
         setPointsEarned(0);
@@ -74,6 +77,43 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       } catch (error) {
         console.log('User subscription check failed:', error);
         setIsSubscribed(false);
+      }
+    }
+  };
+
+  const fetchUpdatedGoal = async () => {
+    if (user?.id) {
+      try {
+        const { data, error } = await supabase
+          .from('goals')
+          .select(`
+            *,
+            goal_tasks (
+              id,
+              completed
+            )
+          `)
+          .eq('id', goal.id)
+          .single();
+
+        if (error) throw error;
+
+        const totalTasks = data.goal_tasks?.length || 0;
+        const completedTasks = data.goal_tasks?.filter((task: any) => task.completed).length || 0;
+        const completionPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+        const updatedGoal: GoalWithProgress = {
+          ...data,
+          total_tasks: totalTasks,
+          completed_tasks: completedTasks,
+          completion_percentage: completionPercentage,
+          current_streak: data.current_streak || 0,
+        };
+
+        setCurrentGoal(updatedGoal);
+        onGoalUpdate?.(updatedGoal);
+      } catch (error) {
+        console.error('Error fetching updated goal:', error);
       }
     }
   };
@@ -183,12 +223,14 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           body: {
             goal_id: goal.id,
             task_id: taskId,
+            user_id: user?.id,
             action: action
           }
         });
         
-        // Refresh points display
+        // Refresh points display and goal data
         fetchPointsEarned();
+        fetchUpdatedGoal();
       } catch (pointsError) {
         console.error('Error updating points:', pointsError);
         // Don't fail the task update if points update fails
@@ -329,15 +371,17 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         return;
       }
 
-      if (data?.success && data.updated_rewards > 0) {
-        // Refresh rewards to show newly unlocked ones
+      if (data?.success) {
+        // Always refresh rewards to show updated status
         await fetchRewards();
         
         // Show celebration for newly unlocked rewards
-        const newlyUnlockedRewards = rewards.filter(r => !r.unlocked);
-        if (newlyUnlockedRewards.length > 0) {
-          const latestReward = newlyUnlockedRewards[newlyUnlockedRewards.length - 1];
-          Alert.alert('🎉 Reward Unlocked!', latestReward.title);
+        if (data.updated_rewards > 0) {
+          const newlyUnlockedRewards = rewards.filter(r => !r.unlocked);
+          if (newlyUnlockedRewards.length > 0) {
+            const latestReward = newlyUnlockedRewards[newlyUnlockedRewards.length - 1];
+            Alert.alert('🎉 Reward Unlocked!', latestReward.title);
+          }
         }
       }
     } catch (error) {
@@ -387,19 +431,19 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           <Card variant="gradient" padding="lg" style={styles.goalInfoCard}>
             <View style={styles.goalHeader}>
               <View style={styles.goalTitleContainer}>
-                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(currentGoal.color) + '20' }]}>
                   <Icon 
-                    name={getCategoryIcon(goal.category, goal.icon_name) as any}
+                    name={getCategoryIcon(currentGoal.category, currentGoal.icon_name) as any}
                     size={24}
-                    color={getGoalColor(goal.color)}
+                    color={getGoalColor(currentGoal.color)}
                   />
                 </View>
                 <View>
                   <Text variant="h4" style={styles.goalTitle}>
-                    {formatTitle(goal.title)}
+                    {formatTitle(currentGoal.title)}
                   </Text>
-                  <Text variant="caption" style={[styles.categoryText, { color: getGoalColor(goal.color) }]}>
-                    {goal.category.toUpperCase()}
+                  <Text variant="caption" style={[styles.categoryText, { color: getGoalColor(currentGoal.color) }]}>
+                    {currentGoal.category.toUpperCase()}
                   </Text>
                 </View>
               </View>
@@ -412,7 +456,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
             </View>
 
             <Text variant="body" color="secondary" style={styles.goalDescription}>
-              {goal.description}
+              {currentGoal.description}
             </Text>
 
             <View style={styles.statsRow}>
@@ -436,7 +480,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
               
               <View style={styles.statItem}>
                 <Text variant="h4" color="primary-color">
-                  {goal.current_streak}
+                  {currentGoal.current_streak}
                 </Text>
                 <Text variant="caption" color="tertiary">
                   Day Streak
@@ -646,6 +690,12 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         <TaskDetailsScreen
           task={selectedTask}
           onBack={() => setSelectedTask(null)}
+          onTaskUpdate={() => {
+            // Refresh data when task is updated
+            fetchPointsEarned();
+            fetchUpdatedGoal();
+            fetchTasks();
+          }}
         />
       )}
     </View>

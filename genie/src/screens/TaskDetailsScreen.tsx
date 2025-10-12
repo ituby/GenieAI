@@ -15,20 +15,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/index';
 import { TaskWithGoal } from '../types/task';
 import { supabase } from '../services/supabase/client';
+import { useAuthStore } from '../store/useAuthStore';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 
 interface TaskDetailsScreenProps {
   task: TaskWithGoal;
   onBack?: () => void;
+  onTaskUpdate?: () => void;
 }
 
 export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   task,
   onBack,
+  onTaskUpdate,
 }) => {
   const theme = useTheme();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [taskData, setTaskData] = useState<TaskWithGoal>(task);
@@ -110,6 +114,25 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
         completed: markAsCompleted,
         completed_at: markAsCompleted ? new Date().toISOString() : undefined
       }));
+
+      // Update points system
+      try {
+        const action = markAsCompleted ? 'complete' : 'incomplete';
+        await supabase.functions.invoke('update-points', {
+          body: {
+            goal_id: taskData.goal_id,
+            task_id: taskData.id,
+            user_id: user?.id,
+            action: action
+          }
+        });
+      } catch (pointsError) {
+        console.error('Error updating points:', pointsError);
+        // Don't fail the task update if points update fails
+      }
+
+      // Notify parent component to refresh data
+      onTaskUpdate?.();
 
       Alert.alert(
         'Success',
