@@ -34,6 +34,11 @@ export const Button: React.FC<ButtonProps> = ({
     };
 
     const sizeStyles = {
+      xs: {
+        paddingHorizontal: theme.spacing[2],
+        paddingVertical: theme.spacing[1],
+        minHeight: 28,
+      },
       sm: {
         paddingHorizontal: theme.spacing[3],
         paddingVertical: theme.spacing[2],
@@ -53,15 +58,15 @@ export const Button: React.FC<ButtonProps> = ({
 
     const variantStyles = {
       primary: {
-        backgroundColor: theme.colors.purple[500], // Solid color instead of gradient for now
+        backgroundColor: theme.colors.background.card, // Neutral gray
       },
       secondary: {
-        backgroundColor: theme.colors.background.tertiary,
+        backgroundColor: theme.colors.background.tertiary, // Darker gray
       },
       outline: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: theme.colors.purple[500],
+        borderColor: theme.colors.border.secondary,
       },
       ghost: {
         backgroundColor: 'transparent',
@@ -83,22 +88,41 @@ export const Button: React.FC<ButtonProps> = ({
       textAlign: 'center' as const,
     };
 
-    const variantTextStyles = {
-      primary: {
-        color: theme.colors.text.primary,
+    const sizeTextStyles = {
+      xs: {
+        fontSize: theme.typography.sizes.xs,
+        lineHeight: theme.typography.lineHeights.xs,
       },
-      secondary: {
-        color: theme.colors.text.primary,
+      sm: {
+        fontSize: theme.typography.sizes.sm,
+        lineHeight: theme.typography.lineHeights.sm,
       },
-      outline: {
-        color: theme.colors.purple[400],
+      md: {
+        fontSize: theme.typography.sizes.base,
+        lineHeight: theme.typography.lineHeights.base,
       },
-      ghost: {
-        color: theme.colors.purple[400],
+      lg: {
+        fontSize: theme.typography.sizes.lg,
+        lineHeight: theme.typography.lineHeights.lg,
       },
     };
 
-    return [baseTextStyle, variantTextStyles[variant]];
+    const variantTextStyles = {
+      primary: {
+        color: theme.colors.text.primary, // White text on gray background
+      },
+      secondary: {
+        color: theme.colors.text.primary, // White text on darker gray background
+      },
+      outline: {
+        color: theme.colors.text.secondary,
+      },
+      ghost: {
+        color: theme.colors.text.secondary,
+      },
+    };
+
+    return [baseTextStyle, sizeTextStyles[size], variantTextStyles[variant]];
   };
 
   const renderContent = () => (
@@ -108,8 +132,8 @@ export const Button: React.FC<ButtonProps> = ({
           size="small"
           color={
             variant === 'primary' || variant === 'secondary'
-              ? theme.colors.text.primary
-              : theme.colors.purple[400]
+              ? theme.colors.text.inverse
+              : theme.colors.primary[400]
           }
         />
       ) : (

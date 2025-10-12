@@ -19,18 +19,35 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 }) => {
   const theme = useTheme();
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      lifestyle: theme.colors.blue[500],
-      career: theme.colors.purple[500],
-      mindset: theme.colors.green[500],
-      character: theme.colors.purple[400],
-      custom: theme.colors.text.secondary,
-    };
-    return colors[category as keyof typeof colors] || colors.custom;
+  const getGoalColor = (category: string, aiColor?: string) => {
+    // Use AI-selected color if available
+    if (aiColor) {
+      const colorMap = {
+        yellow: '#FFFF68',
+        green: '#00FF88',
+        red: '#FF4444',
+        blue: '#4488FF',
+        orange: '#FF8844',
+        purple: '#8844FF',
+        pink: '#FF4488',
+        cyan: '#44FFFF',
+        lime: '#88FF44',
+        magenta: '#FF44FF',
+      };
+      return colorMap[aiColor as keyof typeof colorMap] || colorMap.yellow;
+    }
+    
+    // Fallback to neutral colors when no AI color is provided
+    return theme.colors.text.secondary;
   };
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = (category: string, iconName?: string) => {
+    // Use AI-selected icon if available
+    if (iconName) {
+      return iconName;
+    }
+    
+    // Fallback to category-based icons
     const icons = {
       lifestyle: 'heart',
       career: 'briefcase',
@@ -47,23 +64,23 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <View style={[styles.iconContainer, { backgroundColor: getCategoryColor(goal.category) + '20' }]}>
-              <Icon 
-                name={getCategoryIcon(goal.category) as any}
-                size={20}
-                color={getCategoryColor(goal.category)}
-              />
-            </View>
+                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.category, goal.color) + '20' }]}>
+                  <Icon 
+                    name={getCategoryIcon(goal.category, goal.icon_name) as any}
+                    size={20}
+                    color={getGoalColor(goal.category, goal.color)}
+                  />
+                </View>
             <View style={styles.titleText}>
               <Text variant="h4" numberOfLines={1} style={styles.title}>
                 {goal.title}
               </Text>
-              <Text 
-                variant="caption" 
-                style={[styles.category, { color: getCategoryColor(goal.category) }]}
-              >
-                {goal.category.toUpperCase()}
-              </Text>
+                  <Text 
+                    variant="caption" 
+                    style={[styles.category, { color: getGoalColor(goal.category, goal.color) }]}
+                  >
+                    {goal.category.toUpperCase()}
+                  </Text>
             </View>
           </View>
           
@@ -90,7 +107,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <Text variant="caption" color="tertiary">
               {goal.completed_tasks}/{goal.total_tasks} משימות
             </Text>
-            <Text variant="caption" color="purple">
+            <Text variant="caption" color="primary-color">
               {Math.round(goal.completion_percentage)}%
             </Text>
           </View>
@@ -101,7 +118,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 styles.progressFill,
                 {
                   width: `${goal.completion_percentage}%`,
-                  backgroundColor: getCategoryColor(goal.category),
+                  backgroundColor: getGoalColor(goal.category, goal.color),
                 },
               ]}
             />
@@ -122,14 +139,14 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         <View style={styles.statusContainer}>
           <View style={[
             styles.statusBadge,
-            { backgroundColor: goal.status === 'active' ? theme.colors.green[500] + '20' : theme.colors.text.disabled + '20' }
+            { backgroundColor: goal.status === 'active' ? theme.colors.primary[500] + '20' : theme.colors.text.disabled + '20' }
           ]}>
             <Text 
               variant="caption" 
               color={goal.status === 'active' ? 'success' : 'disabled'}
               style={styles.statusText}
             >
-              {goal.status === 'active' ? 'פעיל' : goal.status === 'completed' ? 'הושלם' : 'מושהה'}
+              {goal.status === 'active' ? 'Active' : goal.status === 'completed' ? 'Completed' : 'Paused'}
             </Text>
           </View>
         </View>

@@ -113,7 +113,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
             <Icon 
               name={slide.icon as any}
               size={80}
-              color={theme.colors.purple[400]}
+              color={theme.colors.yellow[500]}
               weight="duotone"
             />
           </View>
@@ -159,7 +159,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               {
                 width: dotWidth,
                 opacity,
-                backgroundColor: theme.colors.purple[400],
+                backgroundColor: theme.colors.yellow[500],
               },
             ]}
           />

@@ -1,7 +1,7 @@
 {
   "name": "genie",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -19,6 +19,7 @@
     "@react-navigation/stack": "^7.4.9",
     "@supabase/supabase-js": "^2.75.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "expo": "~54.0.13",
     "expo-auth-session": "^7.0.8",
     "expo-constants": "^18.0.9",
@@ -42,10 +43,14 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@react-native-community/cli": "^20.0.2",
+    "@react-native/metro-config": "^0.82.0",
     "@types/react": "~19.1.0",
     "@typescript-eslint/eslint-plugin": "^8.46.0",
     "@typescript-eslint/parser": "^8.46.0",
     "eslint": "^9.37.0",
+    "metro": "^0.83.3",
+    "metro-resolver": "^0.83.3",
     "prettier": "^3.6.2",
     "typescript": "~5.9.2"
   },

@@ -47,3 +47,4 @@ CREATE POLICY "Users can delete their own rewards" ON rewards
       SELECT id FROM goals WHERE user_id = auth.uid()
     )
   );
+

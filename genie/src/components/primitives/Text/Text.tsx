@@ -20,7 +20,8 @@ export type TextColor =
   | 'tertiary' 
   | 'disabled' 
   | 'inverse' 
-  | 'purple' 
+  | 'primary-color' 
+  | 'secondary-color'
   | 'success' 
   | 'warning' 
   | 'error';
@@ -49,7 +50,8 @@ export const Text: React.FC<TextProps> = ({
       tertiary: { color: theme.colors.text.tertiary },
       disabled: { color: theme.colors.text.disabled },
       inverse: { color: theme.colors.text.inverse },
-      purple: { color: theme.colors.purple[400] },
+      'primary-color': { color: theme.colors.primary[500] },
+      'secondary-color': { color: theme.colors.secondary[500] },
       success: { color: theme.colors.status.success },
       warning: { color: theme.colors.status.warning },
       error: { color: theme.colors.status.error },

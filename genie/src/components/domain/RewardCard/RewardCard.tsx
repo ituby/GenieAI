@@ -35,7 +35,7 @@ export const RewardCard: React.FC<RewardCardProps> = ({
       case 'daily':
         return theme.colors.blue[500];
       case 'milestone':
-        return theme.colors.purple[500];
+        return theme.colors.yellow[500];
       case 'completion':
         return theme.colors.status.success;
       default:

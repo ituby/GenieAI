@@ -24,7 +24,7 @@ const LANGUAGE_DETECTOR = {
       }
       
       // Fallback to device language
-      const deviceLanguage = Localization.locale ? Localization.locale.split('-')[0] : 'en';
+      const deviceLanguage = Localization.getLocales()[0]?.languageCode || 'en';
       callback(deviceLanguage);
     } catch (error) {
       console.error('Error detecting language:', error);
@@ -45,7 +45,7 @@ i18n
   .use(LANGUAGE_DETECTOR)
   .use(initReactI18next)
   .init({
-    compatibilityJSON: 'v3',
+    compatibilityJSON: 'v4',
     fallbackLng: 'en',
     debug: __DEV__,
     

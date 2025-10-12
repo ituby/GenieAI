@@ -1,64 +1,92 @@
 export const colors = {
-  // Dark theme base colors
+  // Official Genie colors: Yellow, White, Black
   background: {
-    primary: '#0A0A0B',      // Deep black
-    secondary: '#1A1A1D',    // Dark gray
-    tertiary: '#2D2D30',     // Medium gray
-    card: '#1E1E21',         // Card background
-    modal: '#16161A',        // Modal background
+    primary: '#000000',      // Pure black
+    secondary: '#1A1A1A',    // Dark gray
+    tertiary: '#2A2A2A',     // Medium gray
+    card: '#333333',         // Card background
+    modal: '#1A1A1A',        // Modal background
   },
   
-  // Purple accent colors (main brand)
-  purple: {
-    50: '#F3E8FF',
-    100: '#E9D5FF',
-    200: '#D8B4FE',
-    300: '#C084FC',
-    400: '#A855F7',
-    500: '#8B5CF6',   // Primary purple
-    600: '#7C3AED',
-    700: '#6D28D9',
-    800: '#5B21B6',
-    900: '#4C1D95',
+  // Neutral grayscale colors
+  primary: {
+    50: '#F9F9F9',
+    100: '#F0F0F0',
+    200: '#E0E0E0',
+    300: '#D0D0D0',
+    400: '#B0B0B0',
+    500: '#808080',   // Neutral gray
+    600: '#606060',
+    700: '#404040',
+    800: '#202020',
+    900: '#000000',
   },
   
-  // Electric blue accents
+  // Secondary grayscale colors
+  secondary: {
+    50: '#FFFFFF',
+    100: '#F5F5F5',
+    200: '#E5E5E5',
+    300: '#D5D5D5',
+    400: '#C5C5C5',
+    500: '#909090',   // Light gray
+    600: '#707070',
+    700: '#505050',
+    800: '#303030',
+    900: '#101010',
+  },
+  
+  // Official yellow color palette
+  yellow: {
+    50: '#FFFFF0',
+    100: '#FFFFE0',
+    200: '#FFFFC0',
+    300: '#FFFFA0',
+    400: '#FFFF80',
+    500: '#FFFF68',   // Official Genie yellow
+    600: '#E6E600',
+    700: '#CCCC00',
+    800: '#B3B300',
+    900: '#999900',
+  },
+  
+  // Neutral blue accents
   blue: {
-    400: '#38BDF8',
-    500: '#06B6D4',   // Electric blue
-    600: '#0891B2',
+    400: '#808080',
+    500: '#606060',   // Neutral gray
+    600: '#404040',
   },
   
-  // Neon green for success
+  // Neutral green
   green: {
-    400: '#4ADE80',
-    500: '#10B981',   // Neon green
-    600: '#059669',
+    400: '#808080',
+    500: '#606060',   // Neutral gray
+    600: '#404040',
   },
   
   // Text colors
   text: {
     primary: '#FFFFFF',      // Pure white
-    secondary: '#D1D5DB',    // Light gray
-    tertiary: '#9CA3AF',     // Medium gray
-    disabled: '#6B7280',     // Disabled gray
+    secondary: '#CCCCCC',    // Light gray
+    tertiary: '#999999',      // Medium gray
+    disabled: '#666666',     // Disabled gray
     inverse: '#000000',      // Black for light backgrounds
   },
   
-  // Status colors
+  // Status colors (using official colors)
   status: {
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#06B6D4',
+    success: '#FFFF68',      // Official yellow
+    warning: '#FFFF68',      // Official yellow
+    error: '#FF4444',        // Red for errors
+    info: '#FFFFFF',         // White for info
   },
   
   // Border colors
   border: {
-    primary: '#374151',      // Dark border
-    secondary: '#4B5563',    // Medium border
-    focus: '#8B5CF6',        // Purple focus
-    error: '#EF4444',        // Error border
+    primary: '#404040',      // Dark border
+    secondary: '#606060',    // Medium border
+    focus: '#FFFFFF',        // White focus
+    error: '#999999',        // Gray border
   },
   
   // Overlay colors
@@ -68,12 +96,13 @@ export const colors = {
     heavy: 'rgba(0, 0, 0, 0.9)',
   },
   
-  // Gradient colors
+  // Gradient colors (using official colors)
   gradients: {
-    primary: ['#8B5CF6', '#A855F7'],
-    secondary: ['#06B6D4', '#38BDF8'],
-    success: ['#10B981', '#4ADE80'],
-    dark: ['#0A0A0B', '#1A1A1D'],
+    primary: ['#FFFF68', '#FFFFFF'],     // Official yellow to white
+    secondary: ['#FFFFFF', '#FFFF68'],   // White to yellow
+    success: ['#FFFF68', '#FFFFFF'],     // Yellow to white
+    warning: ['#FFFF68', '#FFFFFF'],     // Yellow to white
+    dark: ['#000000', '#1A1A1A'],        // Black gradient
   },
 } as const;
 

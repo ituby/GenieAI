@@ -95,3 +95,4 @@ export const createSampleGoals = async (userId: string) => {
     return [];
   }
 };
+

@@ -15,7 +15,7 @@ import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { useTheme } from '../theme/index';
 import { GoalWithProgress, Reward } from '../types/goal';
-import { TaskWithGoal } from '../types/task';
+import { TaskWithGoal, DailyTasks } from '../types/task';
 import { supabase } from '../services/supabase/client';
 
 interface GoalDetailsScreenProps {
@@ -30,6 +30,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const { t } = useTranslation();
   const theme = useTheme();
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
+  const [dailyTasks, setDailyTasks] = useState<DailyTasks[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -37,6 +38,35 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     fetchTasks();
     fetchRewards();
   }, [goal.id]);
+
+  const organizeTasksByDay = (tasks: TaskWithGoal[]): DailyTasks[] => {
+    const tasksByDate = new Map<string, TaskWithGoal[]>();
+    
+    tasks.forEach(task => {
+      const taskDate = new Date(task.run_at);
+      const dateKey = taskDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      if (!tasksByDate.has(dateKey)) {
+        tasksByDate.set(dateKey, []);
+      }
+      tasksByDate.get(dateKey)!.push(task);
+    });
+
+    // Convert to array and sort by date
+    const dailyTasksArray: DailyTasks[] = Array.from(tasksByDate.entries())
+      .map(([date, tasks]) => {
+        const completedCount = tasks.filter(task => task.completed).length;
+        return {
+          date,
+          tasks: tasks.sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime()),
+          completed_count: completedCount,
+          total_count: tasks.length
+        };
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return dailyTasksArray;
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -51,7 +81,9 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         .order('run_at', { ascending: true });
 
       if (error) throw error;
-      setTasks(data || []);
+      const tasksData = data || [];
+      setTasks(tasksData);
+      setDailyTasks(organizeTasksByDay(tasksData));
     } catch (error) {
       console.error('Error fetching tasks:', error);
         Alert.alert('Error', 'Unable to load tasks');
@@ -89,11 +121,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       if (error) throw error;
 
       // Update local state
-      setTasks(prev => prev.map(task => 
+      const updatedTasks = tasks.map(task => 
         task.id === taskId 
           ? { ...task, completed: !completed, completed_at: !completed ? new Date().toISOString() : undefined }
           : task
-      ));
+      );
+      setTasks(updatedTasks);
+      setDailyTasks(organizeTasksByDay(updatedTasks));
 
       // Check for unlocked rewards after task completion
       if (!completed) {
@@ -105,7 +139,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     }
   };
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = (category: string, iconName?: string) => {
+    // Use AI-selected icon if available
+    if (iconName) {
+      return iconName;
+    }
+    
+    // Fallback to category-based icons
     const icons = {
       lifestyle: 'heart',
       career: 'briefcase',
@@ -116,15 +156,26 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     return icons[category as keyof typeof icons] || icons.custom;
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      lifestyle: theme.colors.blue[500],
-      career: theme.colors.purple[500],
-      mindset: theme.colors.green[500],
-      character: theme.colors.purple[400],
-      custom: theme.colors.text.secondary,
-    };
-    return colors[category as keyof typeof colors] || colors.custom;
+  const getGoalColor = (category: string, aiColor?: string) => {
+    // Use AI-selected color if available
+    if (aiColor) {
+      const colorMap = {
+        yellow: '#FFFF68',
+        green: '#00FF88',
+        red: '#FF4444',
+        blue: '#4488FF',
+        orange: '#FF8844',
+        purple: '#8844FF',
+        pink: '#FF4488',
+        cyan: '#44FFFF',
+        lime: '#88FF44',
+        magenta: '#FF44FF',
+      };
+      return colorMap[aiColor as keyof typeof colorMap] || colorMap.yellow;
+    }
+    
+    // Fallback to neutral colors when no AI color is provided
+    return theme.colors.text.secondary;
   };
 
   const completedTasks = tasks.filter(task => task.completed).length;
@@ -141,6 +192,40 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     const firstLine = words.slice(0, 3).join(' ');
     const secondLine = words.slice(3).join(' ');
     return `${firstLine}\n${secondLine}`;
+  };
+
+  // Function to format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const isToday = date.toDateString() === today.toDateString();
+    const isTomorrow = date.toDateString() === tomorrow.toDateString();
+    
+    if (isToday) {
+      return 'Today';
+    } else if (isTomorrow) {
+      return 'Tomorrow';
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+  };
+
+  // Function to get day number from first task date
+  const getDayNumber = (dateString: string) => {
+    if (dailyTasks.length === 0) return 1;
+    
+    const taskDate = new Date(dateString);
+    const firstTaskDate = new Date(dailyTasks[0].date);
+    const diffTime = taskDate.getTime() - firstTaskDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return Math.max(1, diffDays);
   };
 
   const checkUnlockedRewards = async () => {
@@ -216,7 +301,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           <RefreshControl
             refreshing={loading}
             onRefresh={fetchTasks}
-            tintColor={theme.colors.purple[400]}
+            tintColor={theme.colors.yellow[500]}
           />
         }
       >
@@ -226,18 +311,18 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           <Card variant="gradient" padding="lg" style={styles.goalInfoCard}>
             <View style={styles.goalHeader}>
               <View style={styles.goalTitleContainer}>
-                <View style={[styles.iconContainer, { backgroundColor: getCategoryColor(goal.category) + '20' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.category, goal.color) + '20' }]}>
                   <Icon 
-                    name={getCategoryIcon(goal.category) as any}
+                    name={getCategoryIcon(goal.category, goal.icon_name) as any}
                     size={24}
-                    color={getCategoryColor(goal.category)}
+                    color={getGoalColor(goal.category, goal.color)}
                   />
                 </View>
                 <View>
                   <Text variant="h4" style={styles.goalTitle}>
                     {formatTitle(goal.title)}
                   </Text>
-                  <Text variant="caption" style={[styles.categoryText, { color: getCategoryColor(goal.category) }]}>
+                  <Text variant="caption" style={[styles.categoryText, { color: getGoalColor(goal.category, goal.color) }]}>
                     {goal.category.toUpperCase()}
                   </Text>
                 </View>
@@ -274,7 +359,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
               </View>
               
               <View style={styles.statItem}>
-                <Text variant="h4" color="purple">
+                <Text variant="h4" color="primary-color">
                   {goal.current_streak}
                 </Text>
                 <Text variant="caption" color="tertiary">
@@ -311,7 +396,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
               </Button>
           </View>
 
-          {tasks.length === 0 ? (
+          {dailyTasks.length === 0 ? (
             <Card variant="default" padding="lg" style={styles.emptyState}>
                 <Text variant="h4" style={styles.emptyTitle}>
                   No tasks yet
@@ -328,14 +413,47 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
               </Button>
             </Card>
           ) : (
-            <View style={styles.tasksList}>
-              {tasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onToggleComplete={() => handleToggleTask(task.id, task.completed)}
-                  onPress={() => console.log('Task details:', task.id)}
-                />
+            <View style={styles.dailyTasksContainer}>
+              {dailyTasks.map((dayTasks) => (
+                <View key={dayTasks.date} style={styles.daySection}>
+                  <View style={styles.dayHeader}>
+                    <View style={styles.dayHeaderLeft}>
+                      <Text variant="h4" style={styles.dayTitle}>
+                        {formatDate(dayTasks.date)}
+                      </Text>
+                      <Text variant="caption" color="tertiary" style={styles.dayNumber}>
+                        Day {getDayNumber(dayTasks.date)}
+                      </Text>
+                    </View>
+                    <View style={styles.dayProgress}>
+                      <Text variant="caption" color="success">
+                        {dayTasks.completed_count}/{dayTasks.total_count}
+                      </Text>
+                      <View style={styles.dayProgressBar}>
+                        <View 
+                          style={[
+                            styles.dayProgressFill, 
+                            { 
+                              width: `${(dayTasks.completed_count / dayTasks.total_count) * 100}%`,
+                              backgroundColor: theme.colors.status.success
+                            }
+                          ]} 
+                        />
+                      </View>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.dayTasksList}>
+                    {dayTasks.tasks.map((task) => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        onToggleComplete={() => handleToggleTask(task.id, task.completed)}
+                        onPress={() => console.log('Task details:', task.id)}
+                      />
+                    ))}
+                  </View>
+                </View>
               ))}
             </View>
           )}
@@ -346,7 +464,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           <View style={styles.content}>
             <View style={styles.sectionHeader}>
               <Text variant="h3">Rewards ({rewards.filter(r => r.unlocked).length}/{rewards.length})</Text>
-              <Icon name="trophy" size={20} color={theme.colors.purple[400]} />
+              <Icon name="trophy" size={20} color={theme.colors.yellow[500]} />
             </View>
 
             <View style={styles.rewardsList}>
@@ -478,6 +596,48 @@ const styles = StyleSheet.create({
     minWidth: 160,
   },
   tasksList: {
+    gap: 0,
+  },
+  dailyTasksContainer: {
+    gap: 24,
+  },
+  daySection: {
+    marginBottom: 8,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  dayHeaderLeft: {
+    flex: 1,
+  },
+  dayTitle: {
+    marginBottom: 2,
+  },
+  dayNumber: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  dayProgress: {
+    alignItems: 'flex-end',
+    minWidth: 80,
+  },
+  dayProgressBar: {
+    width: 60,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  dayProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  dayTasksList: {
     gap: 0,
   },
   rewardsList: {

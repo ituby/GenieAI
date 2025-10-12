@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,9 +7,15 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  Animated,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Button, Text, Card, TextField, Icon } from '../components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Button, Text, Card, TextField, Icon, AILoadingModal } from '../components';
+
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useTheme } from '../theme/index';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
@@ -34,17 +40,35 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'lifestyle' as GoalCategory,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(1);
+  
+  // Animation for gradient
+  const gradientAnimation = useRef(new Animated.Value(0)).current;
 
-  const categoryOptions = [
-    { key: 'lifestyle', label: 'Lifestyle', icon: 'heart', color: theme.colors.blue[500] },
-    { key: 'career', label: 'Career', icon: 'briefcase', color: theme.colors.purple[500] },
-    { key: 'mindset', label: 'Mindset', icon: 'brain', color: theme.colors.green[500] },
-    { key: 'character', label: 'Character', icon: 'sparkle', color: theme.colors.purple[400] },
-    { key: 'custom', label: 'Custom', icon: 'target', color: theme.colors.text.secondary },
-  ];
+  useEffect(() => {
+    // Start gradient animation loop
+    const startGradientAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(gradientAnimation, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: false,
+          }),
+          Animated.timing(gradientAnimation, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: false,
+          }),
+        ])
+      ).start();
+    };
+
+    startGradientAnimation();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -69,33 +93,30 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     if (!validateForm() || !user?.id) return;
 
     try {
-      // Show loading state
-      Alert.alert(
-        'Creating Your Goal...',
-        'Genie is analyzing your goal and creating a personalized 21-day plan with daily tasks, rewards, and smart notifications.',
-        [],
-        { cancelable: false }
-      );
+      setIsCreatingPlan(true);
+      setLoadingStep(1);
 
       // First create the goal
       const goal = await createGoal({
         user_id: user.id,
         title: formData.title.trim(),
         description: formData.description.trim(),
-        category: formData.category,
+        category: 'custom',
         status: 'active',
         start_date: new Date().toISOString().split('T')[0],
       });
 
       console.log('✅ Goal created:', goal.id);
+      setLoadingStep(2);
 
       // Then generate AI plan with detailed 21-day roadmap
       try {
+        setLoadingStep(3);
         const response = await supabase.functions.invoke('generate-plan', {
           body: {
             user_id: user.id,
             goal_id: goal.id,
-            category: formData.category,
+            category: 'custom',
             title: formData.title.trim(),
             description: formData.description.trim(),
             timezone: 'Asia/Jerusalem',
@@ -106,22 +127,44 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
         if (response.error) {
           console.error('❌ Plan generation error:', response.error);
-          Alert.alert(
-            'Goal Created Successfully!', 
-            'Your goal has been created! Genie will create your personalized 21-day plan shortly.',
-            [{ text: 'Continue', onPress: onGoalCreated }]
-          );
+          setLoadingStep(7);
+          setTimeout(() => {
+            Alert.alert(
+              'Goal Created Successfully!', 
+              'Your goal has been created! Genie will create your personalized 21-day plan shortly.',
+              [{ text: 'Continue', onPress: onGoalCreated }]
+            );
+          }, 1000);
         } else {
+          setLoadingStep(4);
           const taskCount = response.data?.tasks?.length || 21;
           const rewardCount = response.data?.rewards?.length || 0;
+          const iconName = response.data?.icon_name || 'star';
           
-          console.log('✅ AI Plan generated:', { taskCount, rewardCount });
+          console.log('✅ AI Plan generated:', { taskCount, rewardCount, iconName });
           
-          Alert.alert(
-            'Amazing! Your Goal is Ready! 🎉', 
-            `Genie has created your personalized 21-day journey with ${taskCount} daily tasks, ${rewardCount} rewards, and smart notifications to keep you motivated!`,
-            [{ text: 'Start My Journey', onPress: onGoalCreated }]
-          );
+          // Update goal with AI-selected icon
+          if (iconName && iconName !== 'star') {
+            try {
+              setLoadingStep(5);
+              await supabase
+                .from('goals')
+                .update({ icon_name: iconName })
+                .eq('id', goal.id);
+              console.log('🎨 Updated goal with icon:', iconName);
+            } catch (iconError) {
+              console.warn('⚠️ Failed to update goal icon:', iconError);
+            }
+          }
+          
+          setLoadingStep(6);
+          setTimeout(() => {
+            Alert.alert(
+              'Amazing! Your Goal is Ready! 🎉', 
+              `Genie has created your personalized 21-day journey with ${taskCount} daily tasks, ${rewardCount} rewards, and smart notifications to keep you motivated!`,
+              [{ text: 'Start My Journey', onPress: onGoalCreated }]
+            );
+          }, 1000);
         }
       } catch (planError) {
         console.error('❌ Failed to generate plan:', planError);
@@ -134,6 +177,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     } catch (error: any) {
       console.error('❌ Goal creation error:', error);
       Alert.alert('Error', `Failed to create goal: ${error.message}`);
+    } finally {
+      setIsCreatingPlan(false);
+      setLoadingStep(1);
     }
   };
 
@@ -146,6 +192,15 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+      {/* Fixed Header */}
+      <View style={styles.absoluteHeader}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Icon name="arrow-left" size={24} color={theme.colors.text.secondary} />
+        </TouchableOpacity>
+        <Text variant="h2" style={styles.largeTitle}>Create Goal</Text>
+        <View style={styles.spacer} />
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
@@ -155,20 +210,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <Button 
-                variant="ghost" 
-                onPress={onBack}
-                leftIcon={<Icon name="arrow-left" size={18} color={theme.colors.text.secondary} />}
-              >
-                Back
-              </Button>
-              <Text variant="h2">New Goal</Text>
-              <View style={styles.spacer} />
-            </View>
-          </View>
 
           {/* Form */}
           <View style={styles.form}>
@@ -177,8 +218,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               value={formData.title}
               onChangeText={(value) => updateField('title', value)}
               error={errors.title}
-              placeholder="e.g., Learn Spanish"
+              placeholder="Learn Spanish"
               maxLength={100}
+              inputStyle={styles.rightAlignedInput}
+              placeholderTextColor="rgba(255, 255, 255, 0.3)"
+              containerStyle={styles.darkInputContainer}
             />
 
             <TextField
@@ -186,67 +230,79 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               value={formData.description}
               onChangeText={(value) => updateField('description', value)}
               error={errors.description}
-              placeholder="Why is this important to you? How will you know you've succeeded? Genie will create a personalized 21-day plan with daily tasks"
+              placeholder="Why is this important to you? How will you know you've succeeded?"
               multiline
-              numberOfLines={4}
+              numberOfLines={6}
               maxLength={500}
+              containerStyle={[styles.descriptionContainer, styles.darkInputContainer]}
+              inputStyle={styles.rightAlignedInput}
+              placeholderTextColor="rgba(255, 255, 255, 0.3)"
             />
 
-            {/* Category Selection */}
-            <View style={styles.categorySection}>
-              <Text variant="label" style={styles.categoryLabel}>
-                Choose Category
-              </Text>
-              
-              <View style={styles.categoryGrid}>
-                {categoryOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.key}
-                    style={[
-                      styles.categoryCard,
-                      {
-                        borderColor: formData.category === option.key 
-                          ? option.color 
-                          : theme.colors.border.primary,
-                        backgroundColor: formData.category === option.key 
-                          ? option.color + '20' 
-                          : theme.colors.background.secondary,
-                      }
-                    ]}
-                    onPress={() => updateField('category', option.key)}
-                  >
-                    <Icon 
-                      name={option.icon as any}
-                      size={24}
-                      color={formData.category === option.key ? option.color : theme.colors.text.secondary}
-                    />
-                    <Text 
-                      variant="caption" 
-                      style={[
-                        styles.categoryText,
-                        { color: formData.category === option.key ? option.color : theme.colors.text.secondary }
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
           </View>
+
+          {/* AI Loading Modal */}
+          <AILoadingModal
+            visible={isCreatingPlan}
+            currentStep={loadingStep}
+            totalSteps={7}
+          />
 
           {/* Actions */}
           <View style={styles.actions}>
-            <Button
-              variant="primary"
-              fullWidth
-              loading={loading}
-              onPress={handleSubmit}
-              size="lg"
-              leftIcon={<Icon name="brain" size={20} color={theme.colors.text.primary} />}
+            <Animated.View
+              style={[
+                styles.createButton,
+                {
+                  opacity: gradientAnimation.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.8, 1, 0.8],
+                  }),
+                  transform: [
+                    {
+                      scale: gradientAnimation.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [1, 1.02, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
             >
-              Create Plan with Genie
-            </Button>
+              <TouchableOpacity
+                disabled={loading || isCreatingPlan}
+                onPress={handleSubmit}
+                activeOpacity={0.8}
+                style={styles.createButtonTouchable}
+              >
+                <AnimatedLinearGradient
+                  colors={[
+                    gradientAnimation.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: ['#FFFF68', '#FFFFFF', '#FFFF68'],
+                    }),
+                    gradientAnimation.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: ['#FFFFFF', '#FFFF68', '#FFFFFF'],
+                    }),
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.createButtonGradient}
+                >
+                  <View style={styles.createButtonContent}>
+                    {loading || isCreatingPlan ? (
+                      <ActivityIndicator size="small" color="#000000" />
+                    ) : (
+                      <Icon name="brain" size={20} color="#000000" weight="fill" />
+                    )}
+                    <Text style={styles.createButtonText}>
+                      {isCreatingPlan ? 'Genie is Creating Your Plan...' : 'Create Plan with Genie'}
+                    </Text>
+                  </View>
+                </AnimatedLinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -259,57 +315,82 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 50, // Top safe area padding
   },
+  absoluteHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50, // Safe area padding
+    paddingBottom: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
   keyboardAvoid: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
+    paddingTop: 100, // Space for absolute header
   },
   scrollContent: {
     paddingBottom: 20,
   },
-  header: {
-    padding: 20,
-    paddingBottom: 0,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   spacer: {
     width: 60, // Same width as back button for centering
+  },
+  backButton: {
+    padding: 8,
+  },
+  largeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
   },
   form: {
     padding: 20,
     gap: 20,
   },
-  categorySection: {
-    gap: 12,
+  descriptionContainer: {
+    minHeight: 120,
   },
-  categoryLabel: {
-    marginBottom: 8,
+  rightAlignedInput: {
+    textAlign: 'left',
+    fontSize: 14,
   },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  categoryCard: {
-    flex: 1,
-    minWidth: '45%',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    gap: 8,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
+  darkInputContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   actions: {
     padding: 20,
+  },
+  createButton: {
+    borderRadius: 12,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  createButtonTouchable: {
+    width: '100%',
+  },
+  createButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  createButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

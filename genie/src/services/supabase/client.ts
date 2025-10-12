@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import env from '../../config/env';
+import Constants from 'expo-constants';
 
 export const supabase = createClient(
-  env.EXPO_PUBLIC_SUPABASE_URL,
-  env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL as string,
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY as string,
   {
     auth: {
       autoRefreshToken: true,

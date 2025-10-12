@@ -28,11 +28,11 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   const strokeDasharray = circumference;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
   
-  const progressColor = color || theme.colors.purple[500];
+  const progressColor = color || theme.colors.text.secondary;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      <Svg width={size} height={size} style={styles.svg}>
+      <Svg width={size} height={size} style={styles.svg} viewBox={`0 0 ${size} ${size}`}>
         {/* Background circle */}
         <Circle
           cx={size / 2}
@@ -61,7 +61,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
       {/* Center content */}
       <View style={styles.centerContent}>
         {children || (showPercentage && (
-          <Text variant="h4" color="purple" style={styles.percentage}>
+          <Text variant="h4" color="primary-color" style={styles.percentage}>
             {Math.round(progress)}%
           </Text>
         ))}

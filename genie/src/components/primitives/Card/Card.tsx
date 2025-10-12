@@ -37,7 +37,7 @@ export const Card: React.FC<CardProps> = ({
         borderColor: theme.colors.border.primary,
       },
       elevated: {
-        shadowColor: theme.colors.purple[500],
+        shadowColor: theme.colors.primary[500],
         shadowOffset: {
           width: 0,
           height: 4,
@@ -47,7 +47,7 @@ export const Card: React.FC<CardProps> = ({
         elevation: 8,
       },
       gradient: {
-        backgroundColor: `${theme.colors.purple[500]}20`, // Semi-transparent purple instead of gradient
+        backgroundColor: `${theme.colors.background.card}30`, // More visible light gray instead of gradient
       },
     };
 

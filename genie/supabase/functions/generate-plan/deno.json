@@ -1,8 +1,5 @@
 {
   "imports": {
     "supabase": "https://esm.sh/@supabase/supabase-js@2"
-  },
-  "env": {
-    "GOOGLE_AI_API_KEY": "AIzaSyAzHeO1osVlxtsyj_zC5UdbQt4-0YYzFu4"
   }
 }

@@ -11,6 +11,8 @@ export interface Goal {
   description: string;
   start_date: string;
   status: GoalStatus;
+  icon_name?: string; // Phosphor icon name
+  color?: string; // AI-selected color
   created_at: string;
   updated_at?: string;
 }

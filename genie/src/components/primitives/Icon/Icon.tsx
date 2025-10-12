@@ -1,57 +1,8 @@
 import React from 'react';
-import { 
-  Target,
-  Briefcase,
-  Brain,
-  Sparkle,
-  Heart,
-  CheckCircle,
-  Circle,
-  Plus,
-  ArrowLeft,
-  DotsThree,
-  Fire,
-  ClipboardText,
-  Sun,
-  MoonStars,
-  Sunset,
-  User,
-  SignOut,
-  Bell,
-  Gear,
-  Trophy,
-  TrendUp,
-  Calendar,
-  CalendarCheck,
-  Clock,
-} from 'phosphor-react-native';
+import * as PhosphorIcons from 'phosphor-react-native';
 import { useTheme } from '../../../theme/index';
 
-export type IconName = 
-  | 'target'
-  | 'briefcase' 
-  | 'brain'
-  | 'sparkle'
-  | 'heart'
-  | 'check-circle'
-  | 'circle'
-  | 'plus'
-  | 'arrow-left'
-  | 'dots-three'
-  | 'fire'
-  | 'clipboard-text'
-  | 'sun'
-  | 'moon-stars'
-  | 'sunset'
-  | 'user'
-  | 'sign-out'
-  | 'bell'
-  | 'gear'
-  | 'trophy'
-  | 'trend-up'
-  | 'calendar'
-  | 'calendar-check'
-  | 'clock';
+export type IconName = string; // Allow any Phosphor icon name
 
 export interface IconProps {
   name: IconName;
@@ -60,31 +11,14 @@ export interface IconProps {
   weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
 }
 
-const iconMap = {
-  'target': Target,
-  'briefcase': Briefcase,
-  'brain': Brain,
-  'sparkle': Sparkle,
-  'heart': Heart,
-  'check-circle': CheckCircle,
-  'circle': Circle,
-  'plus': Plus,
-  'arrow-left': ArrowLeft,
-  'dots-three': DotsThree,
-  'fire': Fire,
-  'clipboard-text': ClipboardText,
-  'sun': Sun,
-  'moon-stars': MoonStars,
-  'sunset': Sunset,
-  'user': User,
-  'sign-out': SignOut,
-  'bell': Bell,
-  'gear': Gear,
-  'trophy': Trophy,
-  'trend-up': TrendUp,
-  'calendar': Calendar,
-  'calendar-check': CalendarCheck,
-  'clock': Clock,
+// Convert icon name to PascalCase for Phosphor component lookup
+const getIconComponent = (iconName: string) => {
+  const pascalCaseName = iconName
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+  
+  return (PhosphorIcons as any)[pascalCaseName];
 };
 
 export const Icon: React.FC<IconProps> = ({
@@ -94,11 +28,19 @@ export const Icon: React.FC<IconProps> = ({
   weight = 'regular',
 }) => {
   const theme = useTheme();
-  const IconComponent = iconMap[name];
+  const IconComponent = getIconComponent(name);
   
   if (!IconComponent) {
-    console.warn(`Icon "${name}" not found`);
-    return null;
+    console.warn(`Icon "${name}" not found in Phosphor library`);
+    // Fallback to a default icon
+    const FallbackIcon = (PhosphorIcons as any).Question;
+    return (
+      <FallbackIcon
+        size={size}
+        color={color || theme.colors.text.tertiary}
+        weight={weight}
+      />
+    );
   }
 
   return (

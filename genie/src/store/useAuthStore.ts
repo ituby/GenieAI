@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase/client';
+import Constants from 'expo-constants';
 
 interface AuthState {
   user: User | null;
@@ -41,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           console.log('🔐 Attempting login with:', email);
-          console.log('🔗 Supabase URL:', supabase.supabaseUrl);
+          console.log('🔗 Supabase URL:', Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL);
           
           const { data, error } = await supabase.auth.signInWithPassword({
             email,

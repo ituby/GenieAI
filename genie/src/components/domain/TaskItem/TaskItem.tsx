@@ -61,10 +61,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               styles.checkbox,
               {
                 backgroundColor: task.completed 
-                  ? theme.colors.green[500] 
+                  ? theme.colors.primary[500] 
                   : 'transparent',
                 borderColor: task.completed 
-                  ? theme.colors.green[500] 
+                  ? theme.colors.primary[500] 
                   : theme.colors.border.primary,
               }
             ]}
@@ -80,6 +80,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <View style={styles.taskHeader}>
               <Text 
                 variant="h4" 
+                color="primary-color"
                 numberOfLines={1}
                 style={[
                   styles.taskTitle,
@@ -116,7 +117,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
             {/* Goal Info */}
             <View style={styles.goalInfo}>
-              <Text variant="caption" color="purple">
+              <Text variant="caption" color="primary-color">
                 {task.goal.title}
               </Text>
               <Text variant="caption" color="tertiary">

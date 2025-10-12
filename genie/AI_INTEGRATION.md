@@ -127,3 +127,4 @@ The app automatically tests AI connectivity on startup and displays status in th
 - **Local AI**: On-device processing for privacy
 - **Specialized models**: Category-specific AI models
 - **Multimodal**: Image and voice input support
+

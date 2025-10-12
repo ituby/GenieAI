@@ -10,12 +10,15 @@ import {
   Animated,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-// import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Text, Card, Icon } from '../components';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Svg, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { Text, Card, Icon } from '../components';
+import { Button } from '../components/primitives/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard } from '../components/domain/GoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
+import { TaskItem } from '../components/domain/TaskItem';
 import { useTheme } from '../theme/index';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
@@ -25,29 +28,65 @@ import { supabase } from '../services/supabase/client';
 import { NewGoalScreen } from './NewGoalScreen';
 import { GoalDetailsScreen } from './GoalDetailsScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
+import { TaskWithGoal } from '../types/task';
 
 export const DashboardScreen: React.FC = () => {
   const { t } = useTranslation();
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
-  const { activeGoals, loading, fetchGoals, updateGoal } = useGoalStore();
+  const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal } = useGoalStore();
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
   const [showNewGoal, setShowNewGoal] = React.useState(false);
   const [selectedGoal, setSelectedGoal] = React.useState<GoalWithProgress | null>(null);
   const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
   const [showSideMenu, setShowSideMenu] = React.useState(false);
   const [showGoalMenu, setShowGoalMenu] = React.useState<string | null>(null);
+  const [todaysTasksCount, setTodaysTasksCount] = React.useState<number>(0);
+  const [todaysTasks, setTodaysTasks] = React.useState<TaskWithGoal[]>([]);
+  const [userTokens, setUserTokens] = React.useState({
+    used: 2,
+    remaining: 1,
+    total: 3,
+    isSubscribed: false,
+    monthlyTokens: 0,
+  });
   
   // Animation for button border
   const borderAnimation = useRef(new Animated.Value(0)).current;
+  // Animation for Add Goal button
+  const addGoalAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (user?.id) {
       fetchGoals(user.id);
       fetchRecentRewards();
+      fetchTodaysTasks();
     }
-    testAIConnection();
   }, [user?.id]);
+
+  // Start Add Goal button animation
+  useEffect(() => {
+    const startAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(addGoalAnimation, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(addGoalAnimation, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    if (activeGoals.length > 0) {
+      startAnimation();
+    }
+  }, [activeGoals.length, addGoalAnimation]);
 
   const fetchRecentRewards = async () => {
     if (!user?.id) return;
@@ -70,6 +109,68 @@ export const DashboardScreen: React.FC = () => {
     }
   };
 
+  const fetchTodaysTasks = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+      const { data, error } = await supabase
+        .from('goal_tasks')
+        .select(`
+          id,
+          title,
+          description,
+          run_at,
+          completed,
+          completed_at,
+          goal_id,
+          created_at,
+          updated_at,
+          goals!inner(
+            id,
+            title,
+            category,
+            user_id
+          )
+        `)
+        .eq('goals.user_id', user.id)
+        .gte('run_at', startOfDay.toISOString())
+        .lt('run_at', endOfDay.toISOString())
+        .order('run_at', { ascending: true });
+
+      if (error) throw error;
+      
+      // Transform data to match TaskWithGoal interface
+      const transformedTasks: TaskWithGoal[] = (data || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        run_at: task.run_at,
+        completed: task.completed,
+        completed_at: task.completed_at,
+        goal_id: task.goal_id,
+        created_at: task.created_at,
+        updated_at: task.updated_at,
+        goal: {
+          id: (task.goals as any).id,
+          title: (task.goals as any).title,
+          category: (task.goals as any).category
+        }
+      }));
+      
+      setTodaysTasksCount(transformedTasks.length);
+      setTodaysTasks(transformedTasks);
+      console.log('📅 Today\'s tasks:', data?.length || 0);
+    } catch (error) {
+      console.error('Error fetching today\'s tasks:', error);
+      setTodaysTasksCount(0);
+      setTodaysTasks([]);
+    }
+  };
+
   const testAIConnection = async () => {
     try {
       const response = await supabase.functions.invoke('generate-plan', {
@@ -82,20 +183,12 @@ export const DashboardScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    // Test AI connection on component mount
-    const testAI = async () => {
-      console.log('🧪 Starting AI connection test...');
-      const isConnected = await GoalsService.testAIConnection();
-      console.log('🧪 AI connection result:', isConnected);
-      setAiConnected(isConnected);
-    };
-    testAI();
-  }, []);
+  // Removed automatic AI connection test to prevent unnecessary API calls
 
   const handleRefresh = () => {
     if (user?.id) {
       fetchGoals(user.id);
+      fetchTodaysTasks();
     }
   };
 
@@ -118,7 +211,11 @@ export const DashboardScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await updateGoal(goalId, { status: 'paused' });
+              await deleteGoal(goalId);
+              if (user?.id) {
+                fetchGoals(user.id);
+                fetchTodaysTasks();
+              }
             } catch (error) {
               console.error('Error deleting goal:', error);
               Alert.alert('Error', 'Failed to delete goal');
@@ -187,8 +284,52 @@ export const DashboardScreen: React.FC = () => {
 
   const handleGoalCreated = () => {
     setShowNewGoal(false);
+    // Update tokens after creating a goal
+    setUserTokens(prev => ({
+      ...prev,
+      used: prev.used + 1,
+      remaining: prev.remaining - 1,
+    }));
     if (user?.id) {
       fetchGoals(user.id);
+      fetchTodaysTasks();
+    }
+  };
+
+  const checkTokensAndCreateGoal = () => {
+    if (userTokens.remaining <= 0) {
+      // Show subscription modal or upgrade prompt
+      alert('You have used all your free plans. Please subscribe to continue creating goals.');
+      return;
+    }
+    setShowNewGoal(true);
+  };
+
+  const handleToggleTask = async (taskId: string, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('goal_tasks')
+        .update({ 
+          completed: !completed,
+          completed_at: !completed ? new Date().toISOString() : null
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      
+      // Update local state
+      setTodaysTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === taskId 
+            ? { ...task, completed: !completed, completed_at: !completed ? new Date().toISOString() : undefined }
+            : task
+        )
+      );
+      
+      // Refresh tasks count
+      fetchTodaysTasks();
+    } catch (error) {
+      console.error('Error toggling task:', error);
     }
   };
 
@@ -242,7 +383,7 @@ export const DashboardScreen: React.FC = () => {
           <RefreshControl
             refreshing={loading}
             onRefresh={handleRefresh}
-            tintColor={theme.colors.purple[400]}
+            tintColor={theme.colors.yellow[500]}
           />
         }
       >
@@ -254,8 +395,58 @@ export const DashboardScreen: React.FC = () => {
               <Text variant="h2" style={styles.greeting}>
                 {t('dashboard.greeting', { name: getUserName() })}
               </Text>
+              <Text variant="body" style={styles.motivationalText}>
+                Every step forward is progress
+              </Text>
             </View>
           </View>
+        </View>
+
+        {/* Usage Rate Card */}
+        <View style={styles.sectionCompact}>
+          <Card variant="gradient" padding="md" style={styles.usageRateCard}>
+            <View style={styles.usageRateHeader}>
+              <View style={styles.usageRateTitleContainer}>
+                <Icon name="chart-bar" size={20} color="#FFFF68" weight="fill" />
+                <Text variant="h4" style={styles.usageRateTitle}>Usage Rate</Text>
+              </View>
+              <TouchableOpacity style={styles.purchaseTokensButton}>
+                <Icon name="plus" size={16} color="#FFFF68" weight="fill" />
+                <Text style={styles.purchaseTokensText}>Buy Tokens</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.usageRateContent}>
+              <View style={styles.usageRateStats}>
+                <View style={styles.usageRateStat}>
+                  <Text variant="h2" style={styles.usageRateNumber}>{userTokens.used}</Text>
+                  <Text variant="caption" color="secondary" style={styles.usageRateLabel}>Used</Text>
+                </View>
+                <View style={styles.usageRateDivider} />
+                <View style={styles.usageRateStat}>
+                  <Text variant="h2" style={styles.usageRateNumber}>{userTokens.remaining}</Text>
+                  <Text variant="caption" color="secondary" style={styles.usageRateLabel}>Remaining</Text>
+                </View>
+              </View>
+              <View style={styles.usageRateProgress}>
+                <View style={styles.usageRateProgressBar}>
+                  <View style={[styles.usageRateProgressFill, { width: `${(userTokens.used / userTokens.total) * 100}%` }]} />
+                </View>
+                <Text variant="caption" color="tertiary" style={styles.usageRateProgressText}>
+                  {userTokens.used} of {userTokens.total} {userTokens.isSubscribed ? 'monthly' : 'free'} plans used
+                </Text>
+              </View>
+              {userTokens.remaining === 0 && !userTokens.isSubscribed && (
+                <View style={styles.subscriptionPrompt}>
+                  <Text variant="caption" color="secondary" style={styles.subscriptionText}>
+                    Upgrade to continue creating goals
+                  </Text>
+                  <TouchableOpacity style={styles.subscribeButton}>
+                    <Text style={styles.subscribeButtonText}>Subscribe</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </Card>
         </View>
 
         {/* Quick Stats */}
@@ -264,16 +455,18 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.statIconContainer}>
               <Icon name="target" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
             </View>
-            <ProgressRing 
-              progress={activeGoals.length > 0 ? (activeGoals.reduce((sum, goal) => sum + goal.completion_percentage, 0) / activeGoals.length) : 0}
-              size={60}
-              strokeWidth={4}
-              showPercentage={false}
-            >
-              <Text variant="h4" color="purple">
-                {activeGoals.length}
-              </Text>
-            </ProgressRing>
+            <View style={styles.statProgressContainer}>
+              <ProgressRing 
+                progress={activeGoals.length > 0 ? (activeGoals.reduce((sum, goal) => sum + goal.completion_percentage, 0) / activeGoals.length) : 0}
+                size={40}
+                strokeWidth={3}
+                showPercentage={false}
+              >
+                <Text variant="h4" style={{ color: '#FFFFFF' }}>
+                  {activeGoals.length}
+                </Text>
+              </ProgressRing>
+            </View>
             <Text variant="caption" color="secondary" style={styles.statLabel}>
               {t('dashboard.activeGoals')}
             </Text>
@@ -283,16 +476,18 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.statIconContainer}>
               <Icon name="fire" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
             </View>
-            <ProgressRing 
-              progress={0}
-              size={60}
-              strokeWidth={4}
-              showPercentage={false}
-            >
-              <Text variant="h4" color="secondary">
-                0
-              </Text>
-            </ProgressRing>
+            <View style={styles.statProgressContainer}>
+              <ProgressRing 
+                progress={0}
+                size={40}
+                strokeWidth={3}
+                showPercentage={false}
+              >
+                <Text variant="h4" style={{ color: '#FFFFFF' }}>
+                  0
+                </Text>
+              </ProgressRing>
+            </View>
             <Text variant="caption" color="secondary" style={styles.statLabel}>
               Day Streak
             </Text>
@@ -302,32 +497,34 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.statIconContainer}>
               <Icon name="clipboard-text" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
             </View>
-            <ProgressRing 
-              progress={0}
-              size={60}
-              strokeWidth={4}
-              showPercentage={false}
-            >
-              <Text variant="h4" color="secondary">
-                {activeGoals.reduce((sum, goal) => sum + goal.total_tasks, 0)}
-              </Text>
-            </ProgressRing>
+            <View style={styles.statProgressContainer}>
+              <ProgressRing 
+                progress={0}
+                size={40}
+                strokeWidth={3}
+                showPercentage={false}
+              >
+                <Text variant="h4" style={{ color: '#FFFFFF' }}>
+                  {todaysTasksCount}
+                </Text>
+              </ProgressRing>
+            </View>
             <Text variant="caption" color="secondary" style={styles.statLabel}>
               Today's Tasks
             </Text>
           </Card>
         </View>
 
-        {/* Create Goal Section */}
-        {activeGoals.length === 0 ? (
+        {/* Create Goal Section - Only show if there are no goals */}
+        {activeGoals.length === 0 && (
           <View style={styles.section}>
             <Card variant="default" padding="lg" style={styles.createGoalCard}>
               <View style={styles.createGoalContent}>
-                <View style={[styles.createGoalIcon, { backgroundColor: theme.colors.purple[400] + '20' }]}>
+                <View style={[styles.createGoalIcon, { backgroundColor: theme.colors.yellow[500] + '20' }]}>
                   <Icon 
                     name="target" 
                     size={48} 
-                    color={theme.colors.purple[400]} 
+                    color={theme.colors.yellow[500]} 
                     weight="fill"
                   />
                 </View>
@@ -342,58 +539,42 @@ export const DashboardScreen: React.FC = () => {
                 
                  <Animated.View
                    style={[
-                     styles.glassButtonContainer,
                      {
-                       borderColor: borderAnimation.interpolate({
+                       transform: [
+                         {
+                           scale: borderAnimation.interpolate({
+                             inputRange: [0, 0.5, 1],
+                             outputRange: [1, 1.05, 1],
+                           }),
+                         },
+                       ],
+                       opacity: borderAnimation.interpolate({
                          inputRange: [0, 0.5, 1],
-                         outputRange: ['#A855F7', '#EC4899', '#A855F7'], // Purple to pink to purple
-                       }),
-                       borderWidth: borderAnimation.interpolate({
-                         inputRange: [0, 0.5, 1],
-                         outputRange: [1, 2, 1], // Thinner to thicker to thinner
-                       }),
-                       shadowOpacity: borderAnimation.interpolate({
-                         inputRange: [0, 0.5, 1],
-                         outputRange: [0.2, 0.4, 0.2], // Shadow intensity animation
-                       }),
-                       shadowRadius: borderAnimation.interpolate({
-                         inputRange: [0, 0.5, 1],
-                         outputRange: [8, 12, 8], // Shadow radius animation
+                         outputRange: [0.8, 1, 0.8],
                        }),
                      },
                    ]}
                  >
-                  <TouchableOpacity
-                    style={styles.glassButton}
-                    onPress={() => setShowNewGoal(true)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.glassButtonContent}>
-                      <Icon name="sparkle" size={20} color="#FFFFFF" weight="fill" />
-                      <Text style={styles.glassButtonText}>Begin Your Transformation</Text>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
+                   <LinearGradient
+                     colors={['#FFFF68', '#FFFFFF']}
+                     start={{ x: 0, y: 0 }}
+                     end={{ x: 1, y: 1 }}
+                     style={styles.createGoalButtonGradient}
+                   >
+                     <TouchableOpacity
+                       onPress={checkTokensAndCreateGoal}
+                       activeOpacity={0.8}
+                       style={styles.createGoalButton}
+                     >
+                       <View style={styles.createGoalButtonContent}>
+                         <Icon name="sparkle" size={20} color="#FFFFFF" weight="fill" />
+                         <Text style={styles.createGoalButtonText}>Begin Your Transformation</Text>
+                       </View>
+                     </TouchableOpacity>
+                   </LinearGradient>
+                 </Animated.View>
               </View>
             </Card>
-          </View>
-        ) : (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text variant="h3">Goals</Text>
-              <View style={styles.glassButtonContainer}>
-                <TouchableOpacity
-                  style={[styles.glassButton, styles.smallGlassButton]}
-                  onPress={() => setShowNewGoal(true)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.glassButtonContent}>
-                    <Icon name="sparkle" size={14} color="#FFFFFF" weight="fill" />
-                    <Text style={[styles.glassButtonText, styles.smallGlassButtonText]}>Add Goal</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
           </View>
         )}
 
@@ -401,8 +582,8 @@ export const DashboardScreen: React.FC = () => {
         {activeGoals.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text variant="h3">Active Goals</Text>
-              <Button variant="ghost" size="sm">
+              <Text variant="h4">Active Goals</Text>
+              <Button variant="ghost" size="xs">
                 View All
               </Button>
             </View>
@@ -420,44 +601,100 @@ export const DashboardScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Add Goal Button - Only show if there are goals */}
+        {activeGoals.length > 0 && (
+          <View style={styles.section}>
+            <Animated.View
+              style={[
+                {
+                  transform: [
+                    {
+                      scale: addGoalAnimation.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [1, 1.05, 1],
+                      }),
+                    },
+                  ],
+                  opacity: addGoalAnimation.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.8, 1, 0.8],
+                  }),
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={['#FFFF68', '#FFFFFF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.addGoalButtonGradient}
+              >
+                <TouchableOpacity
+                  onPress={checkTokensAndCreateGoal}
+                  activeOpacity={0.8}
+                  style={styles.addGoalButton}
+                >
+                  <View style={styles.addGoalButtonContent}>
+                    <Icon name="sparkle" size={14} color="#FFFFFF" weight="fill" />
+                    <Text style={styles.addGoalButtonText}>Add Goal</Text>
+                  </View>
+                </TouchableOpacity>
+              </LinearGradient>
+            </Animated.View>
+          </View>
+        )}
+
         {/* Today's Tasks Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text variant="h3">Today's Tasks</Text>
-            <Button variant="ghost" size="sm">
+            <Text variant="h4">Today's Tasks</Text>
+            <Button variant="ghost" size="xs">
               View All
             </Button>
           </View>
 
-          <Card variant="gradient" padding="md" style={styles.todayTasksCard}>
-            <View style={styles.todayTasksIconContainer}>
-              <Icon name="calendar" size={24} color="rgba(255, 255, 255, 0.8)" weight="fill" />
-            </View>
-            <ProgressRing 
-              progress={0}
-              size={80}
-              strokeWidth={6}
-              showPercentage={false}
-            >
-              <Text variant="h2" color="secondary">
-                0
+          {todaysTasksCount === 0 ? (
+            <Card variant="gradient" padding="md" style={styles.todayTasksCard}>
+              <View style={styles.todayTasksIconContainer}>
+                <Icon name="calendar" size={24} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+              </View>
+              <View style={styles.todayTasksNumberContainer}>
+                <Text variant="h2" color="secondary">
+                  0
+                </Text>
+              </View>
+              <Text variant="body" color="secondary" style={styles.todayTasksLabel}>
+                Tasks Today
               </Text>
-            </ProgressRing>
-            <Text variant="body" color="secondary" style={styles.todayTasksLabel}>
-              Tasks Today
-            </Text>
-            <Text variant="caption" color="tertiary" style={styles.todayTasksDescription}>
-              Create your first goal to get personalized daily tasks
-            </Text>
-          </Card>
+              <Text variant="caption" color="tertiary" style={styles.todayTasksDescription}>
+                Create your first goal to get personalized daily tasks
+              </Text>
+            </Card>
+          ) : (
+            <View style={styles.todayTasksList}>
+              {todaysTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  onToggleComplete={() => handleToggleTask(task.id, task.completed)}
+                  onPress={() => {
+                    // Find the goal for this task and navigate to it
+                    const goal = activeGoals.find(g => g.id === task.goal_id);
+                    if (goal) {
+                      setSelectedGoal(goal);
+                    }
+                  }}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Recent Rewards Section */}
         {recentRewards.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text variant="h3">Recent Rewards</Text>
-              <Icon name="trophy" size={20} color={theme.colors.purple[400]} />
+              <Text variant="h4">Recent Rewards</Text>
+              <Icon name="trophy" size={20} color={theme.colors.text.secondary} />
             </View>
             
             <View style={styles.rewardsList}>
@@ -505,10 +742,10 @@ export const DashboardScreen: React.FC = () => {
                 variant="ghost" 
                 fullWidth 
                 onPress={() => handleDeleteGoal(showGoalMenu)}
-                leftIcon={<Icon name="circle" size={20} color={theme.colors.status.error} />}
-                style={[styles.goalMenuButton, { backgroundColor: theme.colors.status.error + '10' }]}
+                leftIcon={<Icon name="trash" size={20} color="#FF0000" />}
+                style={[styles.goalMenuButton, { backgroundColor: '#FF000010' }]}
               >
-                <Text style={{ color: theme.colors.status.error }}>Delete Goal</Text>
+                <Text style={{ color: '#FF0000' }}>Delete Goal</Text>
               </Button>
             </View>
           </View>
@@ -526,7 +763,7 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.sideMenuShadow} />
           <View style={styles.sideMenu}>
             <View style={styles.sideMenuHeader}>
-              <Text variant="h3">Menu</Text>
+              <Text variant="h4">Menu</Text>
               <Button variant="ghost" onPress={() => setShowSideMenu(false)}>
                 <Icon name="check-circle" size={20} color={theme.colors.text.secondary} />
               </Button>
@@ -625,7 +862,7 @@ const styles = StyleSheet.create({
   },
   contentHeader: {
     padding: 20,
-    paddingTop: 40, // Extra padding above greeting
+    paddingTop: 0, // No padding above greeting
     paddingBottom: 0,
   },
       headerLogo: {
@@ -641,16 +878,26 @@ const styles = StyleSheet.create({
   greeting: {
     marginBottom: 4,
   },
+  motivationalText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '400',
+    marginBottom: 16,
+  },
   statsContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    gap: 12,
+    gap: 16,
   },
   statCard: {
-    flex: 1,
+    width: 120,
+    height: 120,
+    position: 'relative',
     alignItems: 'center',
-    minHeight: 100,
     justifyContent: 'center',
   },
   statContent: {
@@ -658,18 +905,60 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statLabel: {
-    marginTop: 12,
-    textAlign: 'center',
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    textAlign: 'left',
+  },
+  statCardWrapper: {
+    alignItems: 'center',
+    width: 120,
   },
   statIconContainer: {
-    marginBottom: 12,
+    position: 'absolute',
+    top: 12,
+    left: 12,
+  },
+  statProgressContainer: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
   },
   todayTasksIconContainer: {
-    marginBottom: 16,
+    position: 'absolute',
+    top: 12,
+    left: 12,
+  },
+  todayTasksNumberContainer: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  todayTasksLabel: {
+    position: 'absolute',
+    bottom: 32,
+    left: 12,
+    right: 12,
+    textAlign: 'left',
+  },
+  todayTasksDescription: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    textAlign: 'left',
+  },
+  todayTasksList: {
+    gap: 8,
   },
   section: {
     paddingHorizontal: 20,
     marginBottom: 24,
+  },
+  sectionCompact: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -722,13 +1011,144 @@ const styles = StyleSheet.create({
       createGoalCard: {
         alignItems: 'center',
         paddingVertical: 60,
-        borderWidth: 2,
-        borderColor: '#A855F7', // purple[400]
+        borderWidth: 1,
+        borderColor: '#FFFF68', // Official yellow
         backgroundColor: 'transparent',
       },
       createGoalContent: {
         alignItems: 'center',
         maxWidth: 300,
+      },
+      createGoalButtonGradient: {
+        borderRadius: 12,
+        padding: 2,
+        width: '100%',
+      },
+      createGoalButton: {
+        borderRadius: 10,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        width: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      createGoalButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+      },
+      createGoalButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        textAlign: 'center',
+      },
+      usageRateCard: {
+        marginBottom: 0,
+      },
+      usageRateHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+      },
+      usageRateTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+      },
+      usageRateTitle: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+      },
+      purchaseTokensButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: 'rgba(255, 255, 104, 0.1)',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 104, 0.3)',
+      },
+      purchaseTokensText: {
+        color: '#FFFF68',
+        fontSize: 12,
+        fontWeight: '600',
+      },
+      usageRateContent: {
+        gap: 16,
+      },
+      usageRateStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      },
+      usageRateStat: {
+        alignItems: 'center',
+        flex: 1,
+      },
+      usageRateNumber: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        marginBottom: 4,
+      },
+      usageRateLabel: {
+        fontSize: 12,
+        opacity: 0.8,
+      },
+      usageRateDivider: {
+        width: 1,
+        height: 40,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        marginHorizontal: 16,
+      },
+      usageRateProgress: {
+        gap: 8,
+      },
+      usageRateProgressBar: {
+        height: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 3,
+        overflow: 'hidden',
+      },
+      usageRateProgressFill: {
+        height: '100%',
+        backgroundColor: '#FFFF68',
+        borderRadius: 3,
+      },
+      usageRateProgressText: {
+        textAlign: 'center',
+        fontSize: 12,
+        opacity: 0.7,
+      },
+      subscriptionPrompt: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+      },
+      subscriptionText: {
+        flex: 1,
+        fontSize: 12,
+        opacity: 0.8,
+      },
+      subscribeButton: {
+        backgroundColor: '#FFFF68',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+      },
+      subscribeButtonText: {
+        color: '#000000',
+        fontSize: 12,
+        fontWeight: '600',
       },
       createGoalIcon: {
         width: 80,
@@ -747,36 +1167,6 @@ const styles = StyleSheet.create({
         lineHeight: 24,
         marginBottom: 32,
       },
-      glassButtonContainer: {
-        borderRadius: 12,
-        shadowColor: '#A855F7',
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 8,
-      },
-      glassButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 12,
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderWidth: 0, // Remove inner border
-      },
-      glassButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-      },
-      glassButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
-        textAlign: 'center',
-      },
       smallGlassButton: {
         paddingVertical: 8,
         paddingHorizontal: 16,
@@ -784,17 +1174,35 @@ const styles = StyleSheet.create({
       smallGlassButtonText: {
         fontSize: 14,
       },
-      todayTasksCard: {
+      addGoalButtonGradient: {
+        borderRadius: 12,
+        padding: 2,
+        width: '100%',
+      },
+      addGoalButton: {
+        borderRadius: 10,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        width: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
         alignItems: 'center',
-        paddingVertical: 20,
+        justifyContent: 'center',
       },
-      todayTasksLabel: {
-        textAlign: 'center',
-        marginTop: 16,
+      addGoalButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
       },
-      todayTasksDescription: {
+      addGoalButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
         textAlign: 'center',
-        lineHeight: 20,
+      },
+      todayTasksCard: {
+        position: 'relative',
+        height: 120,
       },
   rewardsList: {
     gap: 0,
