@@ -58,7 +58,7 @@ export const Button: React.FC<ButtonProps> = ({
 
     const variantStyles = {
       primary: {
-        backgroundColor: theme.colors.background.card, // Neutral gray
+        backgroundColor: '#FFFF68', // Official Genie yellow
       },
       secondary: {
         backgroundColor: theme.colors.background.tertiary, // Darker gray
@@ -109,7 +109,7 @@ export const Button: React.FC<ButtonProps> = ({
 
     const variantTextStyles = {
       primary: {
-        color: theme.colors.text.primary, // White text on gray background
+        color: '#000000', // Black text on yellow background
       },
       secondary: {
         color: theme.colors.text.primary, // White text on darker gray background

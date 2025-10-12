@@ -44,8 +44,8 @@ export const colors = {
     300: '#FFFFA0',
     400: '#FFFF80',
     500: '#FFFF68',   // Official Genie yellow
-    600: '#E6E600',
-    700: '#CCCC00',
+    600: '#FFFF68',
+    700: '#FFFF68',
     800: '#B3B300',
     900: '#999900',
   },

@@ -15,7 +15,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   slug: 'genie-ai-app',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/AppIcon.png',
   userInterfaceStyle: 'dark',
   splash: {
     image: './assets/splash-icon.png',
@@ -26,18 +26,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ituby.genie.ai',
-    buildNumber: '1',
+    buildNumber: '2',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: './assets/icon.png',
+      foregroundImage: './assets/AppIcon.png',
       backgroundColor: '#0A0A0B',
     },
     package: 'com.ituby.genie.ai',
-    versionCode: 1,
+    versionCode: 2,
   },
   web: {
     favicon: './assets/favicon.png',

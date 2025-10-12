@@ -266,7 +266,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
         {!taskData.completed && canCompleteTask && (
           <View style={styles.actionButtons}>
             <LinearGradient
-              colors={['#FFFF68', '#FFDD00']}
+              colors={['#FFFF68', '#FFFF68']}
               style={styles.completedButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}

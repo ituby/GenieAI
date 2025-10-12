@@ -9,7 +9,6 @@ import es from './es.json';
 import fr from './fr.json';
 import de from './de.json';
 import ar from './ar.json';
-import he from './he.json';
 
 const LANGUAGE_DETECTOR = {
   type: 'languageDetector' as const,
@@ -49,7 +48,7 @@ i18n
     fallbackLng: 'en',
     debug: __DEV__,
     
-    supportedLngs: ['en', 'es', 'fr', 'de', 'ar', 'he'],
+    supportedLngs: ['en', 'es', 'fr', 'de', 'ar'],
     load: 'languageOnly',
     nonExplicitSupportedLngs: true,
     
@@ -59,7 +58,6 @@ i18n
       fr: { translation: fr },
       de: { translation: de },
       ar: { translation: ar },
-      he: { translation: he },
     },
     
     interpolation: {

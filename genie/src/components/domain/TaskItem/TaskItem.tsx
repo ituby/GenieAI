@@ -273,7 +273,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             style={styles.completionButton}
           >
             <LinearGradient
-              colors={['#FFFF68', '#FFDD00']}
+              colors={['#FFFF68', '#FFFF68']}
               style={styles.completionButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}

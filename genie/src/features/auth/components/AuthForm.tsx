@@ -86,7 +86,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
       <View style={styles.form}>
         {mode === 'register' && (
           <TextField
-            label={t('auth.fullName')}
+            placeholder={t('auth.fullName')}
             value={formData.fullName}
             onChangeText={(value) => updateField('fullName', value)}
             error={errors.fullName}
@@ -96,7 +96,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         )}
 
         <TextField
-          label={t('auth.email')}
+          placeholder={t('auth.email')}
           value={formData.email}
           onChangeText={(value) => updateField('email', value)}
           error={errors.email}
@@ -106,7 +106,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         />
 
         <TextField
-          label={t('auth.password')}
+          placeholder={t('auth.password')}
           value={formData.password}
           onChangeText={(value) => updateField('password', value)}
           error={errors.password}
@@ -116,7 +116,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
 
         {mode === 'register' && (
           <TextField
-            label={t('auth.confirmPassword')}
+            placeholder={t('auth.confirmPassword')}
             value={formData.confirmPassword}
             onChangeText={(value) => updateField('confirmPassword', value)}
             error={errors.confirmPassword}
@@ -160,12 +160,18 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 400,
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#FFFF68',
   },
   header: {
     alignItems: 'center',
     marginBottom: 32,
   },
   title: {
+    textAlign: 'center',
+  },
+  subtitle: {
     textAlign: 'center',
   },
   form: {
