@@ -1281,6 +1281,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 2,
         width: '100%',
+        marginBottom: 20,
       },
       addGoalButton: {
         borderRadius: 10,

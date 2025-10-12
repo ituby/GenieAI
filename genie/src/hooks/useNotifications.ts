@@ -53,14 +53,18 @@ export const useNotifications = () => {
     }
   };
 
-  const sendTestNotification = async (): Promise<void> => {
+  const sendTestNotification = async (userId?: string): Promise<void> => {
     try {
       if (!pushToken) {
         throw new Error('No push token available');
       }
 
+      if (!userId) {
+        throw new Error('User ID is required for test notification');
+      }
+
       await notificationService.sendPushNotification(
-        'test-user-id', // Replace with actual user ID
+        userId,
         'Test Notification',
         'This is a test notification from Genie!',
         { screen: 'dashboard' }

@@ -34,7 +34,7 @@ interface UserSettings {
 
 export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const theme = useTheme();
-  const { user } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const { 
     isInitialized, 
     pushToken, 
@@ -133,8 +133,14 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => {
-          // Handle sign out
+        { text: 'Sign Out', style: 'destructive', onPress: async () => {
+          try {
+            await signOut();
+            console.log('✅ User signed out successfully');
+          } catch (error) {
+            console.error('❌ Error signing out:', error);
+            Alert.alert('Error', 'Failed to sign out');
+          }
         }},
       ]
     );
@@ -263,7 +269,11 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 variant="outline"
                 onPress={async () => {
                   try {
-                    await sendTestNotification();
+                    if (!user?.id) {
+                      Alert.alert('Error', 'User not authenticated');
+                      return;
+                    }
+                    await sendTestNotification(user.id);
                     Alert.alert('Success', 'Test notification sent!');
                   } catch (error) {
                     Alert.alert('Error', 'Failed to send test notification');
