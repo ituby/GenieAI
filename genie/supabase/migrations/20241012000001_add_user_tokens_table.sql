@@ -27,3 +27,4 @@ CREATE POLICY "Users can insert own tokens" ON public.user_tokens
 
 -- Add comment for documentation
 COMMENT ON TABLE public.user_tokens IS 'Tracks token usage for each user. Non-subscribed users are limited to 3 tokens total.';
+

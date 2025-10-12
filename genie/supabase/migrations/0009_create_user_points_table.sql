@@ -40,3 +40,4 @@ GRANT ALL ON public.user_points TO service_role;
 CREATE TRIGGER update_user_points_updated_at
   BEFORE UPDATE ON public.user_points
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+

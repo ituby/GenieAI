@@ -12,7 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
   ...config,
   name: 'Genie',
-  slug: 'genie-app',
+  slug: 'genie-ai-app',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -25,22 +25,25 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.genie.app',
+    bundleIdentifier: 'com.ituby.genie.ai',
     buildNumber: '1',
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/icon.png',
       backgroundColor: '#0A0A0B',
     },
-    package: 'com.genie.app',
+    package: 'com.ituby.genie.ai',
     versionCode: 1,
   },
   web: {
     favicon: './assets/favicon.png',
     bundler: 'metro',
   },
-  scheme: process.env.EXPO_PUBLIC_SCHEME || 'genie',
+  scheme: process.env.EXPO_PUBLIC_SCHEME || 'genie-ai',
   plugins: [
     'expo-localization',
     [
@@ -61,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     GOOGLE_PROJECT_ID: process.env.GOOGLE_PROJECT_ID,
     GOOGLE_PROJECT_NUMBER: process.env.GOOGLE_PROJECT_NUMBER,
     eas: {
-      projectId: process.env.EAS_PROJECT_ID,
+      projectId: "0c3c8130-5044-4a33-ab3d-dcf1fb1a77a0",
     },
   },
 };
