@@ -13,7 +13,15 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Text, Card, TextField, Icon, AILoadingModal, GoalSuccessModal } from '../components';
+import {
+  Button,
+  Text,
+  Card,
+  TextField,
+  Icon,
+  AILoadingModal,
+  GoalSuccessModal,
+} from '../components';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useTheme } from '../theme/index';
@@ -36,10 +44,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const theme = useTheme();
   const { user } = useAuthStore();
   const { createGoal, loading } = useGoalStore();
-  
+
   // Check if user is subscribed
   const [isSubscribed, setIsSubscribed] = useState(false);
-  
+
   useEffect(() => {
     const checkSubscription = async () => {
       if (user?.id) {
@@ -49,7 +57,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             .select('is_subscribed')
             .eq('user_id', user.id)
             .single();
-          
+
           setIsSubscribed(data?.is_subscribed || false);
         } catch (error) {
           console.log('User subscription check failed:', error);
@@ -57,7 +65,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         }
       }
     };
-    
+
     checkSubscription();
   }, [user?.id]);
 
@@ -69,7 +77,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [loadingStep, setLoadingStep] = useState(1);
-  const [loadingInterval, setLoadingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [loadingInterval, setLoadingInterval] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState({
     taskCount: 0,
@@ -77,7 +87,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     iconName: '',
     color: '',
   });
-  
+
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
 
@@ -137,18 +147,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     try {
       setIsCreatingPlan(true);
       setLoadingStep(1);
-      
-      // Start progressive loading animation
+
+      // Start progressive loading animation with slower pace
       const interval = setInterval(() => {
-        setLoadingStep(prev => {
-          if (prev >= 15) {
+        setLoadingStep((prev) => {
+          if (prev >= 14) {
+            // Stop at step 14, let the final step be triggered manually
             clearInterval(interval);
-            return 15;
+            return 14;
           }
           return prev + 1;
         });
-      }, 1200); // Change step every 1200ms
-      
+      }, 2500); // Change step every 2500ms (2.5 seconds) for slower progression
+
       setLoadingInterval(interval);
 
       // First create the goal
@@ -183,7 +194,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           console.error('❌ Plan generation error:', response.error);
           setTimeout(() => {
             Alert.alert(
-              'Goal Created Successfully!', 
+              'Goal Created Successfully!',
               'Your goal has been created! Genie will create your personalized 21-day plan shortly.',
               [{ text: 'Continue', onPress: onGoalCreated }]
             );
@@ -193,9 +204,14 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           const rewardCount = response.data?.rewards?.length || 0;
           const iconName = response.data?.icon_name || 'star';
           const color = response.data?.color || 'yellow';
-          
-          console.log('✅ AI Plan generated:', { taskCount, rewardCount, iconName, color });
-          
+
+          console.log('✅ AI Plan generated:', {
+            taskCount,
+            rewardCount,
+            iconName,
+            color,
+          });
+
           // Update goal with AI-selected icon and color
           if (iconName && iconName !== 'star') {
             try {
@@ -203,11 +219,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 .from('goals')
                 .update({ icon_name: iconName, color: color })
                 .eq('id', goal.id);
-              console.log('🎨 Updated goal with icon and color:', iconName, color);
+              console.log(
+                '🎨 Updated goal with icon and color:',
+                iconName,
+                color
+              );
             } catch (iconError) {
-              console.warn('⚠️ Failed to update goal icon and color:', iconError);
+              console.warn(
+                '⚠️ Failed to update goal icon and color:',
+                iconError
+              );
             }
           }
+          // Ensure we reach the final step before showing success
+          setLoadingStep(15);
+
           setTimeout(() => {
             setSuccessData({
               taskCount,
@@ -221,6 +247,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         }
       } catch (planError) {
         console.error('❌ Failed to generate plan:', planError);
+        // Ensure we reach the final step before showing success
+        setLoadingStep(15);
+
         setSuccessData({
           taskCount: 21,
           rewardCount: 5,
@@ -232,6 +261,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
     } catch (error: any) {
       console.error('❌ Goal creation error:', error);
+      // Ensure we reach the final step before showing error
+      setLoadingStep(15);
+
       Alert.alert('Error', `Failed to create goal: ${error.message}`);
     } finally {
       // Clear loading interval
@@ -245,9 +277,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   };
 
   const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+      setErrors((prev) => ({ ...prev, [field]: '' }));
     }
   };
 
@@ -259,16 +291,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         'Medium and High intensity levels are available for subscribed users only. Upgrade to Premium to unlock advanced goal planning!',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => {
-            // TODO: Navigate to subscription screen
-            console.log('Navigate to subscription');
-          }}
+          {
+            text: 'Upgrade',
+            onPress: () => {
+              // TODO: Navigate to subscription screen
+              console.log('Navigate to subscription');
+            },
+          },
         ]
       );
       return;
     }
-    
-    setFormData(prev => ({ ...prev, intensity }));
+
+    setFormData((prev) => ({ ...prev, intensity }));
   };
 
   const handleStartJourney = () => {
@@ -277,7 +312,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background.primary },
+      ]}
+    >
       {/* Fixed Header */}
       <View style={styles.absoluteHeader}>
         {/* Blur overlay */}
@@ -288,9 +328,15 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         <View style={styles.blurEffect2} />
         <View style={styles.blurEffect3} />
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Icon name="arrow-left" size={24} color={theme.colors.text.secondary} />
+          <Icon
+            name="arrow-left"
+            size={24}
+            color={theme.colors.text.secondary}
+          />
         </TouchableOpacity>
-        <Text variant="h4" style={styles.largeTitle} numberOfLines={1}>Create Goal</Text>
+        <Text variant="h4" style={styles.largeTitle} numberOfLines={1}>
+          Create Goal
+        </Text>
         <View style={styles.spacer} />
       </View>
 
@@ -303,7 +349,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-
           {/* Form */}
           <View style={styles.form}>
             <TextField
@@ -327,45 +372,66 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               multiline
               numberOfLines={6}
               maxLength={500}
-              containerStyle={[styles.descriptionContainer, styles.darkInputContainer]}
+              containerStyle={[
+                styles.descriptionContainer,
+                styles.darkInputContainer,
+              ]}
               inputStyle={styles.rightAlignedInput}
               placeholderTextColor="rgba(255, 255, 255, 0.3)"
             />
 
             {/* Intensity Level Selection */}
             <View style={styles.intensitySection}>
-              <Text variant="h4" style={styles.intensityLabel}>Choose Intensity Level</Text>
-              <Text variant="caption" color="secondary" style={styles.intensityDescription}>
-                {formData.intensity === 'easy' && '3 tasks per day • Perfect for beginners'}
-                {formData.intensity === 'medium' && '6 tasks per day • Balanced approach'}
-                {formData.intensity === 'hard' && '12 tasks per day • Maximum challenge'}
+              <Text variant="h4" style={styles.intensityLabel}>
+                Choose Intensity Level
               </Text>
-              
+              <Text
+                variant="caption"
+                color="secondary"
+                style={styles.intensityDescription}
+              >
+                {formData.intensity === 'easy' &&
+                  '3 tasks per day • Perfect for beginners'}
+                {formData.intensity === 'medium' &&
+                  '6 tasks per day • Balanced approach'}
+                {formData.intensity === 'hard' &&
+                  '12 tasks per day • Maximum challenge'}
+              </Text>
+
               <View style={styles.intensityButtons}>
                 <TouchableOpacity
                   style={[
                     styles.intensityButton,
-                    formData.intensity === 'easy' && styles.intensityButtonSelected
+                    formData.intensity === 'easy' &&
+                      styles.intensityButtonSelected,
                   ]}
                   onPress={() => handleIntensitySelect('easy')}
                   activeOpacity={0.8}
                 >
-                  <Icon 
-                    name="leaf" 
-                    size={20} 
-                    color={formData.intensity === 'easy' ? '#000000' : '#FFFF68'} 
-                    weight="fill" 
+                  <Icon
+                    name="leaf"
+                    size={20}
+                    color={
+                      formData.intensity === 'easy' ? '#000000' : '#FFFF68'
+                    }
+                    weight="fill"
                   />
-                  <Text style={[
-                    styles.intensityButtonText,
-                    formData.intensity === 'easy' && styles.intensityButtonTextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.intensityButtonText,
+                      formData.intensity === 'easy' &&
+                        styles.intensityButtonTextSelected,
+                    ]}
+                  >
                     Easy
                   </Text>
-                  <Text style={[
-                    styles.intensityButtonSubtext,
-                    formData.intensity === 'easy' && styles.intensityButtonSubtextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.intensityButtonSubtext,
+                      formData.intensity === 'easy' &&
+                        styles.intensityButtonSubtextSelected,
+                    ]}
+                  >
                     3/day
                   </Text>
                 </TouchableOpacity>
@@ -373,33 +439,49 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.intensityButton,
-                    formData.intensity === 'medium' && styles.intensityButtonSelected,
-                    !isSubscribed && !(formData.intensity === 'medium') && styles.intensityButtonLocked
+                    formData.intensity === 'medium' &&
+                      styles.intensityButtonSelected,
+                    !isSubscribed &&
+                      !(formData.intensity === 'medium') &&
+                      styles.intensityButtonLocked,
                   ]}
                   onPress={() => handleIntensitySelect('medium')}
                   activeOpacity={0.8}
                 >
-                  <Icon 
-                    name="fire" 
-                    size={20} 
-                    color={formData.intensity === 'medium' ? '#000000' : '#FFFF68'} 
-                    weight="fill" 
+                  <Icon
+                    name="fire"
+                    size={20}
+                    color={
+                      formData.intensity === 'medium' ? '#000000' : '#FFFF68'
+                    }
+                    weight="fill"
                   />
-                  <Text style={[
-                    styles.intensityButtonText,
-                    formData.intensity === 'medium' && styles.intensityButtonTextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.intensityButtonText,
+                      formData.intensity === 'medium' &&
+                        styles.intensityButtonTextSelected,
+                    ]}
+                  >
                     Medium
                   </Text>
-                  <Text style={[
-                    styles.intensityButtonSubtext,
-                    formData.intensity === 'medium' && styles.intensityButtonSubtextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.intensityButtonSubtext,
+                      formData.intensity === 'medium' &&
+                        styles.intensityButtonSubtextSelected,
+                    ]}
+                  >
                     6/day
                   </Text>
                   {!isSubscribed && (
                     <View style={styles.premiumBadge}>
-                      <Icon name="crown" size={12} color="#FFFF68" weight="fill" />
+                      <Icon
+                        name="crown"
+                        size={12}
+                        color="#FFFF68"
+                        weight="fill"
+                      />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -407,39 +489,54 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.intensityButton,
-                    formData.intensity === 'hard' && styles.intensityButtonSelected,
-                    !isSubscribed && !(formData.intensity === 'hard') && styles.intensityButtonLocked
+                    formData.intensity === 'hard' &&
+                      styles.intensityButtonSelected,
+                    !isSubscribed &&
+                      !(formData.intensity === 'hard') &&
+                      styles.intensityButtonLocked,
                   ]}
                   onPress={() => handleIntensitySelect('hard')}
                   activeOpacity={0.8}
                 >
-                  <Icon 
-                    name="lightning" 
-                    size={20} 
-                    color={formData.intensity === 'hard' ? '#000000' : '#FFFF68'} 
-                    weight="fill" 
+                  <Icon
+                    name="lightning"
+                    size={20}
+                    color={
+                      formData.intensity === 'hard' ? '#000000' : '#FFFF68'
+                    }
+                    weight="fill"
                   />
-                  <Text style={[
-                    styles.intensityButtonText,
-                    formData.intensity === 'hard' && styles.intensityButtonTextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.intensityButtonText,
+                      formData.intensity === 'hard' &&
+                        styles.intensityButtonTextSelected,
+                    ]}
+                  >
                     Hard
                   </Text>
-                  <Text style={[
-                    styles.intensityButtonSubtext,
-                    formData.intensity === 'hard' && styles.intensityButtonSubtextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.intensityButtonSubtext,
+                      formData.intensity === 'hard' &&
+                        styles.intensityButtonSubtextSelected,
+                    ]}
+                  >
                     12/day
                   </Text>
                   {!isSubscribed && (
                     <View style={styles.premiumBadge}>
-                      <Icon name="crown" size={12} color="#FFFF68" weight="fill" />
+                      <Icon
+                        name="crown"
+                        size={12}
+                        color="#FFFF68"
+                        weight="fill"
+                      />
                     </View>
                   )}
                 </TouchableOpacity>
               </View>
             </View>
-
           </View>
 
           {/* AI Loading Modal */}
@@ -501,10 +598,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     {loading || isCreatingPlan ? (
                       <ActivityIndicator size="small" color="#000000" />
                     ) : (
-                      <Icon name="brain" size={20} color="#000000" weight="fill" />
+                      <Icon
+                        name="brain"
+                        size={20}
+                        color="#000000"
+                        weight="fill"
+                      />
                     )}
                     <Text style={styles.createButtonText}>
-                      {isCreatingPlan ? 'Genie is Creating Your Plan...' : 'Create Plan with Genie'}
+                      {isCreatingPlan
+                        ? 'Genie is Creating Your Plan...'
+                        : 'Create Plan with Genie'}
                     </Text>
                   </View>
                 </AnimatedLinearGradient>

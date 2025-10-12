@@ -10,7 +10,9 @@ interface GoalState {
 
   // Actions
   fetchGoals: (userId: string) => Promise<void>;
-  createGoal: (goal: Omit<Goal, 'id' | 'created_at' | 'updated_at'>) => Promise<Goal>;
+  createGoal: (
+    goal: Omit<Goal, 'id' | 'created_at' | 'updated_at'>
+  ) => Promise<Goal>;
   updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
@@ -31,13 +33,15 @@ export const useGoalStore = create<GoalState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('goals')
-        .select(`
+        .select(
+          `
           *,
           goal_tasks (
             id,
             completed
           )
-        `)
+        `
+        )
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -45,8 +49,10 @@ export const useGoalStore = create<GoalState>((set, get) => ({
 
       const goalsWithProgress: GoalWithProgress[] = data.map((goal) => {
         const totalTasks = goal.goal_tasks?.length || 0;
-        const completedTasks = goal.goal_tasks?.filter((task: any) => task.completed).length || 0;
-        const completionPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+        const completedTasks =
+          goal.goal_tasks?.filter((task: any) => task.completed).length || 0;
+        const completionPercentage =
+          totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
         return {
           ...goal,
@@ -57,7 +63,9 @@ export const useGoalStore = create<GoalState>((set, get) => ({
         };
       });
 
-      const activeGoals = goalsWithProgress.filter(goal => goal.status === 'active');
+      const activeGoals = goalsWithProgress.filter(
+        (goal) => goal.status === 'active'
+      );
 
       set({
         goals: goalsWithProgress,
@@ -95,9 +103,10 @@ export const useGoalStore = create<GoalState>((set, get) => ({
 
       set({
         goals: [newGoalWithProgress, ...goals],
-        activeGoals: data.status === 'active' 
-          ? [newGoalWithProgress, ...get().activeGoals]
-          : get().activeGoals,
+        activeGoals:
+          data.status === 'active'
+            ? [newGoalWithProgress, ...get().activeGoals]
+            : get().activeGoals,
         loading: false,
       });
 
@@ -123,23 +132,23 @@ export const useGoalStore = create<GoalState>((set, get) => ({
 
       // Update local state
       const { goals, activeGoals } = get();
-      const updatedGoals = goals.map(goal => 
+      const updatedGoals = goals.map((goal) =>
         goal.id === id ? { ...goal, ...updates } : goal
       );
-      
+
       // If status changed to paused or completed, remove from active goals
       let updatedActiveGoals = activeGoals;
       if (updates.status && updates.status !== 'active') {
-        updatedActiveGoals = activeGoals.filter(goal => goal.id !== id);
+        updatedActiveGoals = activeGoals.filter((goal) => goal.id !== id);
       } else if (updates.status === 'active') {
         // If status changed to active, add back to active goals
-        const goalToAdd = updatedGoals.find(goal => goal.id === id);
-        if (goalToAdd && !activeGoals.find(goal => goal.id === id)) {
+        const goalToAdd = updatedGoals.find((goal) => goal.id === id);
+        if (goalToAdd && !activeGoals.find((goal) => goal.id === id)) {
           updatedActiveGoals = [...activeGoals, goalToAdd];
         }
       } else {
         // For other updates, just update the goal in active goals
-        updatedActiveGoals = activeGoals.map(goal => 
+        updatedActiveGoals = activeGoals.map((goal) =>
           goal.id === id ? { ...goal, ...updates } : goal
         );
       }
@@ -161,18 +170,16 @@ export const useGoalStore = create<GoalState>((set, get) => ({
   deleteGoal: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('goals')
-        .delete()
-        .eq('id', id);
+      // First, delete the goal (this will cascade delete related data)
+      const { error } = await supabase.from('goals').delete().eq('id', id);
 
       if (error) throw error;
 
       // Update local state
       const { goals, activeGoals } = get();
       set({
-        goals: goals.filter(goal => goal.id !== id),
-        activeGoals: activeGoals.filter(goal => goal.id !== id),
+        goals: goals.filter((goal) => goal.id !== id),
+        activeGoals: activeGoals.filter((goal) => goal.id !== id),
         loading: false,
       });
     } catch (error: any) {

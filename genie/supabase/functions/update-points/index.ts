@@ -3,7 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 interface UpdatePointsRequest {
@@ -20,13 +21,13 @@ function calculateCurrentStreak(completedTasks: any[]): number {
 
   const today = new Date();
   today.setHours(23, 59, 59, 999); // End of today
-  
+
   let streak = 0;
   let currentDate = new Date(today);
-  
+
   // Group completed tasks by date
   const tasksByDate = new Map<string, boolean>();
-  completedTasks.forEach(task => {
+  completedTasks.forEach((task) => {
     if (task.completed_at) {
       const taskDate = new Date(task.completed_at);
       const dateKey = taskDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -37,7 +38,7 @@ function calculateCurrentStreak(completedTasks: any[]): number {
   // Count consecutive days backwards from today
   while (true) {
     const dateKey = currentDate.toISOString().split('T')[0];
-    
+
     if (tasksByDate.has(dateKey)) {
       streak++;
       currentDate.setDate(currentDate.getDate() - 1);
@@ -61,14 +62,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { goal_id, task_id, user_id, action }: UpdatePointsRequest = await req.json();
+    const { goal_id, task_id, user_id, action }: UpdatePointsRequest =
+      await req.json();
 
     if (!goal_id || !task_id || !user_id || !action) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
@@ -82,23 +84,20 @@ serve(async (req) => {
       .single();
 
     if (taskError || !task) {
-      return new Response(
-        JSON.stringify({ error: 'Task not found' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return new Response(JSON.stringify({ error: 'Task not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get task intensity level
-    const { data: taskData, error: taskError } = await supabaseClient
+    const { data: taskData, error: taskIntensityError } = await supabaseClient
       .from('goal_tasks')
       .select('intensity')
       .eq('id', task_id)
       .single();
 
-    if (taskError || !taskData) {
+    if (taskIntensityError || !taskData) {
       console.log('Task not found, using default intensity');
     }
 
@@ -110,7 +109,8 @@ serve(async (req) => {
     let reason = '';
 
     // Base points multipliers
-    const intensityMultiplier = intensity === 'easy' ? 1 : intensity === 'medium' ? 2 : 4;
+    const intensityMultiplier =
+      intensity === 'easy' ? 1 : intensity === 'medium' ? 2 : 4;
 
     switch (action) {
       case 'complete':
@@ -141,8 +141,11 @@ serve(async (req) => {
 
     if (existingPoints) {
       newPoints = existingPoints.points + pointsChange;
-      newTotalEarned = existingPoints.total_earned + (pointsChange > 0 ? pointsChange : 0);
-      newTotalLost = existingPoints.total_lost + (pointsChange < 0 ? Math.abs(pointsChange) : 0);
+      newTotalEarned =
+        existingPoints.total_earned + (pointsChange > 0 ? pointsChange : 0);
+      newTotalLost =
+        existingPoints.total_lost +
+        (pointsChange < 0 ? Math.abs(pointsChange) : 0);
     }
 
     // Update or insert user_points
@@ -154,16 +157,16 @@ serve(async (req) => {
         points: newPoints,
         total_earned: newTotalEarned,
         total_lost: newTotalLost,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       });
 
     if (upsertError) {
       console.error('Error updating user points:', upsertError);
       return new Response(
         JSON.stringify({ error: 'Failed to update points' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
@@ -176,7 +179,7 @@ serve(async (req) => {
         goal_id: goal_id,
         task_id: task_id,
         points_change: pointsChange,
-        reason: reason
+        reason: reason,
       });
 
     if (historyError) {
@@ -191,15 +194,20 @@ serve(async (req) => {
       .eq('goal_id', goal_id)
       .eq('unlocked', false);
 
-    if (!rewardsError && rewards) {
-      const unlockedRewards = [];
+    let unlockedRewards = []; // Initialize outside the if block
 
+    if (!rewardsError && rewards) {
       for (const reward of rewards) {
         let shouldUnlock = false;
 
         // Points-based rewards
-        if (reward.title.includes('Points') && reward.title.includes('Master')) {
-          const pointsRequired = parseInt(reward.title.match(/\d+/)?.[0] || '0');
+        if (
+          reward.title.includes('Points') &&
+          reward.title.includes('Master')
+        ) {
+          const pointsRequired = parseInt(
+            reward.title.match(/\d+/)?.[0] || '0'
+          );
           if (newPoints >= pointsRequired) {
             shouldUnlock = true;
           }
@@ -216,7 +224,7 @@ serve(async (req) => {
           .from('rewards')
           .update({
             unlocked: true,
-            unlocked_at: new Date().toISOString()
+            unlocked_at: new Date().toISOString(),
           })
           .in('id', unlockedRewards);
 
@@ -239,11 +247,14 @@ serve(async (req) => {
           .order('completed_at', { ascending: false });
 
         if (tasksError) {
-          console.error('Error fetching completed tasks for streak calculation:', tasksError);
+          console.error(
+            'Error fetching completed tasks for streak calculation:',
+            tasksError
+          );
         } else {
           // Calculate current streak
           const currentStreak = calculateCurrentStreak(completedTasks || []);
-          
+
           // Update goal streak
           const { error: streakError } = await supabaseClient
             .from('goals')
@@ -261,26 +272,22 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         points_change: pointsChange,
         new_total_points: newPoints,
-        unlocked_rewards: unlockedRewards?.length || 0
+        unlocked_rewards: unlockedRewards?.length || 0,
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-
   } catch (error) {
     console.error('Error in update-points function:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

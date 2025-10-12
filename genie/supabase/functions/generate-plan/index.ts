@@ -3,7 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 interface GeneratePlanRequest {
@@ -34,12 +35,22 @@ interface RewardTemplate {
 }
 
 // Generate rewards for the goal
-const getSpecificGuidelines = (category: string, title: string, description: string): string => {
+const getSpecificGuidelines = (
+  category: string,
+  title: string,
+  description: string
+): string => {
   const titleLower = title.toLowerCase();
   const descLower = description.toLowerCase();
-  
+
   // Language learning goals
-  if (titleLower.includes('learn') && (titleLower.includes('language') || titleLower.includes('spanish') || titleLower.includes('french') || titleLower.includes('english'))) {
+  if (
+    titleLower.includes('learn') &&
+    (titleLower.includes('language') ||
+      titleLower.includes('spanish') ||
+      titleLower.includes('french') ||
+      titleLower.includes('english'))
+  ) {
     return `
       LANGUAGE LEARNING GUIDELINES:
       - Day 1-3: Set up learning tools (apps, books, resources)
@@ -50,9 +61,14 @@ const getSpecificGuidelines = (category: string, title: string, description: str
       - Focus on practical communication skills
       - Include speaking, listening, reading, writing practice`;
   }
-  
+
   // Fitness goals
-  if (titleLower.includes('fitness') || titleLower.includes('exercise') || titleLower.includes('workout') || titleLower.includes('gym')) {
+  if (
+    titleLower.includes('fitness') ||
+    titleLower.includes('exercise') ||
+    titleLower.includes('workout') ||
+    titleLower.includes('gym')
+  ) {
     return `
       FITNESS GUIDELINES:
       - Day 1-3: Assess current fitness level and create workout plan
@@ -63,9 +79,14 @@ const getSpecificGuidelines = (category: string, title: string, description: str
       - Focus on progressive overload and proper form
       - Include nutrition and recovery planning`;
   }
-  
+
   // Career goals
-  if (titleLower.includes('career') || titleLower.includes('job') || titleLower.includes('promotion') || titleLower.includes('skill')) {
+  if (
+    titleLower.includes('career') ||
+    titleLower.includes('job') ||
+    titleLower.includes('promotion') ||
+    titleLower.includes('skill')
+  ) {
     return `
       CAREER GUIDELINES:
       - Day 1-3: Assess current skills and identify gaps
@@ -76,9 +97,13 @@ const getSpecificGuidelines = (category: string, title: string, description: str
       - Focus on measurable professional outcomes
       - Include networking and industry engagement`;
   }
-  
+
   // Business goals
-  if (titleLower.includes('business') || titleLower.includes('startup') || titleLower.includes('entrepreneur')) {
+  if (
+    titleLower.includes('business') ||
+    titleLower.includes('startup') ||
+    titleLower.includes('entrepreneur')
+  ) {
     return `
       BUSINESS GUIDELINES:
       - Day 1-3: Market research and business plan development
@@ -89,9 +114,14 @@ const getSpecificGuidelines = (category: string, title: string, description: str
       - Focus on revenue generation and customer acquisition
       - Include financial planning and operations`;
   }
-  
+
   // Health goals
-  if (titleLower.includes('health') || titleLower.includes('diet') || titleLower.includes('weight') || titleLower.includes('nutrition')) {
+  if (
+    titleLower.includes('health') ||
+    titleLower.includes('diet') ||
+    titleLower.includes('weight') ||
+    titleLower.includes('nutrition')
+  ) {
     return `
       HEALTH GUIDELINES:
       - Day 1-3: Assess current health status and set targets
@@ -102,7 +132,7 @@ const getSpecificGuidelines = (category: string, title: string, description: str
       - Focus on measurable health improvements
       - Include tracking and monitoring systems`;
   }
-  
+
   // Default guidelines
   return `
     GENERAL GUIDELINES:
@@ -113,17 +143,29 @@ const getSpecificGuidelines = (category: string, title: string, description: str
     - Address potential obstacles and solutions`;
 };
 
-const generateRewards = async (goalId: string, supabase: any, category: string, title: string, tasks: any[], intensity: 'easy' | 'medium' | 'hard' = 'easy'): Promise<any[]> => {
+const generateRewards = async (
+  goalId: string,
+  supabase: any,
+  category: string,
+  title: string,
+  tasks: any[],
+  intensity: 'easy' | 'medium' | 'hard' = 'easy'
+): Promise<any[]> => {
   // Generate personalized rewards based on tasks
-  const getPersonalizedRewards = (category: string, goalTitle: string, tasks: any[]): RewardTemplate[] => {
+  const getPersonalizedRewards = (
+    category: string,
+    goalTitle: string,
+    tasks: any[]
+  ): RewardTemplate[] => {
     const rewards: RewardTemplate[] = [];
 
     // Daily consistency reward (adjusted for intensity)
-    const dailyTaskCount = intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+    const dailyTaskCount =
+      intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
     rewards.push({
       type: 'daily',
       title: 'Daily Champion',
-      description: `Complete ${dailyTaskCount} daily "${goalTitle}" tasks to unlock this achievement! Consistency is the key to success.`
+      description: `Complete ${dailyTaskCount} daily "${goalTitle}" tasks to unlock this achievement! Consistency is the key to success.`,
     });
 
     // Task-specific rewards (every 5 tasks)
@@ -134,7 +176,7 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
           type: 'milestone',
           title: `${milestone} Tasks Complete!`,
           description: `Incredible! You've completed ${milestone} tasks for "${goalTitle}". You're making real progress!`,
-          day_offset: milestone - 1
+          day_offset: milestone - 1,
         });
       }
     });
@@ -144,35 +186,38 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
       type: 'milestone',
       title: 'Week 1 Consistency',
       description: `Amazing! You've been consistent with "${goalTitle}" for a full week. Your habits are taking root!`,
-      day_offset: 6
+      day_offset: 6,
     });
 
     rewards.push({
       type: 'milestone',
       title: 'Week 2 Momentum',
       description: `Outstanding! Two weeks of consistent progress with "${goalTitle}". You're building unstoppable momentum!`,
-      day_offset: 13
+      day_offset: 13,
     });
 
     rewards.push({
       type: 'milestone',
       title: 'Week 3 Mastery',
       description: `Incredible! Three weeks of dedication to "${goalTitle}". You've mastered the art of consistency!`,
-      day_offset: 20
+      day_offset: 20,
     });
 
     // Points-based rewards (adjusted for intensity)
-    const pointsMilestones = intensity === 'easy' ? [50, 100, 200] : 
-                            intensity === 'medium' ? [100, 200, 400] : 
-                            [200, 400, 800];
-    
+    const pointsMilestones =
+      intensity === 'easy'
+        ? [50, 100, 200]
+        : intensity === 'medium'
+          ? [100, 200, 400]
+          : [200, 400, 800];
+
     pointsMilestones.forEach((points, index) => {
       const titles = ['Master', 'Champion', 'Legend'];
       rewards.push({
         type: 'milestone',
         title: `${points} Points ${titles[index]}`,
         description: `Congratulations! You've earned ${points} points for "${goalTitle}". Your dedication is paying off!`,
-        day_offset: null
+        day_offset: null,
       });
     });
 
@@ -180,31 +225,33 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
     const completionRewards = {
       lifestyle: {
         title: 'Lifestyle Transformation Complete!',
-        description: `Congratulations! You've successfully transformed your lifestyle with "${goalTitle}". You've built healthy habits that will last a lifetime!`
+        description: `Congratulations! You've successfully transformed your lifestyle with "${goalTitle}". You've built healthy habits that will last a lifetime!`,
       },
       career: {
         title: 'Professional Growth Achieved!',
-        description: `Outstanding! You've completed your "${goalTitle}" journey and advanced your career. Your dedication has paid off!`
+        description: `Outstanding! You've completed your "${goalTitle}" journey and advanced your career. Your dedication has paid off!`,
       },
       mindset: {
         title: 'Mental Strength Mastered!',
-        description: `Incredible! You've developed mental resilience through "${goalTitle}". You now have the mindset of a champion!`
+        description: `Incredible! You've developed mental resilience through "${goalTitle}". You now have the mindset of a champion!`,
       },
       character: {
         title: 'Character Development Complete!',
-        description: `Amazing! You've strengthened your character through "${goalTitle}". You've become the person you always wanted to be!`
+        description: `Amazing! You've strengthened your character through "${goalTitle}". You've become the person you always wanted to be!`,
       },
       custom: {
         title: 'Personal Goal Achieved!',
-        description: `Congratulations! You've successfully completed your "${goalTitle}" journey. You should be incredibly proud of your dedication and growth!`
-      }
+        description: `Congratulations! You've successfully completed your "${goalTitle}" journey. You should be incredibly proud of your dedication and growth!`,
+      },
     };
 
-    const completionReward = completionRewards[category as keyof typeof completionRewards] || completionRewards.custom;
+    const completionReward =
+      completionRewards[category as keyof typeof completionRewards] ||
+      completionRewards.custom;
     rewards.push({
       type: 'completion',
       title: completionReward.title,
-      description: completionReward.description
+      description: completionReward.description,
     });
 
     return rewards;
@@ -223,41 +270,40 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
         title: reward.title,
         description: reward.description,
         day_offset: reward.day_offset,
-        unlocked: false
+        unlocked: false,
       })
       .select()
       .single();
-    
+
     if (error) {
       console.error('Error inserting reward:', error);
     } else {
       insertedRewards.push(insertedReward);
     }
   }
-  
+
   return insertedRewards;
 };
-
 
 // Helper function to compute run_at time
 function computeRunAt(dayNumber: number, timeLabel: string): string {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
-  
+
   // Define time slots and their hours
   const timeSlots = {
-    "Morning": 8,
-    "Mid-Morning": 10,
-    "Afternoon": 14,
-    "Mid-Afternoon": 16,
-    "Evening": 20,
-    "Night": 22
+    Morning: 8,
+    'Mid-Morning': 10,
+    Afternoon: 14,
+    'Mid-Afternoon': 16,
+    Evening: 20,
+    Night: 22,
   };
-  
+
   let targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
   let startDay = 0; // Start from today
-  
+
   // For the first day (dayNumber === 1), calculate smart timing based on current time
   if (dayNumber === 1) {
     // If current time is after 20:00 (8 PM), start tomorrow
@@ -267,10 +313,10 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
     } else {
       // If current time is before 20:00 (8 PM), start today
       startDay = 0; // Start today
-      
+
       // Get the standard time for this task
       const standardHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
-      
+
       // If the standard time has already passed today, make it available immediately
       if (currentHour >= standardHour) {
         // Task time has passed - make it available now (current time minus 1 minute to ensure it's available)
@@ -289,22 +335,32 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
     // For subsequent days (dayNumber > 1), always schedule for future days
     // Don't schedule tasks for today if they're not day 1
     startDay = dayNumber - 1; // dayNumber 2 = tomorrow, dayNumber 3 = day after tomorrow, etc.
-    
+
     // Reset to standard time slots for future days
     targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
   }
-  
+
   const base = new Date();
   base.setDate(base.getDate() + startDay);
   base.setHours(targetHour, 0, 0, 0);
-  
+
   return base.toISOString();
 }
 
 // AI-powered plan generation with Google Gemini
-const generateTasksWithAI = async (category: string, title: string, description: string, intensity: 'easy' | 'medium' | 'hard' = 'easy', detailedPlan: boolean = false): Promise<{ tasks: TaskTemplate[], iconName: string, color: string }> => {
-  console.log('🤖 Generating AI-powered plan for:', { category, title, description });
-  
+const generateTasksWithAI = async (
+  category: string,
+  title: string,
+  description: string,
+  intensity: 'easy' | 'medium' | 'hard' = 'easy',
+  detailedPlan: boolean = false
+): Promise<{ tasks: TaskTemplate[]; iconName: string; color: string }> => {
+  console.log('🤖 Generating AI-powered plan for:', {
+    category,
+    title,
+    description,
+  });
+
   try {
     const systemPrompt = `
 You are Genie, a personal mentor. Create a progressive 21-day action plan for the user's goal.
@@ -338,16 +394,20 @@ Each task must be:
 
 Choose an appropriate Phosphor icon for this goal:
 
-ICON CATEGORIES:
-- lifestyle: heart, leaf, sun, moon, tree, bicycle, running, music, camera, book
-- career: briefcase, laptop, target, lightbulb, rocket, trophy, medal, book, pencil, calculator, users, handshake, money, bank, building
-- mindset: brain, eye, heart, lightbulb, star, compass, target, shield, lock, key, puzzle, infinity, atom
-- character: user-circle, users, handshake, heart, shield, star, medal, trophy, compass
-- custom: star, heart, lightbulb, target, rocket, trophy, medal, tree
+IMPORTANT: Use ONLY valid Phosphor React Native icon names. The icon name must be in kebab-case format and exist in the phosphor-react-native library.
+
+ICON CATEGORIES (all names are valid Phosphor React Native icons):
+- lifestyle: heart, leaf, sun, moon, tree, bicycle, person-simple-run, person-simple-walk, person-simple-bike, music-notes, camera, book, flower, cloud, rainbow, drop, mountains, wave, fire
+- career: briefcase, laptop, target, lightbulb, rocket, trophy, medal, book, pencil, calculator, users, handshake, money, bank, building, coins, credit-card, wallet, chart-line, chart-pie, storefront, graduation-cap
+- mindset: brain, eye, heart, lightbulb, star, compass, target, shield, lock, key, puzzle-piece, infinity, atom, flask, globe, test-tube, book-open, graduation-cap, fingerprint, eye-closed, password
+- character: user-circle, users, handshake, heart, shield, star, medal, trophy, compass, user, user-square, hand-heart, crown, sparkle
+- custom: star, heart, lightbulb, target, rocket, trophy, medal, tree, sparkle, crown, infinity, puzzle-piece, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down
+
+CRITICAL: The icon_name field MUST be a valid Phosphor React Native icon name in kebab-case format (e.g., "person-simple-run", "user-circle", "lightbulb"). Do NOT use invalid names like "running" which don't exist in the library.
 
 Return ONLY valid JSON in this exact format:
 {
-  "icon_name": "chosen-icon-name",
+  "icon_name": "chosen-icon-name", // MUST be a valid Phosphor React Native icon name in kebab-case
   "days": [
     {
       "day": 1,
@@ -380,54 +440,69 @@ Each task should be specific enough that someone could follow it without additio
 
     console.log('📡 Sending request to Gemini API...');
     console.log('🔑 API Key exists:', !!Deno.env.get('GOOGLE_AI_API_KEY'));
-    console.log('🔑 API Key length:', Deno.env.get('GOOGLE_AI_API_KEY')?.length || 0);
-    
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + Deno.env.get('GOOGLE_AI_API_KEY'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          { 
-            role: "user", 
-            parts: [{ text: `${systemPrompt}\n\n${userGoalPrompt}` }] 
-          }
-        ]
-      })
-    });
+    console.log(
+      '🔑 API Key length:',
+      Deno.env.get('GOOGLE_AI_API_KEY')?.length || 0
+    );
+
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' +
+        Deno.env.get('GOOGLE_AI_API_KEY'),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${systemPrompt}\n\n${userGoalPrompt}` }],
+            },
+          ],
+        }),
+      }
+    );
 
     console.log('📡 Gemini API response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ AI API error: ${response.status}`, errorText);
-      console.error('❌ Full error details:', { status: response.status, statusText: response.statusText, errorText });
+      console.error('❌ Full error details:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+      });
       throw new Error(`AI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     console.log('AI Response data:', JSON.stringify(data, null, 2));
-    
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+
+    if (
+      !data.candidates ||
+      !data.candidates[0] ||
+      !data.candidates[0].content
+    ) {
       console.error('Invalid AI response structure:', data);
       throw new Error('Invalid AI response structure');
     }
-    
+
     const text = data.candidates[0].content.parts[0].text;
     console.log('AI Response text:', text);
-    
+
     // Parse the JSON response
     const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
     console.log('Cleaned AI text:', cleanedText);
-    
+
     try {
       const planData = JSON.parse(cleanedText);
       console.log('Parsed plan data:', planData);
-      
+
       // Convert the new format to the expected format
       const tasks: TaskTemplate[] = [];
-      
+
       if (planData.days && Array.isArray(planData.days)) {
         for (const day of planData.days) {
           if (day.tasks && Array.isArray(day.tasks)) {
@@ -436,35 +511,154 @@ Each task should be specific enough that someone could follow it without additio
                 title: task.title,
                 description: task.description,
                 day_offset: day.day - 1, // Convert to 0-based index
-                time_of_day: task.time.toLowerCase()
+                time_of_day: task.time.toLowerCase(),
               });
             }
           }
         }
       }
-      
+
       console.log('Converted tasks:', tasks.length, 'tasks');
-      
+
       // Validate that we got tasks from AI
       if (tasks.length === 0) {
         console.warn(`No tasks generated by AI. Falling back to template.`);
         throw new Error(`No tasks generated by AI`);
       }
-      
+
       console.log(`✅ AI generated ${tasks.length} tasks successfully`);
-      
+
       // Extract icon name and color from AI response
-      const iconName = planData.icon_name || 'star'; // Default fallback
-      
+      let iconName = planData.icon_name || 'star'; // Default fallback
+
+      // Validate icon name - ensure it's a valid Phosphor React Native icon
+      const validIcons = [
+        // Nature & Environment
+        'leaf',
+        'tree',
+        'flower',
+        'sun',
+        'moon',
+        'cloud',
+        'rainbow',
+        'drop',
+        'mountains',
+        'wave',
+        'fire',
+
+        // People & Activities
+        'user',
+        'user-circle',
+        'user-square',
+        'users',
+        'handshake',
+        'person-simple-run',
+        'person-simple-walk',
+        'person-simple-bike',
+        'bicycle',
+        'heart',
+        'hand-heart',
+
+        // Objects & Tools
+        'camera',
+        'music-notes',
+        'book',
+        'pencil',
+        'paint-brush',
+        'notebook',
+        'briefcase',
+        'laptop',
+        'device-mobile',
+        'calculator',
+        'lightbulb',
+        'wrench',
+        'gear',
+        'magnifying-glass',
+        'target',
+
+        // Business & Finance
+        'money',
+        'coins',
+        'credit-card',
+        'wallet',
+        'bank',
+        'chart-line',
+        'chart-pie',
+        'building',
+        'storefront',
+
+        // Science & Knowledge
+        'atom',
+        'brain',
+        'flask',
+        'globe',
+        'compass',
+        'test-tube',
+        'book-open',
+        'graduation-cap',
+
+        // Security & System
+        'lock',
+        'lock-key',
+        'key',
+        'shield',
+        'fingerprint',
+        'eye',
+        'eye-closed',
+        'password',
+        'folder',
+        'file',
+
+        // Creativity & Motivation
+        'star',
+        'rocket',
+        'trophy',
+        'medal',
+        'sparkle',
+        'crown',
+        'infinity',
+        'puzzle-piece',
+
+        // Misc
+        'bell',
+        'chat-circle',
+        'chat-text',
+        'paper-plane',
+        'calendar',
+        'clock',
+        'map-pin',
+        'globe-hemisphere-west',
+        'thumbs-up',
+        'thumbs-down',
+      ];
+
+      if (!validIcons.includes(iconName)) {
+        console.warn(
+          `⚠️ Invalid icon name "${iconName}" from AI, using fallback "star"`
+        );
+        iconName = 'star';
+      }
+
       // Always choose a random color from our approved list
-      const validColors = ['yellow', 'green', 'red', 'blue', 'orange', 'purple', 'pink', 'cyan', 'lime', 'magenta'];
+      const validColors = [
+        'yellow',
+        'green',
+        'red',
+        'blue',
+        'orange',
+        'purple',
+        'pink',
+        'cyan',
+        'lime',
+        'magenta',
+      ];
       const randomIndex = Math.floor(Math.random() * validColors.length);
       const color = validColors[randomIndex];
-      
+
       console.log(`🎲 Random color selected: ${color}`);
-      
+
       console.log(`🎨 AI selected icon: ${iconName}, color: ${color}`);
-      
+
       return { tasks, iconName, color };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
@@ -476,20 +670,28 @@ Each task should be specific enough that someone could follow it without additio
     console.error('❌ Error type:', typeof error);
     console.error('❌ Error message:', error.message);
     console.error('❌ Error stack:', error.stack);
-    const fallbackTasks = generateTasksForCategory(category, title, description);
+    const fallbackTasks = generateTasksForCategory(
+      category,
+      title,
+      description
+    );
     return { tasks: fallbackTasks, iconName: 'star', color: 'yellow' }; // Default icon and color for fallback
   }
 };
 
 // Template-based plan generation (fallback) - generates detailed daily plan with 3 tasks per day
-const generateTasksForCategory = (category: string, title: string, description: string): TaskTemplate[] => {
+const generateTasksForCategory = (
+  category: string,
+  title: string,
+  description: string
+): TaskTemplate[] => {
   const tasks: TaskTemplate[] = [];
-  
+
   // Generate 3 tasks per day for 21 days = 63 total tasks
   for (let day = 0; day < 21; day++) {
     const dayNumber = day + 1;
     const weekNumber = Math.ceil(dayNumber / 7);
-    
+
     // Week 1: Foundation & Awareness
     if (weekNumber === 1) {
       tasks.push(
@@ -497,19 +699,19 @@ const generateTasksForCategory = (category: string, title: string, description: 
           title: `Day ${dayNumber}: Morning Intention Setting`,
           description: `Spend 10 minutes writing down your daily intention and how it connects to your goal. Visualize your success.`,
           day_offset: day,
-          time_of_day: 'morning'
+          time_of_day: 'morning',
         },
         {
           title: `Day ${dayNumber}: Research & Learning`,
           description: `Spend 20 minutes researching strategies and best practices for your goal. Take notes on key insights.`,
           day_offset: day,
-          time_of_day: 'afternoon'
+          time_of_day: 'afternoon',
         },
         {
           title: `Day ${dayNumber}: Progress Documentation`,
           description: `Write down what you accomplished today and how you feel about your progress. Celebrate small wins.`,
           day_offset: day,
-          time_of_day: 'evening'
+          time_of_day: 'evening',
         }
       );
     }
@@ -520,19 +722,19 @@ const generateTasksForCategory = (category: string, title: string, description: 
           title: `Day ${dayNumber}: Skill Development`,
           description: `Practice and develop specific skills needed for your goal. Focus on deliberate practice.`,
           day_offset: day,
-          time_of_day: 'morning'
+          time_of_day: 'morning',
         },
         {
           title: `Day ${dayNumber}: Real-world Application`,
           description: `Apply what you've learned in a real-world context. Test your skills in practical situations.`,
           day_offset: day,
-          time_of_day: 'afternoon'
+          time_of_day: 'afternoon',
         },
         {
           title: `Day ${dayNumber}: Progress Evaluation`,
           description: `Evaluate your progress and identify what's working well. Adjust your approach if needed.`,
           day_offset: day,
-          time_of_day: 'evening'
+          time_of_day: 'evening',
         }
       );
     }
@@ -543,30 +745,33 @@ const generateTasksForCategory = (category: string, title: string, description: 
           title: `Day ${dayNumber}: Advanced Practice`,
           description: `Engage in advanced practice and optimization of your skills. Push your boundaries.`,
           day_offset: day,
-          time_of_day: 'morning'
+          time_of_day: 'morning',
         },
         {
           title: `Day ${dayNumber}: Mastery Demonstration`,
           description: `Demonstrate your mastery of the skills you've developed. Show your progress.`,
           day_offset: day,
-          time_of_day: 'afternoon'
+          time_of_day: 'afternoon',
         },
         {
           title: `Day ${dayNumber}: Integration Practice`,
           description: `Integrate your new skills into your daily life and routine. Make it sustainable.`,
           day_offset: day,
-          time_of_day: 'evening'
+          time_of_day: 'evening',
         }
       );
     }
   }
-  
+
   return tasks;
 };
 
-const getTimeForSchedule = (date: Date, timeOfDay: 'morning' | 'mid_morning' | 'afternoon' | 'evening'): Date => {
+const getTimeForSchedule = (
+  date: Date,
+  timeOfDay: 'morning' | 'mid_morning' | 'afternoon' | 'evening'
+): Date => {
   const scheduledDate = new Date(date);
-  
+
   switch (timeOfDay) {
     case 'morning':
       scheduledDate.setHours(8, 0, 0, 0);
@@ -585,7 +790,7 @@ const getTimeForSchedule = (date: Date, timeOfDay: 'morning' | 'mid_morning' | '
       scheduledDate.setHours(9, 0, 0, 0);
       break;
   }
-  
+
   return scheduledDate;
 };
 
@@ -600,8 +805,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { user_id, goal_id, category, title, description, intensity = 'easy', timezone, start_date, language = 'en', detailed_plan = false }: GeneratePlanRequest = 
-      await req.json();
+    const {
+      user_id,
+      goal_id,
+      category,
+      title,
+      description,
+      intensity = 'easy',
+      timezone,
+      start_date,
+      language = 'en',
+      detailed_plan = false,
+    }: GeneratePlanRequest = await req.json();
 
     console.log('📋 Plan generation request:', {
       user_id,
@@ -610,24 +825,36 @@ serve(async (req) => {
       title,
       description,
       intensity,
-      detailed_plan
+      detailed_plan,
     });
 
     // Generate tasks using AI (with template fallback)
-    const { tasks: taskTemplates, iconName, color } = await generateTasksWithAI(category, title, description, intensity, detailed_plan);
-    
+    const {
+      tasks: taskTemplates,
+      iconName,
+      color,
+    } = await generateTasksWithAI(
+      category,
+      title,
+      description,
+      intensity,
+      detailed_plan
+    );
+
     console.log('📋 Generated tasks:', taskTemplates.length, 'tasks');
     console.log('🎨 Selected icon:', iconName);
-    
+
     // Create scheduled tasks using the new computeRunAt function
     const startDate = start_date ? new Date(start_date) : new Date();
     const tasksToInsert = taskTemplates.map((template) => {
       const dayNumber = template.day_offset + 1; // Convert back to 1-based
-      const timeLabel = template.time_of_day.charAt(0).toUpperCase() + template.time_of_day.slice(1);
-      
+      const timeLabel =
+        template.time_of_day.charAt(0).toUpperCase() +
+        template.time_of_day.slice(1);
+
       // Use computeRunAt for consistent time calculation
       const runAt = computeRunAt(dayNumber, timeLabel);
-      
+
       return {
         goal_id,
         title: template.title,
@@ -651,46 +878,51 @@ serve(async (req) => {
     const notificationsToInsert = insertedTasks.map((task, index) => {
       const dayNumber = index + 1;
       const weekNumber = Math.ceil(dayNumber / 7);
-      
+
       const motivationalMessages = {
         week1: [
           `Day ${dayNumber}: Building your foundation! 💪`,
           `Day ${dayNumber}: Every step counts! 🚀`,
           `Day ${dayNumber}: You're creating new habits! ✨`,
           `Day ${dayNumber}: Progress starts with action! 🎯`,
-          `Day ${dayNumber}: Your journey begins now! 🌟`
+          `Day ${dayNumber}: Your journey begins now! 🌟`,
         ],
         week2: [
           `Day ${dayNumber}: Skills are developing! 💪`,
           `Day ${dayNumber}: You're getting stronger! 🚀`,
           `Day ${dayNumber}: Consistency is key! ✨`,
           `Day ${dayNumber}: Building momentum! 🎯`,
-          `Day ${dayNumber}: You're halfway there! 🌟`
+          `Day ${dayNumber}: You're halfway there! 🌟`,
         ],
         week3: [
           `Day ${dayNumber}: Mastery is emerging! 💪`,
           `Day ${dayNumber}: You're almost there! 🚀`,
           `Day ${dayNumber}: Excellence is becoming natural! ✨`,
           `Day ${dayNumber}: The finish line is near! 🎯`,
-          `Day ${dayNumber}: You're transforming! 🌟`
-        ]
+          `Day ${dayNumber}: You're transforming! 🌟`,
+        ],
       };
-      
+
       const timeBasedGreetings = {
         morning: 'Good morning! ☀️',
         mid_morning: 'Good morning! 🌅',
         afternoon: 'Good afternoon! 🌤️',
-        evening: 'Good evening! 🌙'
+        evening: 'Good evening! 🌙',
       };
-      
-      const timeOfDay = task.run_at.includes('08:') ? 'morning' : 
-                       task.run_at.includes('10:') ? 'mid_morning' :
-                       task.run_at.includes('14:') ? 'afternoon' : 'evening';
-      
-      const weekKey = weekNumber === 1 ? 'week1' : weekNumber === 2 ? 'week2' : 'week3';
+
+      const timeOfDay = task.run_at.includes('08:')
+        ? 'morning'
+        : task.run_at.includes('10:')
+          ? 'mid_morning'
+          : task.run_at.includes('14:')
+            ? 'afternoon'
+            : 'evening';
+
+      const weekKey =
+        weekNumber === 1 ? 'week1' : weekNumber === 2 ? 'week2' : 'week3';
       const weekMessages = motivationalMessages[weekKey];
       const messageIndex = (dayNumber - 1) % weekMessages.length;
-      
+
       return {
         user_id,
         task_id: task.id,
@@ -711,7 +943,14 @@ serve(async (req) => {
     }
 
     // Generate rewards for the goal
-    const rewards = await generateRewards(goal_id, supabaseClient, category, title, taskTemplates, intensity);
+    const rewards = await generateRewards(
+      goal_id,
+      supabaseClient,
+      category,
+      title,
+      taskTemplates,
+      intensity
+    );
 
     // Create reward notification templates
     const rewardNotifications = [
@@ -720,15 +959,19 @@ serve(async (req) => {
         type: 'milestone_reward',
         title: '🎉 Reward Unlocked!',
         body: 'You reached a milestone! A new reward is waiting for you in the rewards screen',
-        scheduled_for: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        scheduled_for: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 7 days from now
       },
       {
         user_id,
         type: 'completion_reward',
         title: '🏆 Goal Completed!',
         body: 'Congratulations! You completed all tasks and achieved your goal!',
-        scheduled_for: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(), // 21 days from now
-      }
+        scheduled_for: new Date(
+          Date.now() + 21 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 21 days from now
+      },
     ];
 
     await supabaseClient
@@ -745,20 +988,23 @@ serve(async (req) => {
     if (insertedTasks.length > 0) {
       const firstTask = insertedTasks[0];
       try {
-        const notificationResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-task-notification`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id,
-            task_id: firstTask.id,
-            task_title: firstTask.title,
-            task_description: firstTask.description,
-            goal_title: title
-          }),
-        });
+        const notificationResponse = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-task-notification`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              user_id,
+              task_id: firstTask.id,
+              task_title: firstTask.title,
+              task_description: firstTask.description,
+              goal_title: title,
+            }),
+          }
+        );
 
         if (notificationResponse.ok) {
           console.log('✅ Immediate task notification sent');
@@ -785,7 +1031,6 @@ serve(async (req) => {
         status: 200,
       }
     );
-
   } catch (error) {
     console.error('Error generating plan:', error);
     return new Response(

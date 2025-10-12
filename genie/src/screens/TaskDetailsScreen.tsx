@@ -36,6 +36,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [taskData, setTaskData] = useState<TaskWithGoal>(task);
+  const [pointsEarned, setPointsEarned] = useState(0);
 
   const formatTime = (runAt: string) => {
     try {
@@ -94,10 +95,32 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
   const canCompleteTask = isTaskTimeReached(taskData.run_at);
 
+  const fetchPointsEarned = async () => {
+    if (user?.id) {
+      try {
+        const { data } = await supabase
+          .from('user_points')
+          .select('points')
+          .eq('user_id', user.id)
+          .eq('goal_id', taskData.goal_id)
+          .single();
+
+        setPointsEarned(data?.points || 0);
+      } catch (error) {
+        console.log('Points fetch failed:', error);
+        setPointsEarned(0);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchPointsEarned();
+  }, [user?.id, taskData.goal_id]);
+
   const handleToggleTask = async (markAsCompleted: boolean) => {
     try {
       setIsLoading(true);
-      
+
       const { error } = await supabase
         .from('goal_tasks')
         .update({
@@ -109,10 +132,10 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
       if (error) throw error;
 
       // Update local state
-      setTaskData(prev => ({
+      setTaskData((prev) => ({
         ...prev,
         completed: markAsCompleted,
-        completed_at: markAsCompleted ? new Date().toISOString() : undefined
+        completed_at: markAsCompleted ? new Date().toISOString() : undefined,
       }));
 
       // Update points system
@@ -123,9 +146,12 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
             goal_id: taskData.goal_id,
             task_id: taskData.id,
             user_id: user?.id,
-            action: action
-          }
+            action: action,
+          },
         });
+
+        // Refresh points display
+        fetchPointsEarned();
       } catch (pointsError) {
         console.error('Error updating points:', pointsError);
         // Don't fail the task update if points update fails
@@ -136,7 +162,9 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
       Alert.alert(
         'Success',
-        markAsCompleted ? 'Task marked as completed!' : 'Task marked as not completed!'
+        markAsCompleted
+          ? 'Task marked as completed!'
+          : 'Task marked as not completed!'
       );
     } catch (error) {
       console.error('Error updating task:', error);
@@ -151,12 +179,13 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   };
 
   return (
-    <Modal
-      visible={true}
-      animationType="slide"
-      presentationStyle="fullScreen"
-    >
-      <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+    <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background.primary },
+        ]}
+      >
         {/* Absolute Header */}
         <View style={styles.absoluteHeader}>
           {/* Blur overlay */}
@@ -166,13 +195,23 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           {/* Extra blur layers */}
           <View style={styles.blurEffect2} />
           <View style={styles.blurEffect3} />
-          <TouchableOpacity 
-            onPress={onBack}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text.secondary} />
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.text.secondary}
+            />
           </TouchableOpacity>
           <View style={styles.headerSpacer} />
+          <View style={styles.pointsContainer}>
+            <Icon
+              name="trophy"
+              size={16}
+              color={theme.colors.yellow[500]}
+              weight="fill"
+            />
+            <Text style={styles.pointsText}>+{pointsEarned}</Text>
+          </View>
         </View>
 
         <ScrollView
@@ -186,113 +225,188 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
             />
           }
         >
-        {/* Task Header Card */}
-        <Card variant="gradient" padding="lg" style={styles.headerCard}>
-          <View style={styles.taskHeader}>
-            <View style={styles.taskTitleContainer}>
-              <Text variant="h2" color="primary-color" style={[styles.taskTitle, { color: getGoalColor(taskData.goal.color) }]}>
-                {taskData.title}
-              </Text>
-              <View style={styles.taskMeta}>
-                <View style={styles.timeInfo}>
-                  <Icon 
-                    name={getTimeOfDayIcon(taskData.run_at) as any}
-                    size={20}
-                    color={theme.colors.yellow[500]}
-                  />
-                  <Text variant="h4" color="primary-color" style={styles.timeText}>
-                    {formatTime(taskData.run_at)}
-                  </Text>
-                  <Text variant="caption" color="tertiary">
-                    {getTimeOfDayText(taskData.run_at)}
+          {/* Task Header Card */}
+          <Card variant="gradient" padding="lg" style={styles.headerCard}>
+            <View style={styles.taskHeader}>
+              <View style={styles.taskTitleContainer}>
+                <Text
+                  variant="h2"
+                  color="primary-color"
+                  style={[
+                    styles.taskTitle,
+                    { color: getGoalColor(taskData.goal.color) },
+                  ]}
+                >
+                  {taskData.title}
+                </Text>
+                <View style={styles.taskMeta}>
+                  <View style={styles.timeInfo}>
+                    <Icon
+                      name={getTimeOfDayIcon(taskData.run_at) as any}
+                      size={20}
+                      color={theme.colors.yellow[500]}
+                    />
+                    <Text
+                      variant="h4"
+                      color="primary-color"
+                      style={styles.timeText}
+                    >
+                      {formatTime(taskData.run_at)}
+                    </Text>
+                    <Text variant="caption" color="tertiary">
+                      {getTimeOfDayText(taskData.run_at)}
+                    </Text>
+                  </View>
+                  <Text
+                    variant="caption"
+                    color="tertiary"
+                    style={styles.dateText}
+                  >
+                    {formatDate(taskData.run_at)}
                   </Text>
                 </View>
-                <Text variant="caption" color="tertiary" style={styles.dateText}>
-                  {formatDate(taskData.run_at)}
-                </Text>
               </View>
+
+              {/* Status Badge */}
+              {taskData.completed ? (
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: theme.colors.status.success + '20' },
+                  ]}
+                >
+                  <Icon
+                    name="check"
+                    size={16}
+                    color={theme.colors.status.success}
+                    weight="fill"
+                  />
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.statusText,
+                      { color: theme.colors.status.success },
+                    ]}
+                  >
+                    Completed
+                  </Text>
+                </View>
+              ) : !canCompleteTask ? (
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: theme.colors.text.disabled + '20' },
+                  ]}
+                >
+                  <Icon
+                    name="clock"
+                    size={16}
+                    color={theme.colors.text.disabled}
+                    weight="fill"
+                  />
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.statusText,
+                      { color: theme.colors.text.disabled },
+                    ]}
+                  >
+                    Waiting
+                  </Text>
+                </View>
+              ) : (
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: theme.colors.yellow[500] + '20' },
+                  ]}
+                >
+                  <Icon
+                    name="clock"
+                    size={16}
+                    color={theme.colors.yellow[500]}
+                    weight="fill"
+                  />
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.statusText,
+                      { color: theme.colors.yellow[500] },
+                    ]}
+                  >
+                    Ready
+                  </Text>
+                </View>
+              )}
             </View>
-            
-            {/* Status Badge */}
-            {taskData.completed ? (
-              <View style={[styles.statusBadge, { backgroundColor: theme.colors.status.success + '20' }]}>
-                <Icon name="check" size={16} color={theme.colors.status.success} weight="fill" />
-                <Text variant="caption" style={[styles.statusText, { color: theme.colors.status.success }]}>
-                  Completed
-                </Text>
-              </View>
-            ) : !canCompleteTask ? (
-              <View style={[styles.statusBadge, { backgroundColor: theme.colors.text.disabled + '20' }]}>
-                <Icon name="clock" size={16} color={theme.colors.text.disabled} weight="fill" />
-                <Text variant="caption" style={[styles.statusText, { color: theme.colors.text.disabled }]}>
-                  Waiting
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.statusBadge, { backgroundColor: theme.colors.yellow[500] + '20' }]}>
-                <Icon name="clock" size={16} color={theme.colors.yellow[500]} weight="fill" />
-                <Text variant="caption" style={[styles.statusText, { color: theme.colors.yellow[500] }]}>
-                  Ready
-                </Text>
-              </View>
-            )}
-          </View>
-        </Card>
+          </Card>
 
-        {/* Description Card */}
-        <Card variant="gradient" padding="lg" style={styles.descriptionCard}>
-          <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-            Description
-          </Text>
-          <Text variant="body" color="secondary" style={styles.description}>
-            {taskData.description}
-          </Text>
-        </Card>
-
-        {/* Goal Info Card */}
-        <Card variant="gradient" padding="lg" style={styles.goalCard}>
-          <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-            Related Goal
-          </Text>
-          <View style={styles.goalInfo}>
-            <Icon name="target" size={20} color="#FFFFFF" />
-            <Text variant="h4" color="primary-color" style={styles.goalTitle}>
-              {taskData.goal.title}
-            </Text>
-          </View>
-        </Card>
-
-        {/* Action Buttons */}
-        {!taskData.completed && canCompleteTask && (
-          <View style={styles.actionButtons}>
-            <LinearGradient
-              colors={['#FFFF68', '#FFFF68']}
-              style={styles.completedButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          {/* Description Card */}
+          <Card variant="gradient" padding="lg" style={styles.descriptionCard}>
+            <Text
+              variant="h4"
+              color="primary-color"
+              style={styles.sectionTitle}
             >
+              Description
+            </Text>
+            <Text variant="body" color="secondary" style={styles.description}>
+              {taskData.description}
+            </Text>
+          </Card>
+
+          {/* Goal Info Card */}
+          <Card variant="gradient" padding="lg" style={styles.goalCard}>
+            <Text
+              variant="h4"
+              color="primary-color"
+              style={styles.sectionTitle}
+            >
+              Related Goal
+            </Text>
+            <View style={styles.goalInfo}>
+              <Icon name="target" size={20} color="#FFFFFF" />
+              <Text variant="h4" color="primary-color" style={styles.goalTitle}>
+                {taskData.goal.title}
+              </Text>
+            </View>
+          </Card>
+
+          {/* Action Buttons */}
+          {!taskData.completed && canCompleteTask && (
+            <View style={styles.actionButtons}>
+              <LinearGradient
+                colors={['#FFFF68', '#FFFF68']}
+                style={styles.completedButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <TouchableOpacity
+                  onPress={() => handleToggleTask(true)}
+                  style={styles.completedButton}
+                  disabled={isLoading}
+                >
+                  <Icon name="check" size={18} color="#000000" weight="fill" />
+                  <Text style={styles.completedButtonText}>
+                    Mark as Completed
+                  </Text>
+                </TouchableOpacity>
+              </LinearGradient>
+
               <TouchableOpacity
-                onPress={() => handleToggleTask(true)}
-                style={styles.completedButton}
+                onPress={() => handleToggleTask(false)}
+                style={styles.notCompletedButton}
                 disabled={isLoading}
               >
-                <Icon name="check" size={18} color="#000000" weight="fill" />
-                <Text style={styles.completedButtonText}>Mark as Completed</Text>
+                <View style={styles.notCompletedButtonContent}>
+                  <Icon name="x" size={18} color="#FFFFFF" weight="fill" />
+                  <Text style={styles.notCompletedButtonText}>
+                    Mark as Not Completed
+                  </Text>
+                </View>
               </TouchableOpacity>
-            </LinearGradient>
-
-            <TouchableOpacity
-              onPress={() => handleToggleTask(false)}
-              style={styles.notCompletedButton}
-              disabled={isLoading}
-            >
-              <View style={styles.notCompletedButtonContent}>
-                <Icon name="x" size={18} color="#FFFFFF" weight="fill" />
-                <Text style={styles.notCompletedButtonText}>Mark as Not Completed</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
+            </View>
+          )}
         </ScrollView>
       </View>
     </Modal>
@@ -368,6 +482,22 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     flex: 1,
+  },
+  pointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 104, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+  },
+  pointsText: {
+    color: '#FFFF68',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   scrollView: {
     flex: 1,

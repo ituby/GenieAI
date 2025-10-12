@@ -13,7 +13,13 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
-import { Svg, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import {
+  Svg,
+  Rect,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+} from 'react-native-svg';
 import { Text, Card, Icon, Badge } from '../components';
 import { Button } from '../components/primitives/Button';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,7 +31,11 @@ import { useTheme } from '../theme/index';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
 import { GoalsService } from '../features/goals/services/goals.service';
-import { testDatabaseConnection, createTestUser, createSampleGoals } from '../utils/testConnection';
+import {
+  testDatabaseConnection,
+  createTestUser,
+  createSampleGoals,
+} from '../utils/testConnection';
 import { supabase } from '../services/supabase/client';
 import { PushTokenService } from '../services/notifications/pushToken.service';
 import { NewGoalScreen } from './NewGoalScreen';
@@ -43,12 +53,16 @@ export const DashboardScreen: React.FC = () => {
   const { t } = useTranslation();
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
-  const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal } = useGoalStore();
+  const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal } =
+    useGoalStore();
   const { unreadCount, refreshCount } = useNotificationCount();
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
   const [showNewGoal, setShowNewGoal] = React.useState(false);
-  const [selectedGoal, setSelectedGoal] = React.useState<GoalWithProgress | null>(null);
-  const [selectedTask, setSelectedTask] = React.useState<TaskWithGoal | null>(null);
+  const [selectedGoal, setSelectedGoal] =
+    React.useState<GoalWithProgress | null>(null);
+  const [selectedTask, setSelectedTask] = React.useState<TaskWithGoal | null>(
+    null
+  );
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showProfile, setShowProfile] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
@@ -59,15 +73,16 @@ export const DashboardScreen: React.FC = () => {
   const [showGoalMenu, setShowGoalMenu] = React.useState<string | null>(null);
   const [todaysTasksCount, setTodaysTasksCount] = React.useState<number>(0);
   const [todaysTasks, setTodaysTasks] = React.useState<TaskWithGoal[]>([]);
-  const [showSubscriptionModal, setShowSubscriptionModal] = React.useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] =
+    React.useState(false);
   const [userTokens, setUserTokens] = React.useState({
-    used: 2,
-    remaining: 1,
-    total: 3,
+    used: 0,
+    remaining: 0,
+    total: 0,
     isSubscribed: false,
     monthlyTokens: 0,
   });
-  
+
   // Animation for button border
   const borderAnimation = useRef(new Animated.Value(0)).current;
   // Animation for Add Goal button
@@ -82,7 +97,7 @@ export const DashboardScreen: React.FC = () => {
       fetchTodaysTasks();
       fetchTotalPoints();
       fetchUserTokens();
-      
+
       // Setup push notifications
       PushTokenService.setupPushNotifications(user.id);
     }
@@ -123,21 +138,22 @@ export const DashboardScreen: React.FC = () => {
         })
       ).start();
     };
-    
+
     startGradientAnimation();
   }, [gradientAnimation]);
 
-
   const fetchRecentRewards = async () => {
     if (!user?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('rewards')
-        .select(`
+        .select(
+          `
           *,
           goal:goals(id, title, category)
-        `)
+        `
+        )
         .eq('unlocked', true)
         .order('unlocked_at', { ascending: false })
         .limit(3);
@@ -151,7 +167,7 @@ export const DashboardScreen: React.FC = () => {
 
   const fetchTotalPoints = async () => {
     if (!user?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('user_points')
@@ -159,8 +175,9 @@ export const DashboardScreen: React.FC = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      
-      const total = data?.reduce((sum, item) => sum + (item.points || 0), 0) || 0;
+
+      const total =
+        data?.reduce((sum, item) => sum + (item.points || 0), 0) || 0;
       setTotalPoints(total);
     } catch (error) {
       console.error('Error fetching total points:', error);
@@ -169,7 +186,7 @@ export const DashboardScreen: React.FC = () => {
 
   const fetchUserTokens = async () => {
     if (!user?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('user_tokens')
@@ -178,7 +195,7 @@ export const DashboardScreen: React.FC = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
-      
+
       if (data) {
         setUserTokens({
           used: data.tokens_used,
@@ -204,15 +221,24 @@ export const DashboardScreen: React.FC = () => {
 
   const fetchTodaysTasks = async () => {
     if (!user?.id) return;
-    
+
     try {
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      );
 
       const { data, error } = await supabase
         .from('goal_tasks')
-        .select(`
+        .select(
+          `
           id,
           title,
           description,
@@ -229,16 +255,17 @@ export const DashboardScreen: React.FC = () => {
             user_id,
             color
           )
-        `)
+        `
+        )
         .eq('goals.user_id', user.id)
         .gte('run_at', startOfDay.toISOString())
         .lt('run_at', endOfDay.toISOString())
         .order('run_at', { ascending: true });
 
       if (error) throw error;
-      
+
       // Transform data to match TaskWithGoal interface
-      const transformedTasks: TaskWithGoal[] = (data || []).map(task => ({
+      const transformedTasks: TaskWithGoal[] = (data || []).map((task) => ({
         id: task.id,
         title: task.title,
         description: task.description,
@@ -252,15 +279,15 @@ export const DashboardScreen: React.FC = () => {
           id: (task.goals as any).id,
           title: (task.goals as any).title,
           category: (task.goals as any).category,
-          color: (task.goals as any).color
-        }
+          color: (task.goals as any).color,
+        },
       }));
-      
+
       setTodaysTasksCount(transformedTasks.length);
       setTodaysTasks(transformedTasks);
-      console.log('📅 Today\'s tasks:', data?.length || 0);
+      console.log("📅 Today's tasks:", data?.length || 0);
     } catch (error) {
-      console.error('Error fetching today\'s tasks:', error);
+      console.error("Error fetching today's tasks:", error);
       setTodaysTasksCount(0);
       setTodaysTasks([]);
     }
@@ -269,7 +296,7 @@ export const DashboardScreen: React.FC = () => {
   const testAIConnection = async () => {
     try {
       const response = await supabase.functions.invoke('generate-plan', {
-        body: { test: true }
+        body: { test: true },
       });
       setAiConnected(response.error ? false : true);
     } catch (error) {
@@ -284,6 +311,8 @@ export const DashboardScreen: React.FC = () => {
     if (user?.id) {
       fetchGoals(user.id);
       fetchTodaysTasks();
+      fetchUserTokens(); // Add this to refresh tokens data
+      fetchTotalPoints(); // Add this to refresh points data
     }
   };
 
@@ -295,14 +324,14 @@ export const DashboardScreen: React.FC = () => {
 
   const handleDeleteGoal = async (goalId: string) => {
     setShowGoalMenu(null);
-    
+
     Alert.alert(
       'Delete Goal',
       'Are you sure you want to delete this goal? This action cannot be undone. Note: You will not get your token back.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -310,6 +339,8 @@ export const DashboardScreen: React.FC = () => {
               if (user?.id) {
                 fetchGoals(user.id);
                 fetchTodaysTasks();
+                // Refresh total points immediately after deleting goal
+                fetchTotalPoints();
                 // Note: We intentionally do NOT restore tokens when deleting goals
                 // This prevents users from gaming the system by creating/deleting goals
               }
@@ -317,22 +348,22 @@ export const DashboardScreen: React.FC = () => {
               console.error('Error deleting goal:', error);
               Alert.alert('Error', 'Failed to delete goal');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
   const handleTestDatabase = async () => {
     console.log('🧪 Running database tests...');
-    
+
     // Test connection
     const isConnected = await testDatabaseConnection();
     if (!isConnected) {
       alert('Database connection failed!');
       return;
     }
-    
+
     alert('Database connection successful! ✅');
   };
 
@@ -341,9 +372,9 @@ export const DashboardScreen: React.FC = () => {
       alert('Please login first');
       return;
     }
-    
+
     console.log('🧪 Creating test data...');
-    
+
     // Create sample goals for current user
     const goals = await createSampleGoals(user.id);
     if (goals.length > 0) {
@@ -355,7 +386,9 @@ export const DashboardScreen: React.FC = () => {
   };
 
   const getUserName = () => {
-    return user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+    return (
+      user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+    );
   };
 
   const startBorderAnimation = () => {
@@ -381,7 +414,7 @@ export const DashboardScreen: React.FC = () => {
 
   const handleGoalCreated = async () => {
     setShowNewGoal(false);
-    
+
     // Update tokens in database after creating a goal
     if (user?.id) {
       try {
@@ -404,19 +437,17 @@ export const DashboardScreen: React.FC = () => {
             .eq('user_id', user.id);
         } else {
           // Create new record
-          await supabase
-            .from('user_tokens')
-            .insert({
-              user_id: user.id,
-              tokens_used: 1,
-              tokens_remaining: 2,
-              total_tokens: 3,
-              is_subscribed: false,
-            });
+          await supabase.from('user_tokens').insert({
+            user_id: user.id,
+            tokens_used: 1,
+            tokens_remaining: 2,
+            total_tokens: 3,
+            is_subscribed: false,
+          });
         }
 
         // Update local state
-        setUserTokens(prev => ({
+        setUserTokens((prev) => ({
           ...prev,
           used: prev.used + 1,
           remaining: prev.remaining - 1,
@@ -434,7 +465,9 @@ export const DashboardScreen: React.FC = () => {
   const checkTokensAndCreateGoal = () => {
     if (userTokens.remaining <= 0) {
       // Show subscription modal or upgrade prompt
-      alert('You have used all your free plans. Please subscribe to continue creating goals.');
+      alert(
+        'You have used all your free plans. Please subscribe to continue creating goals.'
+      );
       return;
     }
     setShowNewGoal(true);
@@ -448,26 +481,32 @@ export const DashboardScreen: React.FC = () => {
     try {
       const { error } = await supabase
         .from('goal_tasks')
-        .update({ 
+        .update({
           completed: markAsCompleted,
-          completed_at: markAsCompleted ? new Date().toISOString() : null
+          completed_at: markAsCompleted ? new Date().toISOString() : null,
         })
         .eq('id', taskId);
 
       if (error) throw error;
-      
+
       // Update local state
-      setTodaysTasks(prevTasks => 
-        prevTasks.map(task => 
-          task.id === taskId 
-            ? { ...task, completed: markAsCompleted, completed_at: markAsCompleted ? new Date().toISOString() : undefined }
+      setTodaysTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                completed: markAsCompleted,
+                completed_at: markAsCompleted
+                  ? new Date().toISOString()
+                  : undefined,
+              }
             : task
         )
       );
 
       // Update points system
       try {
-        const task = todaysTasks.find(t => t.id === taskId);
+        const task = todaysTasks.find((t) => t.id === taskId);
         if (task) {
           const action = markAsCompleted ? 'complete' : 'incomplete';
           await supabase.functions.invoke('update-points', {
@@ -475,10 +514,10 @@ export const DashboardScreen: React.FC = () => {
               goal_id: task.goal_id,
               task_id: taskId,
               user_id: user?.id,
-              action: action
-            }
+              action: action,
+            },
           });
-          
+
           // Refresh total points display
           fetchTotalPoints();
         }
@@ -486,20 +525,23 @@ export const DashboardScreen: React.FC = () => {
         console.error('Error updating points:', pointsError);
         // Don't fail the task update if points update fails
       }
-      
+
       // Refresh tasks count
       fetchTodaysTasks();
 
       // Update rewards after task completion
       if (markAsCompleted) {
         try {
-          const { error: rewardError } = await supabase.functions.invoke('update-rewards', {
-            body: {
-              goal_id: todaysTasks.find(t => t.id === taskId)?.goal_id,
-              task_id: taskId,
-              task_completed: true
+          const { error: rewardError } = await supabase.functions.invoke(
+            'update-rewards',
+            {
+              body: {
+                goal_id: todaysTasks.find((t) => t.id === taskId)?.goal_id,
+                task_id: taskId,
+                task_completed: true,
+              },
             }
-          });
+          );
 
           if (rewardError) {
             console.error('Error updating rewards:', rewardError);
@@ -540,7 +582,12 @@ export const DashboardScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background.primary },
+      ]}
+    >
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
         {/* Blur overlay */}
@@ -553,32 +600,40 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <View style={styles.notificationIconContainer}>
-              <Icon 
-                name="bell" 
-                size={20} 
-                color={unreadCount > 0 ? theme.colors.yellow[500] : theme.colors.text.secondary} 
+              <Icon
+                name="bell"
+                size={20}
+                color={
+                  unreadCount > 0
+                    ? theme.colors.yellow[500]
+                    : theme.colors.text.secondary
+                }
               />
-              <Badge 
-                count={unreadCount} 
-                size="small" 
+              <Badge
+                count={unreadCount}
+                size="small"
                 backgroundColor="#FFFFFF"
                 color="#000000"
               />
             </View>
           </Button>
         </View>
-        
+
         <View style={styles.headerCenter}>
-          <Image 
-            source={require('../../assets/LogoSymbol.webp')} 
+          <Image
+            source={require('../../assets/LogoSymbol.webp')}
             style={styles.headerLogo}
             resizeMode="contain"
           />
         </View>
-        
+
         <View style={styles.headerRight}>
           <Button variant="ghost" onPress={() => setShowSideMenu(true)}>
-            <Ionicons name="menu" size={20} color={theme.colors.text.secondary} />
+            <Ionicons
+              name="menu"
+              size={20}
+              color={theme.colors.text.secondary}
+            />
           </Button>
         </View>
       </View>
@@ -594,7 +649,6 @@ export const DashboardScreen: React.FC = () => {
           />
         }
       >
-
         {/* Content Header */}
         <View style={styles.contentHeader}>
           <View style={styles.greetingRow}>
@@ -614,27 +668,42 @@ export const DashboardScreen: React.FC = () => {
           <Card variant="gradient" padding="md" style={styles.usageRateCard}>
             <View style={styles.usageRateHeader}>
               <View style={styles.usageRateTitleContainer}>
-                <Icon name="chart-bar" size={20} color="#FFFF68" weight="fill" />
-                <Text variant="h4" style={styles.usageRateTitle}>Usage Rate</Text>
+                <Icon
+                  name="chart-bar"
+                  size={20}
+                  color="#FFFF68"
+                  weight="fill"
+                />
+                <Text variant="h4" style={styles.usageRateTitle}>
+                  Usage Rate
+                </Text>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.purchaseTokensButton,
-                  !userTokens.isSubscribed && styles.purchaseTokensButtonDisabled
+                  !userTokens.isSubscribed &&
+                    styles.purchaseTokensButtonDisabled,
                 ]}
                 disabled={!userTokens.isSubscribed}
                 activeOpacity={userTokens.isSubscribed ? 0.8 : 1}
               >
-                  <Icon 
-                    name="crown" 
-                    size={16} 
-                    color={userTokens.isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.4)"} 
-                    weight="fill" 
-                  />
-                <Text style={[
-                  styles.purchaseTokensText,
-                  !userTokens.isSubscribed && styles.purchaseTokensTextDisabled
-                ]}>
+                <Icon
+                  name="crown"
+                  size={16}
+                  color={
+                    userTokens.isSubscribed
+                      ? '#FFFF68'
+                      : 'rgba(255, 255, 104, 0.4)'
+                  }
+                  weight="fill"
+                />
+                <Text
+                  style={[
+                    styles.purchaseTokensText,
+                    !userTokens.isSubscribed &&
+                      styles.purchaseTokensTextDisabled,
+                  ]}
+                >
                   Add Tokens
                 </Text>
               </TouchableOpacity>
@@ -642,32 +711,63 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.usageRateContent}>
               <View style={styles.usageRateStats}>
                 <View style={styles.usageRateStat}>
-                  <Text variant="h2" style={styles.usageRateNumber}>{userTokens.used}</Text>
-                  <Text variant="caption" color="secondary" style={styles.usageRateLabel}>Used</Text>
+                  <Text variant="h2" style={styles.usageRateNumber}>
+                    {userTokens.used}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.usageRateLabel}
+                  >
+                    Used
+                  </Text>
                 </View>
                 <View style={styles.usageRateDivider} />
                 <View style={styles.usageRateStat}>
-                  <Text variant="h2" style={styles.usageRateNumber}>{userTokens.remaining}</Text>
-                  <Text variant="caption" color="secondary" style={styles.usageRateLabel}>Remaining</Text>
+                  <Text variant="h2" style={styles.usageRateNumber}>
+                    {userTokens.remaining}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.usageRateLabel}
+                  >
+                    Remaining
+                  </Text>
                 </View>
               </View>
               <View style={styles.usageRateProgress}>
                 <View style={styles.usageRateProgressBar}>
-                  <View style={[styles.usageRateProgressFill, { width: `${(userTokens.used / userTokens.total) * 100}%` }]} />
+                  <View
+                    style={[
+                      styles.usageRateProgressFill,
+                      {
+                        width: `${(userTokens.used / userTokens.total) * 100}%`,
+                      },
+                    ]}
+                  />
                 </View>
-                <Text variant="caption" color="tertiary" style={styles.usageRateProgressText}>
-                  {userTokens.used} of {userTokens.total} {userTokens.isSubscribed ? 'monthly' : 'free'} plans used
+                <Text
+                  variant="caption"
+                  color="tertiary"
+                  style={styles.usageRateProgressText}
+                >
+                  {userTokens.used} of {userTokens.total}{' '}
+                  {userTokens.isSubscribed ? 'monthly' : 'free'} plans used
                 </Text>
               </View>
               {!userTokens.isSubscribed && (
                 <View style={styles.subscriptionPrompt}>
-                  <Text variant="caption" color="secondary" style={styles.subscriptionText}>
-                    {userTokens.remaining === 0 
-                      ? 'Upgrade to continue creating goals' 
-                      : 'Upgrade for unlimited goals and advanced features'
-                    }
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.subscriptionText}
+                  >
+                    {userTokens.remaining === 0
+                      ? 'Upgrade to continue creating goals'
+                      : 'Upgrade for unlimited goals and advanced features'}
                   </Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.subscribeButton}
                     onPress={handleSubscribeClick}
                   >
@@ -684,11 +784,23 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.statsContainer}>
           <Card variant="gradient" padding="md" style={styles.statCard}>
             <View style={styles.statIconContainer}>
-              <Icon name="target" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+              <Icon
+                name="target"
+                size={20}
+                color="rgba(255, 255, 255, 0.8)"
+                weight="fill"
+              />
             </View>
             <View style={styles.statProgressContainer}>
-              <ProgressRing 
-                progress={activeGoals.length > 0 ? (activeGoals.reduce((sum, goal) => sum + goal.completion_percentage, 0) / activeGoals.length) : 0}
+              <ProgressRing
+                progress={
+                  activeGoals.length > 0
+                    ? activeGoals.reduce(
+                        (sum, goal) => sum + goal.completion_percentage,
+                        0
+                      ) / activeGoals.length
+                    : 0
+                }
                 size={40}
                 strokeWidth={3}
                 showPercentage={false}
@@ -705,10 +817,15 @@ export const DashboardScreen: React.FC = () => {
 
           <Card variant="gradient" padding="md" style={styles.statCard}>
             <View style={styles.statIconContainer}>
-              <Icon name="fire" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+              <Icon
+                name="fire"
+                size={20}
+                color="rgba(255, 255, 255, 0.8)"
+                weight="fill"
+              />
             </View>
             <View style={styles.statProgressContainer}>
-              <ProgressRing 
+              <ProgressRing
                 progress={0}
                 size={40}
                 strokeWidth={3}
@@ -726,10 +843,15 @@ export const DashboardScreen: React.FC = () => {
 
           <Card variant="gradient" padding="md" style={styles.statCard}>
             <View style={styles.statIconContainer}>
-              <Icon name="clipboard-text" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+              <Icon
+                name="clipboard-text"
+                size={20}
+                color="rgba(255, 255, 255, 0.8)"
+                weight="fill"
+              />
             </View>
             <View style={styles.statProgressContainer}>
-              <ProgressRing 
+              <ProgressRing
                 progress={0}
                 size={40}
                 strokeWidth={3}
@@ -750,10 +872,15 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.scoreCardContainer}>
           <Card variant="gradient" padding="md" style={styles.scoreCard}>
             <View style={styles.statIconContainer}>
-              <Icon name="trophy" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+              <Icon
+                name="trophy"
+                size={20}
+                color="rgba(255, 255, 255, 0.8)"
+                weight="fill"
+              />
             </View>
             <View style={styles.scoreProgressContainer}>
-              <ProgressRing 
+              <ProgressRing
                 progress={Math.min(totalPoints / 200, 1)}
                 size={60}
                 strokeWidth={4}
@@ -775,60 +902,78 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.section}>
             <Card variant="default" padding="lg" style={styles.createGoalCard}>
               <View style={styles.createGoalContent}>
-                <View style={[styles.createGoalIcon, { backgroundColor: theme.colors.yellow[500] + '20' }]}>
-                  <Icon 
-                    name="target" 
-                    size={24} 
-                    color={theme.colors.yellow[500]} 
+                <View
+                  style={[
+                    styles.createGoalIcon,
+                    { backgroundColor: theme.colors.yellow[500] + '20' },
+                  ]}
+                >
+                  <Icon
+                    name="target"
+                    size={24}
+                    color={theme.colors.yellow[500]}
                     weight="fill"
                   />
                 </View>
-                
+
                 <Text variant="h3" style={styles.createGoalTitle}>
                   Create Your First Goal
                 </Text>
-                
-                <Text variant="body" color="secondary" style={styles.createGoalDescription}>
-                  Tell Genie what you want to achieve, and we'll create a personalized 21-day plan with daily tasks, rewards, and smart notifications.
+
+                <Text
+                  variant="body"
+                  color="secondary"
+                  style={styles.createGoalDescription}
+                >
+                  Tell Genie what you want to achieve, and we'll create a
+                  personalized 21-day plan with daily tasks, rewards, and smart
+                  notifications.
                 </Text>
-                
-                 <Animated.View
-                   style={[
-                     styles.createGoalButtonContainer,
-                     {
-                       transform: [
-                         {
-                           scale: borderAnimation.interpolate({
-                             inputRange: [0, 0.5, 1],
-                             outputRange: [1, 1.02, 1],
-                           }),
-                         },
-                       ],
-                       opacity: borderAnimation.interpolate({
-                         inputRange: [0, 0.5, 1],
-                         outputRange: [0.9, 1, 0.9],
-                       }),
-                     },
-                   ]}
-                 >
-                   <LinearGradient
-                     colors={['#FFFF68', '#FFFFFF']}
-                     start={{ x: 0, y: 0 }}
-                     end={{ x: 1, y: 1 }}
-                     style={styles.createGoalButtonGradient}
-                   >
-                     <TouchableOpacity
-                       onPress={checkTokensAndCreateGoal}
-                       activeOpacity={0.8}
-                       style={styles.createGoalButton}
-                     >
-                       <View style={styles.createGoalButtonContent}>
-                         <Icon name="star" size={16} color="#FFFFFF" weight="fill" />
-                         <Text style={styles.createGoalButtonText}>Begin Your Transformation</Text>
-                       </View>
-                     </TouchableOpacity>
-                   </LinearGradient>
-                 </Animated.View>
+
+                <Animated.View
+                  style={[
+                    styles.createGoalButtonContainer,
+                    {
+                      transform: [
+                        {
+                          scale: borderAnimation.interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: [1, 1.02, 1],
+                          }),
+                        },
+                      ],
+                      opacity: borderAnimation.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.9, 1, 0.9],
+                      }),
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={['#FFFF68', '#FFFFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.createGoalButtonGradient}
+                  >
+                    <TouchableOpacity
+                      onPress={checkTokensAndCreateGoal}
+                      activeOpacity={0.8}
+                      style={styles.createGoalButton}
+                    >
+                      <View style={styles.createGoalButtonContent}>
+                        <Icon
+                          name="star"
+                          size={16}
+                          color="#FFFFFF"
+                          weight="fill"
+                        />
+                        <Text style={styles.createGoalButtonText}>
+                          Begin Your Transformation
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                </Animated.View>
               </View>
             </Card>
           </View>
@@ -843,7 +988,7 @@ export const DashboardScreen: React.FC = () => {
                 View All
               </Button>
             </View>
-            
+
             <View style={styles.goalsList}>
               {activeGoals.map((goal) => (
                 <GoalCard
@@ -879,7 +1024,11 @@ export const DashboardScreen: React.FC = () => {
               ]}
             >
               <AnimatedLinearGradient
-                colors={['#FFFF68', '#FFFFFF', '#FFFF68']}
+                colors={
+                  userTokens.remaining <= 0
+                    ? ['#FF6B6B', '#FF8E8E', '#FF6B6B']
+                    : ['#FFFF68', '#FFFFFF', '#FFFF68']
+                }
                 start={{
                   x: gradientAnimation.interpolate({
                     inputRange: [0, 1],
@@ -897,13 +1046,31 @@ export const DashboardScreen: React.FC = () => {
                 style={styles.addGoalButtonGradient}
               >
                 <TouchableOpacity
-                  onPress={checkTokensAndCreateGoal}
+                  onPress={
+                    userTokens.remaining <= 0
+                      ? () => setShowSubscriptionModal(true)
+                      : checkTokensAndCreateGoal
+                  }
                   activeOpacity={0.8}
                   style={styles.addGoalButton}
                 >
                   <View style={styles.addGoalButtonContent}>
-                    <Icon name="sparkle" size={16} color="#FFFF68" weight="fill" />
-                    <Text style={styles.addGoalButtonText}>Add Goal</Text>
+                    <Icon
+                      name={userTokens.remaining <= 0 ? 'crown' : 'sparkle'}
+                      size={16}
+                      color={userTokens.remaining <= 0 ? '#FFFFFF' : '#FFFF68'}
+                      weight="fill"
+                    />
+                    <Text
+                      style={[
+                        styles.addGoalButtonText,
+                        userTokens.remaining <= 0 && { color: '#FFFFFF' },
+                      ]}
+                    >
+                      {userTokens.remaining <= 0
+                        ? 'Subscribe now to add new goal'
+                        : 'Add Goal'}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               </AnimatedLinearGradient>
@@ -923,17 +1090,30 @@ export const DashboardScreen: React.FC = () => {
           {todaysTasksCount === 0 ? (
             <Card variant="gradient" padding="md" style={styles.todayTasksCard}>
               <View style={styles.todayTasksIconContainer}>
-                <Icon name="calendar" size={24} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+                <Icon
+                  name="calendar"
+                  size={24}
+                  color="rgba(255, 255, 255, 0.8)"
+                  weight="fill"
+                />
               </View>
               <View style={styles.todayTasksNumberContainer}>
                 <Text variant="h2" color="secondary">
                   0
                 </Text>
               </View>
-              <Text variant="body" color="secondary" style={styles.todayTasksLabel}>
+              <Text
+                variant="body"
+                color="secondary"
+                style={styles.todayTasksLabel}
+              >
                 Tasks Today
               </Text>
-              <Text variant="caption" color="tertiary" style={styles.todayTasksDescription}>
+              <Text
+                variant="caption"
+                color="tertiary"
+                style={styles.todayTasksDescription}
+              >
                 Create your first goal to get personalized daily tasks
               </Text>
             </Card>
@@ -961,9 +1141,13 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text variant="h4">Recent Rewards</Text>
-              <Icon name="trophy" size={20} color={theme.colors.text.secondary} />
+              <Icon
+                name="trophy"
+                size={20}
+                color={theme.colors.text.secondary}
+              />
             </View>
-            
+
             <View style={styles.rewardsList}>
               {recentRewards.map((reward) => (
                 <RewardCard
@@ -977,13 +1161,12 @@ export const DashboardScreen: React.FC = () => {
             </View>
           </View>
         )}
-
       </ScrollView>
 
       {/* Goal Overflow Menu */}
       {showGoalMenu && (
         <View style={styles.goalMenuOverlay}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.goalMenuOverlayTouchable}
             activeOpacity={1}
             onPress={() => setShowGoalMenu(null)}
@@ -992,25 +1175,38 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.goalMenuHeader}>
               <Text variant="h4">Goal Options</Text>
               <Button variant="ghost" onPress={() => setShowGoalMenu(null)}>
-                <Icon name="check-circle" size={20} color={theme.colors.text.secondary} />
+                <Icon
+                  name="check-circle"
+                  size={20}
+                  color={theme.colors.text.secondary}
+                />
               </Button>
             </View>
             <View style={styles.goalMenuContent}>
-              <Button 
-                variant="ghost" 
-                fullWidth 
+              <Button
+                variant="ghost"
+                fullWidth
                 onPress={() => handleEditGoal(showGoalMenu)}
-                leftIcon={<Icon name="gear" size={20} color={theme.colors.text.secondary} />}
+                leftIcon={
+                  <Icon
+                    name="gear"
+                    size={20}
+                    color={theme.colors.text.secondary}
+                  />
+                }
                 style={styles.goalMenuButton}
               >
                 Edit Goal
               </Button>
-              <Button 
-                variant="ghost" 
-                fullWidth 
+              <Button
+                variant="ghost"
+                fullWidth
                 onPress={() => handleDeleteGoal(showGoalMenu)}
                 leftIcon={<Icon name="trash" size={20} color="#FF0000" />}
-                style={[styles.goalMenuButton, { backgroundColor: '#FF000010' }]}
+                style={[
+                  styles.goalMenuButton,
+                  { backgroundColor: '#FF000010' },
+                ]}
               >
                 <Text style={{ color: '#FF0000' }}>Delete Goal</Text>
               </Button>
@@ -1022,7 +1218,7 @@ export const DashboardScreen: React.FC = () => {
       {/* Side Menu */}
       {showSideMenu && (
         <View style={styles.sideMenuOverlay}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sideMenuOverlayTouchable}
             activeOpacity={1}
             onPress={() => setShowSideMenu(false)}
@@ -1036,9 +1232,9 @@ export const DashboardScreen: React.FC = () => {
               </Button>
             </View>
             <View style={styles.sideMenuContent}>
-              <Button 
-                variant="ghost" 
-                fullWidth 
+              <Button
+                variant="ghost"
+                fullWidth
                 onPress={() => {
                   setShowSideMenu(false);
                   setShowProfile(true);
@@ -1048,9 +1244,9 @@ export const DashboardScreen: React.FC = () => {
               >
                 Profile
               </Button>
-              <Button 
-                variant="ghost" 
-                fullWidth 
+              <Button
+                variant="ghost"
+                fullWidth
                 onPress={() => {
                   setShowSideMenu(false);
                   setShowSettings(true);
@@ -1060,9 +1256,9 @@ export const DashboardScreen: React.FC = () => {
               >
                 Settings
               </Button>
-              <Button 
-                variant="ghost" 
-                fullWidth 
+              <Button
+                variant="ghost"
+                fullWidth
                 onPress={() => {
                   setShowSideMenu(false);
                   setShowHelpSupport(true);
@@ -1073,21 +1269,32 @@ export const DashboardScreen: React.FC = () => {
                 Help & Support
               </Button>
               <View style={styles.sideMenuDivider} />
-              <Button 
-                variant="ghost" 
-                fullWidth 
+              <Button
+                variant="ghost"
+                fullWidth
                 onPress={() => {
                   setShowSideMenu(false);
                   signOut();
                 }}
-                leftIcon={<Icon name="sign-out" size={20} color={theme.colors.status.error} />}
-                style={[styles.sideMenuButton, { backgroundColor: theme.colors.status.error + '10' }]}
+                leftIcon={
+                  <Icon
+                    name="sign-out"
+                    size={20}
+                    color={theme.colors.status.error}
+                  />
+                }
+                style={[
+                  styles.sideMenuButton,
+                  { backgroundColor: theme.colors.status.error + '10' },
+                ]}
               >
                 <Text style={{ color: theme.colors.status.error }}>Logout</Text>
               </Button>
             </View>
             <View style={styles.sideMenuFooter}>
-              <Text style={styles.sideMenuFooterText}>© 2024 GenieAI • Version 1.0.0</Text>
+              <Text style={styles.sideMenuFooterText}>
+                © 2024 GenieAI • Version 1.0.0
+              </Text>
             </View>
           </View>
         </View>
@@ -1117,24 +1324,14 @@ export const DashboardScreen: React.FC = () => {
       )}
 
       {/* Profile Screen */}
-      {showProfile && (
-        <ProfileScreen
-          onBack={() => setShowProfile(false)}
-        />
-      )}
+      {showProfile && <ProfileScreen onBack={() => setShowProfile(false)} />}
 
       {/* Settings Screen */}
-      {showSettings && (
-        <SettingsScreen
-          onBack={() => setShowSettings(false)}
-        />
-      )}
+      {showSettings && <SettingsScreen onBack={() => setShowSettings(false)} />}
 
       {/* Help & Support Screen */}
       {showHelpSupport && (
-        <HelpSupportScreen
-          onBack={() => setShowHelpSupport(false)}
-        />
+        <HelpSupportScreen onBack={() => setShowHelpSupport(false)} />
       )}
 
       {/* Subscription Modal */}
@@ -1142,90 +1339,141 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text variant="h3" style={styles.modalTitle}>Upgrade to Premium</Text>
-              <TouchableOpacity 
+              <Icon name="crown" size={24} color="#FFFF68" weight="fill" />
+              <Text variant="h3" style={styles.modalTitle}>
+                Unlock Unlimited Goals
+              </Text>
+              <TouchableOpacity
                 onPress={() => setShowSubscriptionModal(false)}
                 style={styles.modalCloseButton}
               >
                 <Icon name="x" size={20} color={theme.colors.text.secondary} />
               </TouchableOpacity>
             </View>
-            
-            <View style={styles.modalContent}>
-              <View style={styles.modalIconContainer}>
-                <Icon name="crown" size={24} color="#FFFF68" weight="fill" />
-              </View>
-              
-              <Text variant="h4" style={styles.modalSubtitle}>
-                Unlock Unlimited Goals
-              </Text>
-              
-              <Text variant="body" color="secondary" style={styles.modalDescription}>
-                Unlock the full potential of Genie with unlimited goals, advanced AI features, premium rewards, and exclusive benefits.
-              </Text>
-              
-              <View style={styles.modalFeatures}>
-                <View style={styles.modalFeature}>
-                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Unlimited goal creation
-                  </Text>
-                  <Icon name="infinity" size={16} color="#FFFF68" weight="fill" />
-                </View>
-                <View style={styles.modalFeature}>
-                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Advanced AI insights & analytics
-                  </Text>
-                  <Icon name="brain" size={16} color="#FFFF68" weight="fill" />
-                </View>
-                <View style={styles.modalFeature}>
-                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Update plan feature
-                  </Text>
-                  <Icon name="update-plan" size={16} color="#FFFF68" weight="fill" />
-                </View>
-                <View style={styles.modalFeature}>
-                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Premium rewards & achievements
-                  </Text>
-                  <Icon name="trophy" size={16} color="#FFFF68" weight="fill" />
-                </View>
-                <View style={styles.modalFeature}>
-                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Priority customer support
-                  </Text>
-                  <Icon name="headset" size={16} color="#FFFF68" weight="fill" />
-                </View>
-                <View style={styles.modalFeature}>
-                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
-                    Early access to new features
-                  </Text>
-                  <Icon name="sparkle" size={16} color="#FFFF68" weight="fill" />
-                </View>
-              </View>
-              
-              <View style={styles.modalActions}>
-                <TouchableOpacity 
-                  style={styles.modalSubscribeButton}
-                  onPress={() => {
-                    // TODO: Implement subscription logic
-                    setShowSubscriptionModal(false);
-                    alert('Subscription feature coming soon!');
-                  }}
+
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalContent}>
+                <Text
+                  variant="body"
+                  color="secondary"
+                  style={styles.modalDescription}
                 >
-                  <Text style={styles.modalSubscribeButtonText}>
-                    Subscribe Now - $9.99/month
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.modalCancelButton}
-                  onPress={() => setShowSubscriptionModal(false)}
-                >
-                  <Text style={styles.modalCancelButtonText}>
-                    Maybe Later
-                  </Text>
-                </TouchableOpacity>
+                  Unlock the full potential of Genie with unlimited goals,
+                  advanced AI features, premium rewards, and exclusive benefits.
+                </Text>
+
+                <View style={styles.modalFeatures}>
+                  <View style={styles.modalFeature}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.modalFeatureText}
+                    >
+                      Unlimited goal creation
+                    </Text>
+                    <Icon
+                      name="infinity"
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                  </View>
+                  <View style={styles.modalFeature}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.modalFeatureText}
+                    >
+                      Advanced AI insights & analytics
+                    </Text>
+                    <Icon
+                      name="brain"
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                  </View>
+                  <View style={styles.modalFeature}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.modalFeatureText}
+                    >
+                      Update plan feature
+                    </Text>
+                    <Icon
+                      name="arrow-clockwise"
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                  </View>
+                  <View style={styles.modalFeature}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.modalFeatureText}
+                    >
+                      Premium rewards & achievements
+                    </Text>
+                    <Icon
+                      name="trophy"
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                  </View>
+                  <View style={styles.modalFeature}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.modalFeatureText}
+                    >
+                      Priority customer support
+                    </Text>
+                    <Icon
+                      name="headset"
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                  </View>
+                  <View style={styles.modalFeature}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.modalFeatureText}
+                    >
+                      Early access to new features
+                    </Text>
+                    <Icon
+                      name="sparkle"
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                  </View>
+                </View>
               </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalSubscribeButton}
+                onPress={() => {
+                  // TODO: Implement subscription logic
+                  setShowSubscriptionModal(false);
+                  alert('Subscription feature coming soon!');
+                }}
+              >
+                <Text style={styles.modalSubscribeButtonText}>
+                  Subscribe Now - $9.99/month
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1326,10 +1574,10 @@ const styles = StyleSheet.create({
     paddingTop: 10, // Reduced padding above greeting
     paddingBottom: 0,
   },
-      headerLogo: {
-        width: 48,
-        height: 48,
-      },
+  headerLogo: {
+    width: 48,
+    height: 48,
+  },
   greetingRow: {
     alignItems: 'center',
   },
@@ -1490,219 +1738,219 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 2,
   },
-      createGoalCard: {
-        alignItems: 'center',
-        paddingVertical: 20,
-        borderWidth: 1,
-        borderColor: '#FFFF68', // Official yellow
-        backgroundColor: 'transparent',
-      },
-      createGoalContent: {
-        alignItems: 'center',
-        maxWidth: 300,
-      },
-      createGoalButtonGradient: {
-        borderRadius: 12,
-        padding: 2,
-        width: '100%',
-      },
-      createGoalButton: {
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        width: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
-      createGoalButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-      },
-      createGoalButtonText: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '600',
-        textAlign: 'center',
-      },
-      createGoalButtonContainer: {
-        marginTop: 16,
-        marginBottom: 16,
-      },
-      usageRateCard: {
-        marginBottom: 0,
-      },
-      usageRateHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-      },
-      usageRateTitleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-      },
-      usageRateTitle: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-      },
-      purchaseTokensButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        backgroundColor: 'rgba(255, 255, 104, 0.1)',
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 104, 0.3)',
-      },
-      purchaseTokensText: {
-        color: '#FFFF68',
-        fontSize: 12,
-        fontWeight: '600',
-      },
-      purchaseTokensButtonDisabled: {
-        backgroundColor: 'rgba(255, 255, 104, 0.05)',
-        borderColor: 'rgba(255, 255, 104, 0.1)',
-      },
-      purchaseTokensTextDisabled: {
-        color: 'rgba(255, 255, 104, 0.4)',
-      },
-      usageRateContent: {
-        gap: 16,
-      },
-      usageRateStats: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      },
-      usageRateStat: {
-        alignItems: 'center',
-        flex: 1,
-      },
-      usageRateNumber: {
-        color: '#FFFFFF',
-        fontWeight: '700',
-        marginBottom: 4,
-      },
-      usageRateLabel: {
-        fontSize: 12,
-        opacity: 0.8,
-      },
-      usageRateDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        marginHorizontal: 16,
-      },
-      usageRateProgress: {
-        gap: 8,
-      },
-      usageRateProgressBar: {
-        height: 6,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 3,
-        overflow: 'hidden',
-      },
-      usageRateProgressFill: {
-        height: '100%',
-        backgroundColor: '#FFFF68',
-        borderRadius: 3,
-      },
-      usageRateProgressText: {
-        textAlign: 'center',
-        fontSize: 12,
-        opacity: 0.7,
-      },
-      subscriptionPrompt: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 12,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-      },
-      subscriptionText: {
-        textAlign: 'center',
-        fontSize: 12,
-        opacity: 0.8,
-        marginBottom: 16,
-      },
-      subscribeButton: {
-        backgroundColor: '#FFFF68',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-      },
-      subscribeButtonText: {
-        color: '#000000',
-        fontSize: 12,
-        fontWeight: '600',
-      },
-      createGoalIcon: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
-      },
-      createGoalTitle: {
-        textAlign: 'center',
-        marginBottom: 8,
-      },
-      createGoalDescription: {
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 16,
-      },
-      smallGlassButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-      },
-      smallGlassButtonText: {
-        fontSize: 14,
-      },
-      addGoalButtonGradient: {
-        borderRadius: 25,
-        padding: 2,
-        width: '95%',
-        alignSelf: 'center',
-        marginBottom: 20,
-      },
-      addGoalButton: {
-        borderRadius: 23,
-        paddingVertical: 16,
-        paddingHorizontal: 12,
-        width: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
-      addGoalButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-      },
-      addGoalButtonText: {
-        color: '#FFFFFF',
-        fontSize: 13,
-        fontWeight: '600',
-        textAlign: 'center',
-      },
-      todayTasksCard: {
-        position: 'relative',
-        height: 120,
-      },
+  createGoalCard: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderWidth: 1,
+    borderColor: '#FFFF68', // Official yellow
+    backgroundColor: 'transparent',
+  },
+  createGoalContent: {
+    alignItems: 'center',
+    maxWidth: 300,
+  },
+  createGoalButtonGradient: {
+    borderRadius: 12,
+    padding: 2,
+    width: '100%',
+  },
+  createGoalButton: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createGoalButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  createGoalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  createGoalButtonContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  usageRateCard: {
+    marginBottom: 0,
+  },
+  usageRateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  usageRateTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  usageRateTitle: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  purchaseTokensButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+  },
+  purchaseTokensText: {
+    color: '#FFFF68',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  purchaseTokensButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 104, 0.05)',
+    borderColor: 'rgba(255, 255, 104, 0.1)',
+  },
+  purchaseTokensTextDisabled: {
+    color: 'rgba(255, 255, 104, 0.4)',
+  },
+  usageRateContent: {
+    gap: 16,
+  },
+  usageRateStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  usageRateStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  usageRateNumber: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  usageRateLabel: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
+  usageRateDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 16,
+  },
+  usageRateProgress: {
+    gap: 8,
+  },
+  usageRateProgressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  usageRateProgressFill: {
+    height: '100%',
+    backgroundColor: '#FFFF68',
+    borderRadius: 3,
+  },
+  usageRateProgressText: {
+    textAlign: 'center',
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  subscriptionPrompt: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  subscriptionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    opacity: 0.8,
+    marginBottom: 16,
+  },
+  subscribeButton: {
+    backgroundColor: '#FFFF68',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  subscribeButtonText: {
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  createGoalIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  createGoalTitle: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  createGoalDescription: {
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  smallGlassButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  smallGlassButtonText: {
+    fontSize: 14,
+  },
+  addGoalButtonGradient: {
+    borderRadius: 25,
+    padding: 2,
+    width: '95%',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  addGoalButton: {
+    borderRadius: 23,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    width: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addGoalButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  addGoalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  todayTasksCard: {
+    position: 'relative',
+    height: 120,
+  },
   rewardsList: {
     gap: 0,
   },
@@ -1858,6 +2106,8 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     borderWidth: 1,
     borderColor: '#FFFF68',
+    flex: 1,
+    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1867,10 +2117,14 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 12,
   },
   modalTitle: {
     color: '#FFFFFF',
     fontWeight: '700',
+    fontSize: 18,
+    flex: 1,
+    textAlign: 'center',
   },
   modalCloseButton: {
     padding: 4,
@@ -1882,8 +2136,6 @@ const styles = StyleSheet.create({
   modalIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 104, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -1896,13 +2148,14 @@ const styles = StyleSheet.create({
   },
   modalDescription: {
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
+    marginTop: 16,
     marginBottom: 24,
+    fontSize: 16,
   },
   modalFeatures: {
     width: '100%',
     gap: 12,
-    marginBottom: 32,
   },
   modalFeature: {
     flexDirection: 'row',
@@ -1910,17 +2163,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
+    minHeight: 48,
   },
   modalFeatureText: {
     flex: 1,
     textAlign: 'left',
   },
+  modalScrollView: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
+  },
   modalActions: {
     width: '100%',
     gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 10,
   },
   modalSubscribeButton: {
     backgroundColor: '#FFFF68',
@@ -1928,21 +2192,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
+    width: '100%',
   },
   modalSubscribeButtonText: {
     color: '#000000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  modalCancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  modalCancelButtonText: {
-    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
   },
 });
