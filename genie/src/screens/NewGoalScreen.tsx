@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Text, Card, TextField, Icon, AILoadingModal } from '../components';
+import { Button, Text, Card, TextField, Icon, AILoadingModal, GoalSuccessModal } from '../components';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useTheme } from '../theme/index';
@@ -36,17 +36,59 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const theme = useTheme();
   const { user } = useAuthStore();
   const { createGoal, loading } = useGoalStore();
+  
+  // Check if user is subscribed
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (user?.id) {
+        try {
+          const { data } = await supabase
+            .from('user_tokens')
+            .select('is_subscribed')
+            .eq('user_id', user.id)
+            .single();
+          
+          setIsSubscribed(data?.is_subscribed || false);
+        } catch (error) {
+          console.log('User subscription check failed:', error);
+          setIsSubscribed(false);
+        }
+      }
+    };
+    
+    checkSubscription();
+  }, [user?.id]);
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    intensity: 'easy' as 'easy' | 'medium' | 'hard',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [loadingStep, setLoadingStep] = useState(1);
+  const [loadingInterval, setLoadingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState({
+    taskCount: 0,
+    rewardCount: 0,
+    iconName: '',
+    color: '',
+  });
   
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Cleanup interval on unmount
+    return () => {
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+      }
+    };
+  }, [loadingInterval]);
 
   useEffect(() => {
     // Start gradient animation loop
@@ -95,6 +137,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     try {
       setIsCreatingPlan(true);
       setLoadingStep(1);
+      
+      // Start progressive loading animation
+      const interval = setInterval(() => {
+        setLoadingStep(prev => {
+          if (prev >= 15) {
+            clearInterval(interval);
+            return 15;
+          }
+          return prev + 1;
+        });
+      }, 800); // Change step every 800ms
+      
+      setLoadingInterval(interval);
 
       // First create the goal
       const goal = await createGoal({
@@ -107,11 +162,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       });
 
       console.log('✅ Goal created:', goal.id);
-      setLoadingStep(2);
 
       // Then generate AI plan with detailed 21-day roadmap
       try {
-        setLoadingStep(3);
         const response = await supabase.functions.invoke('generate-plan', {
           body: {
             user_id: user.id,
@@ -119,6 +172,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             category: 'custom',
             title: formData.title.trim(),
             description: formData.description.trim(),
+            intensity: formData.intensity,
             timezone: 'Asia/Jerusalem',
             language: 'en', // Default to English
             detailed_plan: true, // Request detailed 21-day roadmap
@@ -127,7 +181,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
         if (response.error) {
           console.error('❌ Plan generation error:', response.error);
-          setLoadingStep(7);
           setTimeout(() => {
             Alert.alert(
               'Goal Created Successfully!', 
@@ -136,48 +189,56 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             );
           }, 1000);
         } else {
-          setLoadingStep(4);
           const taskCount = response.data?.tasks?.length || 21;
           const rewardCount = response.data?.rewards?.length || 0;
           const iconName = response.data?.icon_name || 'star';
+          const color = response.data?.color || 'yellow';
           
-          console.log('✅ AI Plan generated:', { taskCount, rewardCount, iconName });
+          console.log('✅ AI Plan generated:', { taskCount, rewardCount, iconName, color });
           
-          // Update goal with AI-selected icon
+          // Update goal with AI-selected icon and color
           if (iconName && iconName !== 'star') {
             try {
-              setLoadingStep(5);
               await supabase
                 .from('goals')
-                .update({ icon_name: iconName })
+                .update({ icon_name: iconName, color: color })
                 .eq('id', goal.id);
-              console.log('🎨 Updated goal with icon:', iconName);
+              console.log('🎨 Updated goal with icon and color:', iconName, color);
             } catch (iconError) {
-              console.warn('⚠️ Failed to update goal icon:', iconError);
+              console.warn('⚠️ Failed to update goal icon and color:', iconError);
             }
           }
-          
-          setLoadingStep(6);
           setTimeout(() => {
-            Alert.alert(
-              'Amazing! Your Goal is Ready! 🎉', 
-              `Genie has created your personalized 21-day journey with ${taskCount} daily tasks, ${rewardCount} rewards, and smart notifications to keep you motivated!`,
-              [{ text: 'Start My Journey', onPress: onGoalCreated }]
-            );
+            setSuccessData({
+              taskCount,
+              rewardCount,
+              iconName: iconName || 'star',
+              color: color || 'yellow',
+            });
+            setIsCreatingPlan(false);
+            setShowSuccessModal(true);
           }, 1000);
         }
       } catch (planError) {
         console.error('❌ Failed to generate plan:', planError);
-        Alert.alert(
-          'Goal Created Successfully!', 
-          'Your goal has been created! Genie will create your personalized plan shortly.',
-          [{ text: 'Continue', onPress: onGoalCreated }]
-        );
+        setSuccessData({
+          taskCount: 21,
+          rewardCount: 5,
+          iconName: 'star',
+          color: 'yellow',
+        });
+        setIsCreatingPlan(false);
+        setShowSuccessModal(true);
       }
     } catch (error: any) {
       console.error('❌ Goal creation error:', error);
       Alert.alert('Error', `Failed to create goal: ${error.message}`);
     } finally {
+      // Clear loading interval
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+        setLoadingInterval(null);
+      }
       setIsCreatingPlan(false);
       setLoadingStep(1);
     }
@@ -188,6 +249,31 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleIntensitySelect = (intensity: 'easy' | 'medium' | 'hard') => {
+    // Check if user can select medium/hard intensity
+    if ((intensity === 'medium' || intensity === 'hard') && !isSubscribed) {
+      Alert.alert(
+        'Premium Feature',
+        'Medium and High intensity levels are available for subscribed users only. Upgrade to Premium to unlock advanced goal planning!',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => {
+            // TODO: Navigate to subscription screen
+            console.log('Navigate to subscription');
+          }}
+        ]
+      );
+      return;
+    }
+    
+    setFormData(prev => ({ ...prev, intensity }));
+  };
+
+  const handleStartJourney = () => {
+    setShowSuccessModal(false);
+    onGoalCreated?.();
   };
 
   return (
@@ -246,13 +332,131 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               placeholderTextColor="rgba(255, 255, 255, 0.3)"
             />
 
+            {/* Intensity Level Selection */}
+            <View style={styles.intensitySection}>
+              <Text variant="h4" style={styles.intensityLabel}>Choose Intensity Level</Text>
+              <Text variant="caption" color="secondary" style={styles.intensityDescription}>
+                {formData.intensity === 'easy' && '3 tasks per day • Perfect for beginners'}
+                {formData.intensity === 'medium' && '6 tasks per day • Balanced approach'}
+                {formData.intensity === 'hard' && '12 tasks per day • Maximum challenge'}
+              </Text>
+              
+              <View style={styles.intensityButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.intensityButton,
+                    formData.intensity === 'easy' && styles.intensityButtonSelected
+                  ]}
+                  onPress={() => handleIntensitySelect('easy')}
+                  activeOpacity={0.8}
+                >
+                  <Icon 
+                    name="leaf" 
+                    size={20} 
+                    color={formData.intensity === 'easy' ? '#000000' : '#FFFF68'} 
+                    weight="fill" 
+                  />
+                  <Text style={[
+                    styles.intensityButtonText,
+                    formData.intensity === 'easy' && styles.intensityButtonTextSelected
+                  ]}>
+                    Easy
+                  </Text>
+                  <Text style={[
+                    styles.intensityButtonSubtext,
+                    formData.intensity === 'easy' && styles.intensityButtonSubtextSelected
+                  ]}>
+                    3/day
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.intensityButton,
+                    formData.intensity === 'medium' && styles.intensityButtonSelected,
+                    !isSubscribed && !(formData.intensity === 'medium') && styles.intensityButtonLocked
+                  ]}
+                  onPress={() => handleIntensitySelect('medium')}
+                  activeOpacity={0.8}
+                >
+                  <Icon 
+                    name="fire" 
+                    size={20} 
+                    color={formData.intensity === 'medium' ? '#000000' : '#FFFF68'} 
+                    weight="fill" 
+                  />
+                  <Text style={[
+                    styles.intensityButtonText,
+                    formData.intensity === 'medium' && styles.intensityButtonTextSelected
+                  ]}>
+                    Medium
+                  </Text>
+                  <Text style={[
+                    styles.intensityButtonSubtext,
+                    formData.intensity === 'medium' && styles.intensityButtonSubtextSelected
+                  ]}>
+                    6/day
+                  </Text>
+                  {!isSubscribed && (
+                    <View style={styles.premiumBadge}>
+                      <Icon name="crown" size={12} color="#FFFF68" weight="fill" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.intensityButton,
+                    formData.intensity === 'hard' && styles.intensityButtonSelected,
+                    !isSubscribed && !(formData.intensity === 'hard') && styles.intensityButtonLocked
+                  ]}
+                  onPress={() => handleIntensitySelect('hard')}
+                  activeOpacity={0.8}
+                >
+                  <Icon 
+                    name="lightning" 
+                    size={20} 
+                    color={formData.intensity === 'hard' ? '#000000' : '#FFFF68'} 
+                    weight="fill" 
+                  />
+                  <Text style={[
+                    styles.intensityButtonText,
+                    formData.intensity === 'hard' && styles.intensityButtonTextSelected
+                  ]}>
+                    Hard
+                  </Text>
+                  <Text style={[
+                    styles.intensityButtonSubtext,
+                    formData.intensity === 'hard' && styles.intensityButtonSubtextSelected
+                  ]}>
+                    12/day
+                  </Text>
+                  {!isSubscribed && (
+                    <View style={styles.premiumBadge}>
+                      <Icon name="crown" size={12} color="#FFFF68" weight="fill" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
           </View>
 
           {/* AI Loading Modal */}
           <AILoadingModal
             visible={isCreatingPlan}
             currentStep={loadingStep}
-            totalSteps={7}
+            totalSteps={15}
+          />
+
+          {/* Goal Success Modal */}
+          <GoalSuccessModal
+            visible={showSuccessModal}
+            taskCount={successData.taskCount}
+            rewardCount={successData.rewardCount}
+            iconName={successData.iconName}
+            color={successData.color}
+            onStartJourney={handleStartJourney}
           />
 
           {/* Actions */}
@@ -261,10 +465,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               style={[
                 styles.createButton,
                 {
-                  opacity: gradientAnimation.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0.8, 1, 0.8],
-                  }),
                   transform: [
                     {
                       scale: gradientAnimation.interpolate({
@@ -446,5 +646,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  // Intensity Level Styles
+  intensitySection: {
+    marginTop: 8,
+  },
+  intensityLabel: {
+    marginBottom: 8,
+    color: '#FFFFFF',
+  },
+  intensityDescription: {
+    marginBottom: 16,
+    color: '#FFFF68',
+    fontSize: 12,
+  },
+  intensityButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  intensityButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  intensityButtonSelected: {
+    backgroundColor: '#FFFF68',
+    borderColor: '#FFFF68',
+  },
+  intensityButtonLocked: {
+    opacity: 0.6,
+  },
+  intensityButtonText: {
+    color: '#FFFF68',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  intensityButtonTextSelected: {
+    color: '#000000',
+  },
+  intensityButtonSubtext: {
+    color: 'rgba(255, 255, 104, 0.7)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  intensityButtonSubtextSelected: {
+    color: 'rgba(0, 0, 0, 0.7)',
+  },
+  premiumBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 104, 0.2)',
+    borderRadius: 8,
+    padding: 4,
   },
 });

@@ -7,6 +7,7 @@ import {
   Alert,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,7 @@ import { useTheme } from '../theme/index';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal, DailyTasks } from '../types/task';
 import { supabase } from '../services/supabase/client';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface GoalDetailsScreenProps {
   goal: GoalWithProgress;
@@ -32,16 +34,36 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const theme = useTheme();
+  const { user } = useAuthStore();
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);
   const [dailyTasks, setDailyTasks] = useState<DailyTasks[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskWithGoal | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   useEffect(() => {
     fetchTasks();
     fetchRewards();
+    checkSubscription();
   }, [goal.id]);
+
+  const checkSubscription = async () => {
+    if (user?.id) {
+      try {
+        const { data } = await supabase
+          .from('user_tokens')
+          .select('is_subscribed')
+          .eq('user_id', user.id)
+          .single();
+        
+        setIsSubscribed(data?.is_subscribed || false);
+      } catch (error) {
+        console.log('User subscription check failed:', error);
+        setIsSubscribed(false);
+      }
+    }
+  };
 
   const organizeTasksByDay = (tasks: TaskWithGoal[]): DailyTasks[] => {
     const tasksByDate = new Map<string, TaskWithGoal[]>();
@@ -112,6 +134,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     }
   };
 
+
   const handleToggleTask = async (taskId: string, markAsCompleted: boolean) => {
     try {
       const { error } = await supabase
@@ -133,6 +156,21 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       setTasks(updatedTasks);
       setDailyTasks(organizeTasksByDay(updatedTasks));
 
+      // Update points system
+      try {
+        const action = markAsCompleted ? 'complete' : 'incomplete';
+        await supabase.functions.invoke('update-points', {
+          body: {
+            goal_id: goal.id,
+            task_id: taskId,
+            action: action
+          }
+        });
+      } catch (pointsError) {
+        console.error('Error updating points:', pointsError);
+        // Don't fail the task update if points update fails
+      }
+
       // Check for unlocked rewards after task completion
       if (markAsCompleted) {
         checkUnlockedRewards();
@@ -140,6 +178,22 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     } catch (error) {
       console.error('Error updating task:', error);
         Alert.alert('Error', 'Unable to update task');
+    }
+  };
+
+  const handleTaskExpire = async (taskId: string) => {
+    try {
+      // Update points system for expired task
+      await supabase.functions.invoke('update-points', {
+        body: {
+          goal_id: goal.id,
+          task_id: taskId,
+          action: 'expire'
+        }
+      });
+    } catch (pointsError) {
+      console.error('Error updating points for expired task:', pointsError);
+      // Don't show alert, just log the error
     }
   };
 
@@ -154,7 +208,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       lifestyle: 'heart',
       career: 'briefcase',
       mindset: 'brain',
-      character: 'sparkle',
+      character: 'star',
       custom: 'target',
     };
     return icons[category as keyof typeof icons] || icons.custom;
@@ -163,6 +217,12 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const getGoalColor = (goalColor?: string) => {
     // Use AI-selected color if available
     if (goalColor) {
+      // Check if it's already a hex color
+      if (goalColor.startsWith('#')) {
+        return goalColor;
+      }
+      
+      // Map color names to hex values
       const colorMap = {
         yellow: '#FFFF68',
         green: '#00FF88',
@@ -234,50 +294,28 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
 
   const checkUnlockedRewards = async () => {
     try {
-      // Check milestone rewards (every 7 days)
-      const milestoneRewards = rewards.filter(r => r.type === 'milestone' && !r.unlocked);
-      for (const reward of milestoneRewards) {
-        if (reward.day_offset !== undefined && completedTasks > reward.day_offset) {
-          await supabase
-            .from('rewards')
-            .update({ 
-              unlocked: true, 
-              unlocked_at: new Date().toISOString() 
-            })
-            .eq('id', reward.id);
-          
-          // Update local state
-          setRewards(prev => prev.map(r => 
-            r.id === reward.id 
-              ? { ...r, unlocked: true, unlocked_at: new Date().toISOString() }
-              : r
-          ));
-          
-          // Show celebration
-          Alert.alert('🎉 Reward Unlocked!', reward.title);
+      // Call the update-rewards Edge Function
+      const { data, error } = await supabase.functions.invoke('update-rewards', {
+        body: {
+          goal_id: goal.id
         }
+      });
+
+      if (error) {
+        console.error('Error updating rewards:', error);
+        return;
       }
 
-      // Check completion reward
-      const completionReward = rewards.find(r => r.type === 'completion' && !r.unlocked);
-      if (completionReward && completedTasks === totalTasks) {
-        await supabase
-          .from('rewards')
-          .update({ 
-            unlocked: true, 
-            unlocked_at: new Date().toISOString() 
-          })
-          .eq('id', completionReward.id);
+      if (data?.success && data.updated_rewards > 0) {
+        // Refresh rewards to show newly unlocked ones
+        await fetchRewards();
         
-        // Update local state
-        setRewards(prev => prev.map(r => 
-          r.id === completionReward.id 
-            ? { ...r, unlocked: true, unlocked_at: new Date().toISOString() }
-            : r
-        ));
-        
-        // Show celebration
-        Alert.alert('🏆 Goal Completed!', completionReward.title);
+        // Show celebration for newly unlocked rewards
+        const newlyUnlockedRewards = rewards.filter(r => !r.unlocked);
+        if (newlyUnlockedRewards.length > 0) {
+          const latestReward = newlyUnlockedRewards[newlyUnlockedRewards.length - 1];
+          Alert.alert('🎉 Reward Unlocked!', latestReward.title);
+        }
       }
     } catch (error) {
       console.error('Error checking unlocked rewards:', error);
@@ -378,6 +416,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                 </Text>
               </View>
             </View>
+
           </Card>
         </View>
 
@@ -393,27 +432,52 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
             >
               <TouchableOpacity 
                 onPress={() => {
+                  if (!isSubscribed) {
                     Alert.alert(
-                      'Update Plan',
-                      'Genie will create a new plan based on your progress. Continue?',
+                      'Premium Feature',
+                      'Update Plan is available for premium subscribers only. Upgrade to unlock this feature.',
                       [
                         { text: 'Cancel', style: 'cancel' },
-                        { text: 'Update', onPress: () => {
+                        { text: 'Upgrade', onPress: () => {
+                          // TODO: Navigate to subscription screen
+                          console.log('Navigate to subscription');
+                        }}
+                      ]
+                    );
+                    return;
+                  }
+                  
+                  Alert.alert(
+                    'Update Plan',
+                    'Genie will create a new plan based on your progress. Continue?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Update', onPress: () => {
                         // TODO: Implement plan update logic
                         console.log('Updating plan for goal:', goal.id);
                       }}
                     ]
                   );
                 }}
-                style={styles.updatePlanButton}
+                style={[
+                  styles.updatePlanButton,
+                  !isSubscribed && styles.updatePlanButtonDisabled
+                ]}
               >
-                <Icon name="brain" size={16} color="#FFFFFF" />
+                <Icon name="crown" size={16} color="#FFFF68" />
                 <Text style={styles.updatePlanText}>Update Plan</Text>
               </TouchableOpacity>
             </LinearGradient>
           </View>
 
-          {dailyTasks.length === 0 ? (
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FFFF68" />
+              <Text variant="body" color="secondary" style={styles.loadingText}>
+                Loading tasks...
+              </Text>
+            </View>
+          ) : dailyTasks.length === 0 ? (
             <Card variant="default" padding="lg" style={styles.emptyState}>
                 <Text variant="h4" style={styles.emptyTitle}>
                   No tasks yet
@@ -471,9 +535,10 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                       <TaskItem
                         key={task.id}
                         task={task}
-                        allTasks={dayTasks.tasks}
+                        allTasks={tasks}
                         onComplete={() => handleToggleTask(task.id, true)}
                         onIncomplete={() => handleToggleTask(task.id, false)}
+                        onExpire={() => handleTaskExpire(task.id)}
                         onPress={() => setSelectedTask(task)}
                       />
                     ))}
@@ -488,22 +553,63 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         {rewards.length > 0 && (
           <View style={styles.content}>
             <View style={styles.sectionHeader}>
-              <Text variant="h3">Rewards ({rewards.filter(r => r.unlocked).length}/{rewards.length})</Text>
+              <Text variant="h3">Achievements ({rewards.filter(r => r.unlocked).length}/{rewards.length})</Text>
               <Icon name="trophy" size={20} color={theme.colors.yellow[500]} />
             </View>
 
             <View style={styles.rewardsList}>
-              {rewards.map((reward) => (
-                <RewardCard
-                  key={reward.id}
-                  reward={reward}
-                  onPress={() => {
-                    if (reward.unlocked) {
-                      Alert.alert(reward.title, reward.description);
-                    }
-                  }}
-                />
-              ))}
+              {rewards
+                .sort((a, b) => {
+                  // Sort by unlocked status first
+                  if (a.unlocked !== b.unlocked) {
+                    return a.unlocked ? -1 : 1;
+                  }
+                  
+                  // Then sort by type and day_offset
+                  if (a.type === 'completion' && b.type !== 'completion') return 1;
+                  if (b.type === 'completion' && a.type !== 'completion') return -1;
+                  
+                  if (a.day_offset !== undefined && b.day_offset !== undefined) {
+                    return a.day_offset - b.day_offset;
+                  }
+                  
+                  // Daily rewards come first
+                  if (a.type === 'daily' && b.type !== 'daily') return -1;
+                  if (b.type === 'daily' && a.type !== 'daily') return 1;
+                  
+                  return 0;
+                })
+                .map((reward) => {
+                  // Calculate today's progress for daily rewards
+                  const today = new Date().toISOString().split('T')[0];
+                  const todayTasks = tasks.filter(t => {
+                    const taskDate = new Date(t.run_at).toISOString().split('T')[0];
+                    return taskDate === today;
+                  });
+                  const completedTodayTasks = todayTasks.filter(t => t.completed);
+                  
+                  const todayProgress = reward.type === 'daily' ? {
+                    completed: completedTodayTasks.length,
+                    total: todayTasks.length
+                  } : undefined;
+
+                  return (
+                    <RewardCard
+                      key={reward.id}
+                      reward={reward}
+                      todayProgress={todayProgress}
+                      onPress={() => {
+                        if (reward.unlocked) {
+                          Alert.alert('🎉 ' + reward.title, reward.description);
+                        } else {
+                          const progress = rewards.filter(r => r.unlocked).length;
+                          const total = rewards.length;
+                          Alert.alert('Locked Achievement', `Complete more tasks to unlock this achievement!\n\nProgress: ${progress}/${total} achievements unlocked`);
+                        }
+                      }}
+                    />
+                  );
+                })}
             </View>
           </View>
         )}
@@ -764,5 +870,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  updatePlanButtonDisabled: {
+    opacity: 0.7,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  loadingText: {
+    textAlign: 'center',
   },
 });

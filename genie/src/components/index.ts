@@ -16,3 +16,4 @@ export * from './domain/TaskItem';
 export * from './domain/ProgressRing';
 export * from './domain/RewardCard';
 export * from './domain/AILoadingModal';
+export * from './domain/GoalSuccessModal/GoalSuccessModal';

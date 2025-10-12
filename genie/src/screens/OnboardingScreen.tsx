@@ -44,7 +44,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       key: 'slide1',
       title: t('onboarding.slide1Title'),
       description: t('onboarding.slide1Description'),
-      icon: 'sparkle',
+      icon: 'star',
     },
     {
       key: 'slide2',

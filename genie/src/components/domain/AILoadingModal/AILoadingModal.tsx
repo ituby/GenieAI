@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Text } from '../../primitives';
+import { Icon } from '../../primitives';
 import { useTheme } from '../../../theme';
 
 interface AILoadingModalProps {
@@ -16,35 +17,82 @@ interface AILoadingModalProps {
   totalSteps: number;
 }
 
-const loadingSteps = [
+const loadingMessages = [
   {
-    title: 'Creating Your Goal',
-    subtitle: 'Setting up your personalized journey...',
+    icon: "MagicWand",
+    title: "Gathering your wishes...",
+    subtitle: "Genie is reading your goal carefully."
   },
   {
-    title: 'Analyzing Your Vision',
-    subtitle: 'Understanding your goals and aspirations...',
+    icon: "Brain",
+    title: "Thinking deeply...",
+    subtitle: "Crafting ideas that actually fit your goal."
   },
   {
-    title: 'Generating AI Tasks',
-    subtitle: 'Creating 63 personalized tasks for 21 days...',
+    icon: "Lightbulb",
+    title: "Connecting the dots...",
+    subtitle: "Turning your thoughts into daily actions."
   },
   {
-    title: 'Building Your Roadmap',
-    subtitle: 'Organizing tasks into a progressive plan...',
+    icon: "MagnifyingGlass",
+    title: "Analyzing your motivation...",
+    subtitle: "Understanding what drives you most."
   },
   {
-    title: 'Creating Rewards',
-    subtitle: 'Designing motivational rewards and milestones...',
+    icon: "HandsPraying",
+    title: "Shaping your personal journey...",
+    subtitle: "Every step will lead you closer to success."
   },
   {
-    title: 'Setting Up Notifications',
-    subtitle: 'Preparing daily reminders and progress tracking...',
+    icon: "CalendarCheck",
+    title: "Building your 21-day roadmap...",
+    subtitle: "Structuring your tasks with logic and flow."
   },
   {
-    title: 'Finalizing Your Plan',
-    subtitle: 'Putting the finishing touches on your journey...',
+    icon: "ClipboardText",
+    title: "Assigning daily missions...",
+    subtitle: "Morning, afternoon, and evening — all planned."
   },
+  {
+    icon: "ChatsCircle",
+    title: "Writing motivational lines...",
+    subtitle: "Words that'll keep you focused each day."
+  },
+  {
+    icon: "Star",
+    title: "Adding a touch of magic...",
+    subtitle: "Genie makes every task personal."
+  },
+  {
+    icon: "RocketLaunch",
+    title: "Preparing your launch plan...",
+    subtitle: "Success sequence almost ready."
+  },
+  {
+    icon: "Compass",
+    title: "Calibrating direction...",
+    subtitle: "Ensuring every task moves you forward."
+  },
+  {
+    icon: "PuzzlePiece",
+    title: "Filling in the missing pieces...",
+    subtitle: "Matching tasks to your skills and limits."
+  },
+  {
+    icon: "Heartbeat",
+    title: "Empowering your mindset...",
+    subtitle: "Balancing ambition and realism."
+  },
+  {
+    icon: "HourglassHigh",
+    title: "Polishing your transformation path...",
+    subtitle: "One wish, many small steps."
+  },
+  {
+    icon: "CheckCircle",
+    title: "Finalizing your plan...",
+    subtitle: "Almost done — your 21-day journey awaits."
+  }
 ];
 
 export const AILoadingModal: React.FC<AILoadingModalProps> = ({
@@ -91,7 +139,7 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
     }
   }, [visible, breathingAnimation]);
 
-  const currentStepData = loadingSteps[Math.min(currentStep - 1, loadingSteps.length - 1)] || loadingSteps[0];
+  const currentStepData = loadingMessages[Math.min(currentStep - 1, loadingMessages.length - 1)] || loadingMessages[0];
 
   return (
     <Modal
@@ -122,6 +170,14 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
 
           {/* Dynamic content */}
           <View style={styles.content}>
+            <View style={styles.iconContainer}>
+              <Icon 
+                name={currentStepData.icon as any} 
+                size={32} 
+                color="#FFFF68" 
+                weight="fill" 
+              />
+            </View>
             <Text variant="h3" style={[styles.title, { color: '#FFFFFF' }]}>
               {currentStepData.title}
             </Text>
@@ -193,6 +249,14 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  iconContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
   },
   title: {
     textAlign: 'center',

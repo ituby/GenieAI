@@ -25,6 +25,7 @@ import { useGoalStore } from '../store/useGoalStore';
 import { GoalsService } from '../features/goals/services/goals.service';
 import { testDatabaseConnection, createTestUser, createSampleGoals } from '../utils/testConnection';
 import { supabase } from '../services/supabase/client';
+import { PushTokenService } from '../services/notifications/pushToken.service';
 import { NewGoalScreen } from './NewGoalScreen';
 import { GoalDetailsScreen } from './GoalDetailsScreen';
 import { TaskDetailsScreen } from './TaskDetailsScreen';
@@ -49,10 +50,12 @@ export const DashboardScreen: React.FC = () => {
   const [showSettings, setShowSettings] = React.useState(false);
   const [showHelpSupport, setShowHelpSupport] = React.useState(false);
   const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
+  const [totalPoints, setTotalPoints] = React.useState(0);
   const [showSideMenu, setShowSideMenu] = React.useState(false);
   const [showGoalMenu, setShowGoalMenu] = React.useState<string | null>(null);
   const [todaysTasksCount, setTodaysTasksCount] = React.useState<number>(0);
   const [todaysTasks, setTodaysTasks] = React.useState<TaskWithGoal[]>([]);
+  const [showSubscriptionModal, setShowSubscriptionModal] = React.useState(false);
   const [userTokens, setUserTokens] = React.useState({
     used: 2,
     remaining: 1,
@@ -73,6 +76,11 @@ export const DashboardScreen: React.FC = () => {
       fetchGoals(user.id);
       fetchRecentRewards();
       fetchTodaysTasks();
+      fetchTotalPoints();
+      fetchUserTokens();
+      
+      // Setup push notifications
+      PushTokenService.setupPushNotifications(user.id);
     }
   }, [user?.id]);
 
@@ -146,6 +154,59 @@ export const DashboardScreen: React.FC = () => {
       setRecentRewards(data || []);
     } catch (error) {
       console.error('Error fetching recent rewards:', error);
+    }
+  };
+
+  const fetchTotalPoints = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_points')
+        .select('points')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      const total = data?.reduce((sum, item) => sum + (item.points || 0), 0) || 0;
+      setTotalPoints(total);
+    } catch (error) {
+      console.error('Error fetching total points:', error);
+    }
+  };
+
+  const fetchUserTokens = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_tokens')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+      
+      if (data) {
+        setUserTokens({
+          used: data.tokens_used,
+          remaining: data.tokens_remaining,
+          total: data.total_tokens,
+          isSubscribed: data.is_subscribed,
+          monthlyTokens: data.monthly_tokens,
+        });
+      } else {
+        // User doesn't have tokens record yet, set defaults
+        setUserTokens({
+          used: 0,
+          remaining: 3,
+          total: 3,
+          isSubscribed: false,
+          monthlyTokens: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user tokens:', error);
     }
   };
 
@@ -244,7 +305,7 @@ export const DashboardScreen: React.FC = () => {
     
     Alert.alert(
       'Delete Goal',
-      'Are you sure you want to delete this goal? This action cannot be undone.',
+      'Are you sure you want to delete this goal? This action cannot be undone. Note: You will not get your token back.',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -256,6 +317,8 @@ export const DashboardScreen: React.FC = () => {
               if (user?.id) {
                 fetchGoals(user.id);
                 fetchTodaysTasks();
+                // Note: We intentionally do NOT restore tokens when deleting goals
+                // This prevents users from gaming the system by creating/deleting goals
               }
             } catch (error) {
               console.error('Error deleting goal:', error);
@@ -323,17 +386,55 @@ export const DashboardScreen: React.FC = () => {
     startBorderAnimation();
   }, []);
 
-  const handleGoalCreated = () => {
+  const handleGoalCreated = async () => {
     setShowNewGoal(false);
-    // Update tokens after creating a goal
-    setUserTokens(prev => ({
-      ...prev,
-      used: prev.used + 1,
-      remaining: prev.remaining - 1,
-    }));
+    
+    // Update tokens in database after creating a goal
     if (user?.id) {
-      fetchGoals(user.id);
-      fetchTodaysTasks();
+      try {
+        // Check if user has tokens record
+        const { data: existingTokens } = await supabase
+          .from('user_tokens')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (existingTokens) {
+          // Update existing record
+          await supabase
+            .from('user_tokens')
+            .update({
+              tokens_used: existingTokens.tokens_used + 1,
+              tokens_remaining: existingTokens.tokens_remaining - 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id);
+        } else {
+          // Create new record
+          await supabase
+            .from('user_tokens')
+            .insert({
+              user_id: user.id,
+              tokens_used: 1,
+              tokens_remaining: 2,
+              total_tokens: 3,
+              is_subscribed: false,
+            });
+        }
+
+        // Update local state
+        setUserTokens(prev => ({
+          ...prev,
+          used: prev.used + 1,
+          remaining: prev.remaining - 1,
+        }));
+
+        fetchGoals(user.id);
+        fetchTodaysTasks();
+        fetchTotalPoints();
+      } catch (error) {
+        console.error('Error updating tokens:', error);
+      }
     }
   };
 
@@ -344,6 +445,10 @@ export const DashboardScreen: React.FC = () => {
       return;
     }
     setShowNewGoal(true);
+  };
+
+  const handleSubscribeClick = () => {
+    setShowSubscriptionModal(true);
   };
 
   const handleToggleTask = async (taskId: string, markAsCompleted: boolean) => {
@@ -369,6 +474,25 @@ export const DashboardScreen: React.FC = () => {
       
       // Refresh tasks count
       fetchTodaysTasks();
+
+      // Update rewards after task completion
+      if (markAsCompleted) {
+        try {
+          const { error: rewardError } = await supabase.functions.invoke('update-rewards', {
+            body: {
+              goal_id: todaysTasks.find(t => t.id === taskId)?.goal_id,
+              task_id: taskId,
+              task_completed: true
+            }
+          });
+
+          if (rewardError) {
+            console.error('Error updating rewards:', rewardError);
+          }
+        } catch (rewardError) {
+          console.error('Error calling update-rewards function:', rewardError);
+        }
+      }
     } catch (error) {
       console.error('Error toggling task:', error);
     }
@@ -463,9 +587,26 @@ export const DashboardScreen: React.FC = () => {
                 <Icon name="chart-bar" size={20} color="#FFFF68" weight="fill" />
                 <Text variant="h4" style={styles.usageRateTitle}>Usage Rate</Text>
               </View>
-              <TouchableOpacity style={styles.purchaseTokensButton}>
-                <Icon name="plus" size={16} color="#FFFF68" weight="fill" />
-                <Text style={styles.purchaseTokensText}>Buy Tokens</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.purchaseTokensButton,
+                  !userTokens.isSubscribed && styles.purchaseTokensButtonDisabled
+                ]}
+                disabled={!userTokens.isSubscribed}
+                activeOpacity={userTokens.isSubscribed ? 0.8 : 1}
+              >
+                  <Icon 
+                    name="crown" 
+                    size={16} 
+                    color={userTokens.isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.4)"} 
+                    weight="fill" 
+                  />
+                <Text style={[
+                  styles.purchaseTokensText,
+                  !userTokens.isSubscribed && styles.purchaseTokensTextDisabled
+                ]}>
+                  Add Tokens
+                </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.usageRateContent}>
@@ -488,12 +629,19 @@ export const DashboardScreen: React.FC = () => {
                   {userTokens.used} of {userTokens.total} {userTokens.isSubscribed ? 'monthly' : 'free'} plans used
                 </Text>
               </View>
-              {userTokens.remaining === 0 && !userTokens.isSubscribed && (
+              {!userTokens.isSubscribed && (
                 <View style={styles.subscriptionPrompt}>
                   <Text variant="caption" color="secondary" style={styles.subscriptionText}>
-                    Upgrade to continue creating goals
+                    {userTokens.remaining === 0 
+                      ? 'Upgrade to continue creating goals' 
+                      : 'Upgrade for unlimited goals and advanced features'
+                    }
                   </Text>
-                  <TouchableOpacity style={styles.subscribeButton}>
+                  <TouchableOpacity 
+                    style={styles.subscribeButton}
+                    onPress={handleSubscribeClick}
+                  >
+                    <Icon name="crown" size={14} color="#000000" />
                     <Text style={styles.subscribeButtonText}>Subscribe</Text>
                   </TouchableOpacity>
                 </View>
@@ -568,6 +716,30 @@ export const DashboardScreen: React.FC = () => {
           </Card>
         </View>
 
+        {/* Score Card */}
+        <View style={styles.scoreCardContainer}>
+          <Card variant="gradient" padding="md" style={styles.scoreCard}>
+            <View style={styles.statIconContainer}>
+              <Icon name="trophy" size={20} color="rgba(255, 255, 255, 0.8)" weight="fill" />
+            </View>
+            <View style={styles.scoreProgressContainer}>
+              <ProgressRing 
+                progress={Math.min(totalPoints / 200, 1)}
+                size={60}
+                strokeWidth={4}
+                showPercentage={false}
+              >
+                <Text variant="h3" style={{ color: '#FFFFFF' }}>
+                  {totalPoints}
+                </Text>
+              </ProgressRing>
+            </View>
+            <Text variant="caption" color="secondary" style={styles.statLabel}>
+              Total Score
+            </Text>
+          </Card>
+        </View>
+
         {/* Create Goal Section - Only show if there are no goals */}
         {activeGoals.length === 0 && (
           <View style={styles.section}>
@@ -620,7 +792,7 @@ export const DashboardScreen: React.FC = () => {
                        style={styles.createGoalButton}
                      >
                        <View style={styles.createGoalButtonContent}>
-                         <Icon name="sparkle" size={20} color="#FFFFFF" weight="fill" />
+                         <Icon name="star" size={20} color="#FFFFFF" weight="fill" />
                          <Text style={styles.createGoalButtonText}>Begin Your Transformation</Text>
                        </View>
                      </TouchableOpacity>
@@ -687,7 +859,7 @@ export const DashboardScreen: React.FC = () => {
                   style={styles.addGoalButton}
                 >
                   <View style={styles.addGoalButtonContent}>
-                    <Icon name="sparkle" size={14} color="#FFFFFF" weight="fill" />
+                    <Icon name="sparkle" size={16} color="#FFFFFF" weight="fill" />
                     <Text style={styles.addGoalButtonText}>Add Goal</Text>
                   </View>
                 </TouchableOpacity>
@@ -913,6 +1085,82 @@ export const DashboardScreen: React.FC = () => {
           onBack={() => setShowHelpSupport(false)}
         />
       )}
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text variant="h3" style={styles.modalTitle}>Upgrade to Premium</Text>
+              <TouchableOpacity 
+                onPress={() => setShowSubscriptionModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <Icon name="x" size={20} color={theme.colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalContent}>
+              <View style={styles.modalIconContainer}>
+                <Icon name="crown" size={48} color="#FFFF68" weight="fill" />
+              </View>
+              
+              <Text variant="h4" style={styles.modalSubtitle}>
+                Unlock Unlimited Goals
+              </Text>
+              
+              <Text variant="body" color="secondary" style={styles.modalDescription}>
+                Get unlimited goal creation, advanced AI insights, and priority support with our premium subscription.
+              </Text>
+              
+              <View style={styles.modalFeatures}>
+                <View style={styles.modalFeature}>
+                  <Icon name="check" size={16} color="#FFFF68" weight="fill" />
+                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
+                    Unlimited goal creation
+                  </Text>
+                </View>
+                <View style={styles.modalFeature}>
+                  <Icon name="check" size={16} color="#FFFF68" weight="fill" />
+                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
+                    Advanced AI insights
+                  </Text>
+                </View>
+                <View style={styles.modalFeature}>
+                  <Icon name="check" size={16} color="#FFFF68" weight="fill" />
+                  <Text variant="body" color="secondary" style={styles.modalFeatureText}>
+                    Priority support
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={styles.modalSubscribeButton}
+                  onPress={() => {
+                    // TODO: Implement subscription logic
+                    setShowSubscriptionModal(false);
+                    alert('Subscription feature coming soon!');
+                  }}
+                >
+                  <Text style={styles.modalSubscribeButtonText}>
+                    Subscribe Now - $9.99/month
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowSubscriptionModal(false)}
+                >
+                  <Text style={styles.modalCancelButtonText}>
+                    Maybe Later
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -1083,6 +1331,24 @@ const styles = StyleSheet.create({
     right: 12,
     textAlign: 'left',
   },
+  scoreCardContainer: {
+    marginTop: 0,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  scoreCard: {
+    width: 392, // Same width as 3 stat cards (120*3 + 16*2 gaps)
+    height: 80,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreProgressContainer: {
+    position: 'absolute',
+    top: '50%',
+    right: 12,
+    transform: [{ translateY: -12 }],
+  },
   todayTasksDescription: {
     position: 'absolute',
     bottom: 12,
@@ -1220,6 +1486,13 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
       },
+      purchaseTokensButtonDisabled: {
+        backgroundColor: 'rgba(255, 255, 104, 0.05)',
+        borderColor: 'rgba(255, 255, 104, 0.1)',
+      },
+      purchaseTokensTextDisabled: {
+        color: 'rgba(255, 255, 104, 0.4)',
+      },
       usageRateContent: {
         gap: 16,
       },
@@ -1267,24 +1540,28 @@ const styles = StyleSheet.create({
         opacity: 0.7,
       },
       subscriptionPrompt: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         marginTop: 12,
         paddingTop: 12,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255, 255, 255, 0.1)',
       },
       subscriptionText: {
-        flex: 1,
+        textAlign: 'center',
         fontSize: 12,
         opacity: 0.8,
+        marginBottom: 16,
       },
       subscribeButton: {
         backgroundColor: '#FFFF68',
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
       },
       subscribeButtonText: {
         color: '#000000',
@@ -1318,13 +1595,14 @@ const styles = StyleSheet.create({
       addGoalButtonGradient: {
         borderRadius: 25,
         padding: 2,
-        width: '100%',
+        width: '90%',
+        alignSelf: 'center',
         marginBottom: 20,
       },
       addGoalButton: {
         borderRadius: 23,
         paddingVertical: 16,
-        paddingHorizontal: 20,
+        paddingHorizontal: 12,
         width: '100%',
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         alignItems: 'center',
@@ -1338,7 +1616,7 @@ const styles = StyleSheet.create({
       },
       addGoalButtonText: {
         color: '#FFFFFF',
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
         textAlign: 'center',
       },
@@ -1457,8 +1735,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)', // Subtle white border
+    borderWidth: 2,
+    borderColor: '#FFFF68', // Yellow border
   },
   goalMenuHeader: {
     flexDirection: 'row',
@@ -1467,7 +1745,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)', // Subtle white border
+    borderBottomColor: '#FFFF68', // Yellow border
   },
   goalMenuContent: {
     gap: 8,
@@ -1479,5 +1757,104 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: 'transparent',
     borderWidth: 0,
+  },
+  // Subscription Modal Styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 3000,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  modalSubtitle: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalFeatures: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 32,
+  },
+  modalFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalFeatureText: {
+    flex: 1,
+  },
+  modalActions: {
+    width: '100%',
+    gap: 12,
+  },
+  modalSubscribeButton: {
+    backgroundColor: '#FFFF68',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalSubscribeButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalCancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

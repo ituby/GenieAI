@@ -22,6 +22,12 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   const getGoalColor = (goalColor?: string) => {
     // Use AI-selected color if available
     if (goalColor) {
+      // Check if it's already a hex color
+      if (goalColor.startsWith('#')) {
+        return goalColor;
+      }
+      
+      // Map color names to hex values
       const colorMap = {
         yellow: '#FFFF68',
         green: '#00FF88',
@@ -52,7 +58,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       lifestyle: 'heart',
       career: 'briefcase',
       mindset: 'brain',
-      character: 'sparkle',
+      character: 'star',
       custom: 'target',
     };
     return icons[category as keyof typeof icons] || icons.custom;

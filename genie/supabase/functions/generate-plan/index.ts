@@ -12,6 +12,7 @@ interface GeneratePlanRequest {
   category: string;
   title: string;
   description: string;
+  intensity?: 'easy' | 'medium' | 'hard';
   timezone: string;
   start_date?: string;
   language?: string;
@@ -112,19 +113,104 @@ const getSpecificGuidelines = (category: string, title: string, description: str
     - Address potential obstacles and solutions`;
 };
 
-const generateRewards = async (goalId: string, supabase: any, category: string, title: string): Promise<void> => {
-  const rewards: RewardTemplate[] = [
-    // Daily rewards (unlocked after completing daily tasks)
-    { type: 'daily', title: 'Daily Achievement', description: 'You completed today\'s task! Every small step counts towards your bigger goal.' },
+const generateRewards = async (goalId: string, supabase: any, category: string, title: string, tasks: any[], intensity: 'easy' | 'medium' | 'hard' = 'easy'): Promise<void> => {
+  // Generate personalized rewards based on tasks
+  const getPersonalizedRewards = (category: string, goalTitle: string, tasks: any[]): RewardTemplate[] => {
+    const rewards: RewardTemplate[] = [];
+
+    // Daily consistency reward (adjusted for intensity)
+    const dailyTaskCount = intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+    rewards.push({
+      type: 'daily',
+      title: 'Daily Champion',
+      description: `Complete ${dailyTaskCount} daily "${goalTitle}" tasks to unlock this achievement! Consistency is the key to success.`
+    });
+
+    // Task-specific rewards (every 5 tasks)
+    const taskMilestones = [5, 10, 15, 20];
+    taskMilestones.forEach((milestone, index) => {
+      if (milestone <= tasks.length) {
+        rewards.push({
+          type: 'milestone',
+          title: `${milestone} Tasks Complete!`,
+          description: `Incredible! You've completed ${milestone} tasks for "${goalTitle}". You're making real progress!`,
+          day_offset: milestone - 1
+        });
+      }
+    });
+
+    // Weekly consistency rewards
+    rewards.push({
+      type: 'milestone',
+      title: 'Week 1 Consistency',
+      description: `Amazing! You've been consistent with "${goalTitle}" for a full week. Your habits are taking root!`,
+      day_offset: 6
+    });
+
+    rewards.push({
+      type: 'milestone',
+      title: 'Week 2 Momentum',
+      description: `Outstanding! Two weeks of consistent progress with "${goalTitle}". You're building unstoppable momentum!`,
+      day_offset: 13
+    });
+
+    rewards.push({
+      type: 'milestone',
+      title: 'Week 3 Mastery',
+      description: `Incredible! Three weeks of dedication to "${goalTitle}". You've mastered the art of consistency!`,
+      day_offset: 20
+    });
+
+    // Points-based rewards (adjusted for intensity)
+    const pointsMilestones = intensity === 'easy' ? [50, 100, 200] : 
+                            intensity === 'medium' ? [100, 200, 400] : 
+                            [200, 400, 800];
     
-    // Milestone rewards (every 7 days)
-    { type: 'milestone', title: 'Week 1 Complete!', description: 'Amazing! You\'ve built a solid foundation. Your new habits are starting to take root.', day_offset: 6 },
-    { type: 'milestone', title: 'Week 2 Complete!', description: 'Incredible progress! You\'re developing real skills and seeing tangible results.', day_offset: 13 },
-    { type: 'milestone', title: 'Week 3 Complete!', description: 'Outstanding! You\'re mastering your goal and becoming the person you want to be.', day_offset: 20 },
-    
-    // Completion reward
-    { type: 'completion', title: 'Goal Mastered!', description: 'Congratulations! You\'ve completed your 21-day transformation journey. You should be incredibly proud of your dedication and growth.' }
-  ];
+    pointsMilestones.forEach((points, index) => {
+      const titles = ['Master', 'Champion', 'Legend'];
+      rewards.push({
+        type: 'milestone',
+        title: `${points} Points ${titles[index]}`,
+        description: `Congratulations! You've earned ${points} points for "${goalTitle}". Your dedication is paying off!`,
+        day_offset: null
+      });
+    });
+
+    // Category-specific completion rewards
+    const completionRewards = {
+      lifestyle: {
+        title: 'Lifestyle Transformation Complete!',
+        description: `Congratulations! You've successfully transformed your lifestyle with "${goalTitle}". You've built healthy habits that will last a lifetime!`
+      },
+      career: {
+        title: 'Professional Growth Achieved!',
+        description: `Outstanding! You've completed your "${goalTitle}" journey and advanced your career. Your dedication has paid off!`
+      },
+      mindset: {
+        title: 'Mental Strength Mastered!',
+        description: `Incredible! You've developed mental resilience through "${goalTitle}". You now have the mindset of a champion!`
+      },
+      character: {
+        title: 'Character Development Complete!',
+        description: `Amazing! You've strengthened your character through "${goalTitle}". You've become the person you always wanted to be!`
+      },
+      custom: {
+        title: 'Personal Goal Achieved!',
+        description: `Congratulations! You've successfully completed your "${goalTitle}" journey. You should be incredibly proud of your dedication and growth!`
+      }
+    };
+
+    const completionReward = completionRewards[category as keyof typeof completionRewards] || completionRewards.custom;
+    rewards.push({
+      type: 'completion',
+      title: completionReward.title,
+      description: completionReward.description
+    });
+
+    return rewards;
+  };
+
+  const rewards = getPersonalizedRewards(category, title, tasks);
 
   // Insert rewards into database
   for (const reward of rewards) {
@@ -146,42 +232,90 @@ const generateRewards = async (goalId: string, supabase: any, category: string, 
 function computeRunAt(dayNumber: number, timeLabel: string): string {
   const now = new Date();
   const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
   
-  // Determine start day based on current time
+  // Determine start day and time based on current time
   let startDay = 0; // Default: start today
+  let targetHour = 8; // Default morning hour
   
-  // If created in morning (before 12:00), start today afternoon
-  if (currentHour < 12) {
-    startDay = 0; // Start today
-  }
-  // If created in afternoon (12:00-18:00), start today evening
-  else if (currentHour < 18) {
-    startDay = 0; // Start today
-  }
-  // If created in evening (after 18:00), start tomorrow morning
-  else {
-    startDay = 1; // Start tomorrow
+  // Define time slots and their hours
+  const timeSlots = {
+    "Morning": 8,
+    "Mid-Morning": 10,
+    "Afternoon": 14,
+    "Mid-Afternoon": 16,
+    "Evening": 20,
+    "Night": 22
+  };
+  
+  targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
+  
+  // For the first day (dayNumber === 1), check if we should start today or tomorrow
+  if (dayNumber === 1) {
+    // If current time is before 15:00 (3 PM), start today
+    if (currentHour < 15) {
+      startDay = 0; // Start today
+      
+      // Find the next available time slot today
+      if (currentHour < 8) {
+        targetHour = 8; // Morning
+      } else if (currentHour < 10) {
+        targetHour = 10; // Mid-Morning
+      } else if (currentHour < 14) {
+        targetHour = 14; // Afternoon
+      } else if (currentHour < 16) {
+        targetHour = 16; // Mid-Afternoon
+      } else if (currentHour < 20) {
+        targetHour = 20; // Evening
+      } else if (currentHour < 22) {
+        targetHour = 22; // Night
+      } else {
+        // After 22:00, start tomorrow morning
+        startDay = 1;
+        targetHour = 8;
+      }
+    } else {
+      // If current time is after 15:00 (3 PM), start tomorrow
+      startDay = 1;
+      targetHour = 8; // Tomorrow morning
+    }
+  } else {
+    // For subsequent days, use the original logic
+    if (currentHour < 12) {
+      startDay = 0; // Start today
+    } else if (currentHour < 18) {
+      startDay = 0; // Start today
+    } else {
+      startDay = 1; // Start tomorrow
+    }
   }
   
   const base = new Date();
   base.setDate(base.getDate() + startDay + dayNumber - 1);
-  
-  if (timeLabel === "Morning") base.setHours(8, 0, 0, 0);
-  else if (timeLabel === "Afternoon") base.setHours(14, 0, 0, 0);
-  else if (timeLabel === "Evening") base.setHours(20, 0, 0, 0);
-  else base.setHours(9, 0, 0, 0); // Default fallback
+  base.setHours(targetHour, 0, 0, 0);
   
   return base.toISOString();
 }
 
 // AI-powered plan generation with Google Gemini
-const generateTasksWithAI = async (category: string, title: string, description: string, detailedPlan: boolean = false): Promise<{ tasks: TaskTemplate[], iconName: string, color: string }> => {
+const generateTasksWithAI = async (category: string, title: string, description: string, intensity: 'easy' | 'medium' | 'hard' = 'easy', detailedPlan: boolean = false): Promise<{ tasks: TaskTemplate[], iconName: string, color: string }> => {
   console.log('🤖 Generating AI-powered plan for:', { category, title, description });
   
   try {
     const systemPrompt = `
 You are Genie, a personal mentor. Create a progressive 21-day action plan for the user's goal.
-Each day has exactly 3 tasks: Morning, Afternoon, Evening.
+
+INTENSITY LEVELS:
+- Easy: 3 tasks per day (Morning, Afternoon, Evening)
+- Medium: 6 tasks per day (Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night)
+- Hard: 12 tasks per day (Hourly tasks from 6 AM to 6 PM)
+
+Current intensity level: ${intensity.toUpperCase()}
+
+IMPORTANT TIME LOGIC:
+- If goal is created before 15:00 (3 PM), first task will be scheduled for the next available time slot today
+- If goal is created after 15:00 (3 PM), first task will be scheduled for tomorrow morning
+- Use appropriate time labels: Morning (8:00), Mid-Morning (10:00), Afternoon (14:00), Mid-Afternoon (16:00), Evening (20:00), Night (22:00)
 
 CRITICAL REQUIREMENTS:
 1. Week 1 (Days 1-7): Foundation & Awareness - Focus on building habits, research, and initial steps
@@ -193,6 +327,7 @@ Each task must be:
 - Progressive (builds on previous days)
 - Realistic for the time allocated
 - Directly related to the goal
+- Appropriate for the selected intensity level
 
 Choose an appropriate Phosphor icon and vibrant color for this goal:
 
@@ -464,7 +599,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { user_id, goal_id, category, title, description, timezone, start_date, language = 'en', detailed_plan = false }: GeneratePlanRequest = 
+    const { user_id, goal_id, category, title, description, intensity = 'easy', timezone, start_date, language = 'en', detailed_plan = false }: GeneratePlanRequest = 
       await req.json();
 
     console.log('📋 Plan generation request:', {
@@ -473,11 +608,12 @@ serve(async (req) => {
       category,
       title,
       description,
+      intensity,
       detailed_plan
     });
 
     // Generate tasks using AI (with template fallback)
-    const { tasks: taskTemplates, iconName, color } = await generateTasksWithAI(category, title, description, detailed_plan);
+    const { tasks: taskTemplates, iconName, color } = await generateTasksWithAI(category, title, description, intensity, detailed_plan);
     
     console.log('📋 Generated tasks:', taskTemplates.length, 'tasks');
     console.log('🎨 Selected icon:', iconName);
@@ -496,6 +632,7 @@ serve(async (req) => {
         title: template.title,
         description: template.description,
         run_at: runAt,
+        intensity: intensity, // Store intensity level with task
       };
     });
 
@@ -573,7 +710,7 @@ serve(async (req) => {
     }
 
     // Generate rewards for the goal
-    await generateRewards(goal_id, supabaseClient, category, title);
+    await generateRewards(goal_id, supabaseClient, category, title, taskTemplates, intensity);
 
     // Create reward notification templates
     const rewardNotifications = [
