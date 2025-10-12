@@ -65,6 +65,8 @@ export const DashboardScreen: React.FC = () => {
   const borderAnimation = useRef(new Animated.Value(0)).current;
   // Animation for Add Goal button
   const addGoalAnimation = useRef(new Animated.Value(0)).current;
+  // Animation for Genie logo
+  const genieOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (user?.id) {
@@ -97,6 +99,34 @@ export const DashboardScreen: React.FC = () => {
       startAnimation();
     }
   }, [activeGoals.length, addGoalAnimation]);
+
+  // Start Genie logo animation loop
+  useEffect(() => {
+    const runAnimationCycle = () => {
+      // Fade in
+      Animated.timing(genieOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        // Stay visible for 10 seconds
+        setTimeout(() => {
+          // Fade out
+          Animated.timing(genieOpacity, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }).start(() => {
+            // Wait 3 seconds then start next cycle
+            setTimeout(runAnimationCycle, 3000);
+          });
+        }, 10000);
+      });
+    };
+    
+    // Start first cycle
+    runAnimationCycle();
+  }, []);
 
   const fetchRecentRewards = async () => {
     if (!user?.id) return;
@@ -380,9 +410,14 @@ export const DashboardScreen: React.FC = () => {
         </View>
         
         <View style={styles.headerCenter}>
-          <Image 
+          <Animated.Image 
             source={require('../../assets/LogoSymbol.webp')} 
-            style={styles.headerLogo}
+            style={[
+              styles.headerLogo,
+              {
+                opacity: genieOpacity,
+              }
+            ]}
             resizeMode="contain"
           />
         </View>
@@ -782,7 +817,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.sideMenuHeader}>
               <Text variant="h4">Menu</Text>
               <Button variant="ghost" onPress={() => setShowSideMenu(false)}>
-                <Icon name="check-circle" size={20} color={theme.colors.text.secondary} />
+                <Icon name="x" size={20} color="#FFFF68" />
               </Button>
             </View>
             <View style={styles.sideMenuContent}>
@@ -793,7 +828,7 @@ export const DashboardScreen: React.FC = () => {
                   setShowSideMenu(false);
                   setShowProfile(true);
                 }}
-                leftIcon={<Icon name="user" size={20} color={theme.colors.text.secondary} />}
+                leftIcon={<Icon name="user" size={20} color="#FFFF68" />}
                 style={styles.sideMenuButton}
               >
                 Profile
@@ -805,7 +840,7 @@ export const DashboardScreen: React.FC = () => {
                   setShowSideMenu(false);
                   setShowSettings(true);
                 }}
-                leftIcon={<Icon name="gear" size={20} color={theme.colors.text.secondary} />}
+                leftIcon={<Icon name="gear" size={20} color="#FFFF68" />}
                 style={styles.sideMenuButton}
               >
                 Settings
@@ -817,7 +852,7 @@ export const DashboardScreen: React.FC = () => {
                   setShowSideMenu(false);
                   setShowHelpSupport(true);
                 }}
-                leftIcon={<Icon name="question" size={20} color={theme.colors.text.secondary} />}
+                leftIcon={<Icon name="question" size={20} color="#FFFF68" />}
                 style={styles.sideMenuButton}
               >
                 Help & Support
@@ -835,6 +870,9 @@ export const DashboardScreen: React.FC = () => {
               >
                 <Text style={{ color: theme.colors.status.error }}>Logout</Text>
               </Button>
+            </View>
+            <View style={styles.sideMenuFooter}>
+              <Text style={styles.sideMenuFooterText}>© 2024 GenieAI • Version 1.0.0</Text>
             </View>
           </View>
         </View>
@@ -886,7 +924,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 100, // Space for absolute header
+    paddingTop: 80, // Reduced space for absolute header
   },
   scrollContent: {
     paddingBottom: 20,
@@ -965,7 +1003,7 @@ const styles = StyleSheet.create({
   },
   contentHeader: {
     padding: 20,
-    paddingTop: 0, // No padding above greeting
+    paddingTop: 10, // Reduced padding above greeting
     paddingBottom: 0,
   },
       headerLogo: {
@@ -1173,7 +1211,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         backgroundColor: 'rgba(255, 255, 104, 0.1)',
-        borderRadius: 8,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 104, 0.3)',
       },
@@ -1278,13 +1316,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
       },
       addGoalButtonGradient: {
-        borderRadius: 12,
+        borderRadius: 25,
         padding: 2,
         width: '100%',
         marginBottom: 20,
       },
       addGoalButton: {
-        borderRadius: 10,
+        borderRadius: 23,
         paddingVertical: 16,
         paddingHorizontal: 20,
         width: '100%',
@@ -1317,7 +1355,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Subtle overlay with transparency
+    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Darker overlay
     zIndex: 2000,
   },
   sideMenuOverlayTouchable: {
@@ -1333,8 +1371,8 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     bottom: 0,
-    width: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', // White shadow layer
+    width: 1,
+    backgroundColor: '#FFFF68', // Yellow divider
     zIndex: 2002,
   },
   sideMenu: {
@@ -1347,16 +1385,8 @@ const styles = StyleSheet.create({
     paddingTop: 100, // Safe area padding
     paddingHorizontal: 24,
     paddingVertical: 24,
-    shadowColor: '#FFFFFF', // White shadow
-    shadowOffset: {
-      width: -8,
-      height: 0,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 16,
     borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255, 255, 255, 0.1)', // Subtle white border
+    borderLeftColor: '#FFFF68', // Yellow border
     zIndex: 2003,
   },
   sideMenuHeader: {
@@ -1383,6 +1413,19 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.1)', // Subtle white divider with transparency
     marginVertical: 16,
+  },
+  sideMenuFooter: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    right: 24,
+    alignItems: 'center',
+    gap: 4,
+  },
+  sideMenuFooterText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    textAlign: 'center',
   },
   goalMenuOverlay: {
     position: 'absolute',
