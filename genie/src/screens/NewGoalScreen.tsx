@@ -11,7 +11,7 @@ import {
   Image,
   Animated,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Button,
@@ -40,7 +40,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   onGoalCreated,
   onBack,
 }) => {
-  const { t } = useTranslation();
   const theme = useTheme();
   const { user } = useAuthStore();
   const { createGoal, loading } = useGoalStore();

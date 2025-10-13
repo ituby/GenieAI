@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 // import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '../components';
 import { AuthForm } from '../features/auth/components/AuthForm';
 import { useTheme } from '../theme/index';
 
 export const LoginScreen: React.FC = () => {
-  const { t } = useTranslation();
   const theme = useTheme();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
@@ -38,7 +37,7 @@ export const LoginScreen: React.FC = () => {
               resizeMode="contain"
             />
             <Text variant="caption" style={styles.subtitle}>
-              {t('onboarding.subtitle')}
+              Your AI-powered goal companion
             </Text>
           </View>
 
@@ -48,7 +47,7 @@ export const LoginScreen: React.FC = () => {
 
           <View style={styles.footer}>
             <Text variant="caption" color="tertiary" style={styles.footerText}>
-              {t('onboarding.description')}
+              Create goals and get a personalized 21-day plan
             </Text>
           </View>
         </ScrollView>

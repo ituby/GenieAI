@@ -8,7 +8,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 // import { LinearGradient } from 'expo-linear-gradient';
 import { Button, Text, Icon } from '../components';
 import { useTheme } from '../theme/index';
@@ -27,7 +27,6 @@ interface OnboardingScreenProps {
 }
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
-  const { t } = useTranslation();
   const theme = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -36,26 +35,26 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   const slides: OnboardingSlide[] = [
     {
       key: 'welcome',
-      title: t('onboarding.welcome'),
-      description: t('onboarding.description'),
+      title: 'Welcome to Genie',
+      description: 'Create goals and get a personalized 21-day plan',
       icon: 'brain',
     },
     {
       key: 'slide1',
-      title: t('onboarding.slide1Title'),
-      description: t('onboarding.slide1Description'),
+      title: 'Set Clear Goals',
+      description: 'Tell Genie what you want to achieve and why',
       icon: 'star',
     },
     {
       key: 'slide2',
-      title: t('onboarding.slide2Title'),
-      description: t('onboarding.slide2Description'),
+      title: 'Daily Tasks',
+      description: 'Follow simple steps every day to stay on track',
       icon: 'clipboard-text',
     },
     {
       key: 'slide3',
-      title: t('onboarding.slide3Title'),
-      description: t('onboarding.slide3Description'),
+      title: 'Track Progress',
+      description: 'See your streaks, achievements, and score grow',
       icon: 'trend-up',
     },
   ];
@@ -119,12 +118,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
           </View>
         )}
         <Text variant="h1" style={styles.slideTitle}>
-          {t(slide.title)}
+          {slide.title}
         </Text>
         <Text variant={index === 0 ? 'caption' : 'bodyLarge'} 
               color={index === 0 ? undefined : 'secondary'} 
               style={index === 0 ? styles.slideSubtitle : styles.slideDescription}>
-          {t(slide.description)}
+          {slide.description}
         </Text>
       </View>
     </View>
@@ -190,7 +189,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       <View style={styles.navigation}>
         {currentIndex > 0 && (
           <Button variant="ghost" onPress={goToPrevious}>
-            {t('common.back')}
+            Back
           </Button>
         )}
 
@@ -198,11 +197,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 
         {currentIndex < slides.length - 1 ? (
           <Button variant="primary" onPress={goToNext}>
-            {t('common.next')}
+            Next
           </Button>
         ) : (
           <Button variant="primary" onPress={onComplete}>
-            {t('onboarding.summonGenie')}
+            Summon Genie
           </Button>
         )}
       </View>

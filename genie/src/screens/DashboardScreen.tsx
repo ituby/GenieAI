@@ -8,8 +8,9 @@ import {
   Image,
   TouchableOpacity,
   Animated,
+  Dimensions,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
@@ -49,8 +50,17 @@ import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 import { useNotificationCount } from '../hooks/useNotificationCount';
 
+// Layout constants for evenly sized stat cards
+const WINDOW_WIDTH = Dimensions.get('window').width;
+const STATS_HORIZONTAL_PADDING = 20; // matches styles.statsContainer paddingHorizontal
+const STATS_GAP = 16; // matches styles.statsContainer gap
+const STATS_PER_ROW = 3;
+const STAT_CARD_SIZE = Math.floor(
+  (WINDOW_WIDTH - STATS_HORIZONTAL_PADDING * 2 - STATS_GAP * (STATS_PER_ROW - 1)) /
+    STATS_PER_ROW
+);
+
 export const DashboardScreen: React.FC = () => {
-  const { t } = useTranslation();
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
   const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal } =
@@ -654,7 +664,7 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.greetingRow}>
             <View style={styles.greetingText}>
               <Text variant="h2" style={styles.greeting}>
-                {t('dashboard.greeting', { name: getUserName() })}
+                Hello, {getUserName()}
               </Text>
               <Text variant="body" style={styles.motivationalText}>
                 Every step forward is progress
@@ -811,7 +821,7 @@ export const DashboardScreen: React.FC = () => {
               </ProgressRing>
             </View>
             <Text variant="caption" color="secondary" style={styles.statLabel}>
-              {t('dashboard.activeGoals')}
+              Active Goals
             </Text>
           </Card>
 
@@ -1596,15 +1606,15 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 16,
   },
   statCard: {
-    width: 120,
-    height: 120,
+    width: STAT_CARD_SIZE,
+    height: STAT_CARD_SIZE,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1622,7 +1632,7 @@ const styles = StyleSheet.create({
   },
   statCardWrapper: {
     alignItems: 'center',
-    width: 120,
+    width: STAT_CARD_SIZE,
   },
   statIconContainer: {
     position: 'absolute',
@@ -1654,10 +1664,11 @@ const styles = StyleSheet.create({
   scoreCardContainer: {
     marginTop: 0,
     marginBottom: 16,
-    alignItems: 'center',
+    alignItems: 'stretch',
+    paddingHorizontal: 20,
   },
   scoreCard: {
-    width: 392, // Same width as 3 stat cards (120*3 + 16*2 gaps)
+    width: '100%',
     height: 80,
     position: 'relative',
     alignItems: 'center',

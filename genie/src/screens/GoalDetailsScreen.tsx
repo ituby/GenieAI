@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 import { Button, Text, Card, Icon } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { TaskItem } from '../components/domain/TaskItem';
@@ -34,7 +34,6 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   onBack,
   onGoalUpdate,
 }) => {
-  const { t } = useTranslation();
   const theme = useTheme();
   const { user } = useAuthStore();
   const [tasks, setTasks] = useState<TaskWithGoal[]>([]);

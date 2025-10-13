@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 import { Button, TextField, Text, Card } from '../../../components';
 import { useTheme } from '../../../theme/index';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -11,7 +11,6 @@ interface AuthFormProps {
 }
 
 export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
-  const { t } = useTranslation();
   const theme = useTheme();
   const { signIn, signUp, loading } = useAuthStore();
 
@@ -79,14 +78,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     <Card variant="elevated" padding="lg" style={styles.container}>
       <View style={styles.header}>
         <Text variant="h2" style={styles.title}>
-          {mode === 'login' ? t('auth.login') : t('auth.register')}
+          {mode === 'login' ? 'Login' : 'Register'}
         </Text>
       </View>
 
       <View style={styles.form}>
         {mode === 'register' && (
           <TextField
-            placeholder={t('auth.fullName')}
+            placeholder={'Full Name'}
             value={formData.fullName}
             onChangeText={(value) => updateField('fullName', value)}
             error={errors.fullName}
@@ -96,7 +95,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         )}
 
         <TextField
-          placeholder={t('auth.email')}
+          placeholder={'Email'}
           value={formData.email}
           onChangeText={(value) => updateField('email', value)}
           error={errors.email}
@@ -106,7 +105,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         />
 
         <TextField
-          placeholder={t('auth.password')}
+          placeholder={'Password'}
           value={formData.password}
           onChangeText={(value) => updateField('password', value)}
           error={errors.password}
@@ -116,7 +115,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
 
         {mode === 'register' && (
           <TextField
-            placeholder={t('auth.confirmPassword')}
+            placeholder={'Confirm Password'}
             value={formData.confirmPassword}
             onChangeText={(value) => updateField('confirmPassword', value)}
             error={errors.confirmPassword}
@@ -133,14 +132,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
           loading={loading}
           onPress={handleSubmit}
         >
-          {mode === 'login' ? t('auth.login') : t('auth.register')}
+          {mode === 'login' ? 'Login' : 'Register'}
         </Button>
 
         <View style={styles.toggleContainer}>
           <Text variant="body" color="secondary">
             {mode === 'login' 
-              ? t('auth.dontHaveAccount') 
-              : t('auth.alreadyHaveAccount')
+              ? "Don't have an account?" 
+              : 'Already have an account?'
             }
           </Text>
           <Button
@@ -148,7 +147,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
             onPress={onToggleMode}
             style={styles.toggleButton}
           >
-            {mode === 'login' ? t('auth.register') : t('auth.login')}
+            {mode === 'login' ? 'Register' : 'Login'}
           </Button>
         </View>
       </View>

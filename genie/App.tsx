@@ -10,12 +10,11 @@ import { useAuthStore } from './src/store/useAuthStore';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
-import './src/i18n'; // Initialize i18n
+// i18n removed
 
 const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 export default function App() {
-  const { t } = useTranslation();
   const { initialize, loading, isAuthenticated } = useAuthStore();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
 

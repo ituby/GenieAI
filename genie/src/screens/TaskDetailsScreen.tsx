@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTranslation } from 'react-i18next';
+// i18n removed
 import { Button, Text, Card, Icon } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/index';
@@ -31,7 +31,6 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   onTaskUpdate,
 }) => {
   const theme = useTheme();
-  const { t } = useTranslation();
   const { user } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(false);
