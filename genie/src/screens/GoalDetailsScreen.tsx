@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 // i18n removed
 import { Button, Text, Card, Icon } from '../components';
+import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Ionicons } from '@expo/vector-icons';
 import { TaskItem } from '../components/domain/TaskItem';
 import { TaskDetailsScreen } from './TaskDetailsScreen';
@@ -40,10 +41,32 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [dailyTasks, setDailyTasks] = useState<DailyTasks[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showRefreshLoader, setShowRefreshLoader] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskWithGoal | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
   const [currentGoal, setCurrentGoal] = useState<GoalWithProgress>(goal);
+
+  const handleRefresh = async () => {
+    setShowRefreshLoader(true);
+    
+    try {
+      await Promise.all([
+        fetchTasks(),
+        fetchRewards(),
+        fetchPointsEarned(),
+        fetchUpdatedGoal(),
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+    
+    // Hide loader after 3 seconds
+    setTimeout(() => {
+      setShowRefreshLoader(false);
+    }, 3000);
+  };
 
   const fetchPointsEarned = async () => {
     if (user?.id) {
@@ -413,18 +436,31 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         </View>
       </View>
 
+      {/* Custom Refresh Animation */}
+      {showRefreshLoader && (
+        <CustomRefreshControl
+          refreshing={showRefreshLoader}
+          onRefresh={handleRefresh}
+          tintColor={theme.colors.yellow[500]}
+        />
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
-            onRefresh={fetchTasks}
-            tintColor={theme.colors.yellow[500]}
+            refreshing={showRefreshLoader}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['transparent']}
+            progressBackgroundColor="transparent"
+            title=""
+            titleColor="transparent"
+            progressViewOffset={50}
           />
         }
       >
-
         {/* Goal Info Card */}
         <View style={styles.content}>
           <Card variant="gradient" padding="lg" style={styles.goalInfoCard}>

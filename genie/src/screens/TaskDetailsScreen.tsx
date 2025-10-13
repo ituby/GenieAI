@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 // i18n removed
-import { Button, Text, Card, Icon } from '../components';
+import { Button, Text, Card, Icon, CustomRefreshControl } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/index';
 import { TaskWithGoal } from '../types/task';
@@ -34,6 +34,8 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   const { user } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showRefreshLoader, setShowRefreshLoader] = useState(false);
   const [taskData, setTaskData] = useState<TaskWithGoal>(task);
   const [pointsEarned, setPointsEarned] = useState(0);
 
@@ -51,6 +53,24 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     } catch {
       return '';
     }
+  };
+
+  const handleRefresh = async () => {
+    setShowRefreshLoader(true);
+    
+    try {
+      await Promise.all([
+        fetchTaskDetails(),
+        fetchPointsEarned(),
+      ]);
+    } catch (error) {
+      console.error('Error refreshing task data:', error);
+    }
+    
+    // Hide loader after 3 seconds
+    setTimeout(() => {
+      setShowRefreshLoader(false);
+    }, 3000);
   };
 
   const getTimeOfDayIcon = (runAt: string) => {
@@ -213,14 +233,28 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           </View>
         </View>
 
+        {/* Custom Refresh Animation */}
+        {showRefreshLoader && (
+          <CustomRefreshControl
+            refreshing={showRefreshLoader}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.yellow[500]}
+          />
+        )}
+
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
-              refreshing={isLoading}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.yellow[500]}
+              refreshing={showRefreshLoader}
+              onRefresh={handleRefresh}
+              tintColor="transparent"
+              colors={['transparent']}
+              progressBackgroundColor="transparent"
+              title=""
+              titleColor="transparent"
+              progressViewOffset={50}
             />
           }
         >

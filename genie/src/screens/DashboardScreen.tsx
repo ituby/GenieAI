@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  TextInput,
 } from 'react-native';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,7 @@ import {
   Stop,
 } from 'react-native-svg';
 import { Text, Card, Icon, Badge } from '../components';
+import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Button } from '../components/primitives/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard } from '../components/domain/GoalCard';
@@ -85,6 +87,11 @@ export const DashboardScreen: React.FC = () => {
   const [todaysTasks, setTodaysTasks] = React.useState<TaskWithGoal[]>([]);
   const [showSubscriptionModal, setShowSubscriptionModal] =
     React.useState(false);
+  const [showTokenPurchaseModal, setShowTokenPurchaseModal] =
+    React.useState(false);
+  const [customTokenAmount, setCustomTokenAmount] = React.useState('');
+  const [customTokenPrice, setCustomTokenPrice] = React.useState(0);
+  const [selectedPackage, setSelectedPackage] = React.useState<number | null>(null);
   const [userTokens, setUserTokens] = React.useState({
     used: 0,
     remaining: 0,
@@ -92,6 +99,7 @@ export const DashboardScreen: React.FC = () => {
     isSubscribed: false,
     monthlyTokens: 0,
   });
+  const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
 
   // Animation for button border
   const borderAnimation = useRef(new Animated.Value(0)).current;
@@ -318,11 +326,41 @@ export const DashboardScreen: React.FC = () => {
   // Removed automatic AI connection test to prevent unnecessary API calls
 
   const handleRefresh = () => {
+    setShowRefreshLoader(true);
+    
     if (user?.id) {
       fetchGoals(user.id);
       fetchTodaysTasks();
       fetchUserTokens(); // Add this to refresh tokens data
       fetchTotalPoints(); // Add this to refresh points data
+    }
+    
+    // Hide loader after 3 seconds
+    setTimeout(() => {
+      setShowRefreshLoader(false);
+    }, 3000);
+  };
+
+  const calculateTokenPrice = (amount: number): number => {
+    if (amount >= 1 && amount <= 10) {
+      return amount * 1.0; // $1 per token
+    } else if (amount > 10 && amount <= 20) {
+      return amount * 0.8; // $0.8 per token
+    } else if (amount > 20 && amount <= 100) {
+      return amount * 0.6; // $0.6 per token
+    }
+    return amount * 1.0; // Default to $1 per token
+  };
+
+  const handleCustomTokenChange = (text: string) => {
+    setCustomTokenAmount(text);
+    setSelectedPackage(null); // Clear package selection when typing custom amount
+    const amount = parseInt(text) || 0;
+    if (amount > 0 && amount <= 100) {
+      const price = calculateTokenPrice(amount);
+      setCustomTokenPrice(price);
+    } else {
+      setCustomTokenPrice(0);
     }
   };
 
@@ -648,14 +686,28 @@ export const DashboardScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Custom Refresh Animation */}
+      {showRefreshLoader && (
+        <CustomRefreshControl
+          refreshing={showRefreshLoader}
+          onRefresh={handleRefresh}
+          tintColor={theme.colors.yellow[500]}
+        />
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={showRefreshLoader}
             onRefresh={handleRefresh}
-            tintColor={theme.colors.yellow[500]}
+            tintColor="transparent"
+            colors={['transparent']}
+            progressBackgroundColor="transparent"
+            title=""
+            titleColor="transparent"
+            progressViewOffset={50}
           />
         }
       >
@@ -696,6 +748,7 @@ export const DashboardScreen: React.FC = () => {
                 ]}
                 disabled={!userTokens.isSubscribed}
                 activeOpacity={userTokens.isSubscribed ? 0.8 : 1}
+                onPress={() => setShowTokenPurchaseModal(true)}
               >
                 <Icon
                   name="crown"
@@ -1344,6 +1397,169 @@ export const DashboardScreen: React.FC = () => {
         <HelpSupportScreen onBack={() => setShowHelpSupport(false)} />
       )}
 
+      {/* Token Purchase Modal */}
+      {showTokenPurchaseModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Icon name="coins" size={24} color="#FFFF68" weight="fill" />
+              <Text variant="h3" style={styles.modalTitle}>
+                Purchase Tokens
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowTokenPurchaseModal(false);
+                  setCustomTokenAmount('');
+                  setCustomTokenPrice(0);
+                  setSelectedPackage(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Icon name="x" size={20} color={theme.colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalContent}>
+                <Text variant="h4" style={styles.predefinedOptionsTitle}>
+                  Predefined Packages
+                </Text>
+
+                <View style={styles.tokenOptions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.tokenOption,
+                      selectedPackage === 5 && styles.tokenOptionSelected
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setSelectedPackage(5);
+                      setCustomTokenAmount('5');
+                      setCustomTokenPrice(5.00);
+                    }}
+                  >
+                    <View style={styles.tokenOptionHeader}>
+                      <Text variant="h4" style={styles.tokenAmount}>5 Tokens</Text>
+                      <Text variant="h3" style={styles.tokenPrice}>$5.00</Text>
+                    </View>
+                    <Text variant="caption" color="secondary" style={styles.tokenDescription}>
+                      Perfect for trying out premium features
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.tokenOption,
+                      selectedPackage === 10 && styles.tokenOptionSelected
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setSelectedPackage(10);
+                      setCustomTokenAmount('10');
+                      setCustomTokenPrice(8.50);
+                    }}
+                  >
+                    <View style={styles.popularBadge}>
+                      <Text variant="caption" style={styles.popularText}>POPULAR</Text>
+                    </View>
+                    <View style={styles.tokenOptionHeader}>
+                      <Text variant="h4" style={styles.tokenAmount}>10 Tokens</Text>
+                      <Text variant="h3" style={styles.tokenPrice}>$8.50</Text>
+                    </View>
+                    <Text variant="caption" color="secondary" style={styles.tokenDescription}>
+                      Best value for regular users
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.tokenOption,
+                      selectedPackage === 25 && styles.tokenOptionSelected
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setSelectedPackage(25);
+                      setCustomTokenAmount('25');
+                      setCustomTokenPrice(20.00);
+                    }}
+                  >
+                    <View style={styles.tokenOptionHeader}>
+                      <Text variant="h4" style={styles.tokenAmount}>25 Tokens</Text>
+                      <Text variant="h3" style={styles.tokenPrice}>$20.00</Text>
+                    </View>
+                    <Text variant="caption" color="secondary" style={styles.tokenDescription}>
+                      Great for power users
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Custom Token Amount Input */}
+                <View style={styles.customTokenSection}>
+                  <Text variant="h4" style={styles.customTokenTitle}>
+                    Custom Amount
+                  </Text>
+                  <View style={styles.customTokenInputContainer}>
+                    <TextInput
+                      style={styles.customTokenInput}
+                      value={customTokenAmount}
+                      onChangeText={handleCustomTokenChange}
+                      placeholder="Enter amount (1-100)"
+                      placeholderTextColor={theme.colors.text.secondary}
+                      keyboardType="numeric"
+                      maxLength={3}
+                    />
+                    <Text variant="caption" color="secondary" style={styles.customTokenLabel}>
+                      tokens
+                    </Text>
+                  </View>
+                  {customTokenPrice > 0 && (
+                    <View style={styles.customTokenPriceContainer}>
+                      <Text variant="h3" style={styles.customTokenPrice}>
+                        ${customTokenPrice.toFixed(2)}
+                      </Text>
+                      <Text variant="caption" color="secondary" style={styles.customTokenPriceLabel}>
+                        Total Price
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Purchase Button */}
+                <View style={styles.purchaseButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.purchaseButton}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // TODO: Implement purchase logic
+                      setShowTokenPurchaseModal(false);
+                      alert('Purchase feature coming soon!');
+                    }}
+                  >
+                    <Icon name="credit-card" size={20} color="#000000" weight="fill" />
+                    <Text variant="h4" style={styles.purchaseButtonText}>
+                      Complete Purchase
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Description */}
+                <Text
+                  variant="body"
+                  color="secondary"
+                  style={styles.modalDescription}
+                >
+                  Each token allows you to create one goal. Tokens are consumed when you create a new goal and cannot be refunded.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
       {/* Subscription Modal */}
       {showSubscriptionModal && (
         <View style={styles.modalOverlay}>
@@ -1761,12 +1977,12 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   createGoalButtonGradient: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 2,
     width: '100%',
   },
   createGoalButton: {
-    borderRadius: 8,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     width: '100%',
@@ -2133,7 +2349,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 16,
     flex: 1,
     textAlign: 'center',
   },
@@ -2141,7 +2357,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalContent: {
-    padding: 20,
+    padding: 12,
     alignItems: 'center',
   },
   modalIconContainer: {
@@ -2209,5 +2425,201 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
     fontWeight: '700',
+  },
+  // Token Purchase Modal Styles
+  tokenOptions: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    justifyContent: 'space-between',
+  },
+  tokenOption: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    position: 'relative',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 80,
+    maxWidth: '30%',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tokenOptionSelected: {
+    borderColor: '#FFFF68',
+    backgroundColor: 'rgba(255, 255, 104, 0.12)',
+    shadowColor: '#FFFF68',
+    shadowOpacity: 0.2,
+  },
+  popularBadge: {
+    position: 'absolute',
+    top: -6,
+    left: '50%',
+    transform: [{ translateX: -18 }],
+    backgroundColor: '#FFFF68',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    shadowColor: '#FFFF68',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  popularText: {
+    color: '#000000',
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tokenOptionHeader: {
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tokenAmount: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  tokenPrice: {
+    color: '#FFFF68',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  tokenDescription: {
+    textAlign: 'center',
+    fontSize: 8,
+    lineHeight: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '500',
+  },
+  // Custom Token Input Styles
+  customTokenSection: {
+    width: '100%',
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  customTokenTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  customTokenInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  customTokenInput: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    minWidth: 100,
+    borderWidth: 0,
+    flex: 1,
+  },
+  customTokenLabel: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  customTokenPriceContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+  },
+  customTokenPrice: {
+    color: '#FFFF68',
+    fontWeight: '800',
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  customTokenPriceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  predefinedOptionsTitle: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  // Purchase Button Styles
+  purchaseButtonContainer: {
+    width: '100%',
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  purchaseButton: {
+    backgroundColor: '#FFFF68',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    shadowColor: '#FFFF68',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  purchaseButtonText: {
+    color: '#000000',
+    fontWeight: '800',
+    fontSize: 16,
   },
 });

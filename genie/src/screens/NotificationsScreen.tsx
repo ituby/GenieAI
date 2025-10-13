@@ -13,6 +13,7 @@ import { Text } from '../components/primitives/Text';
 import { Card } from '../components/primitives/Card';
 import { Icon } from '../components/primitives/Icon';
 import { Button } from '../components/primitives/Button';
+import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { supabase } from '../services/supabase/client';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatDistanceToNow } from 'date-fns';
@@ -34,12 +35,28 @@ export const NotificationsScreen: React.FC<{ onBack: () => void; onNotificationR
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showRefreshLoader, setShowRefreshLoader] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       fetchNotifications();
     }
   }, [user?.id]);
+
+  const handleRefresh = async () => {
+    setShowRefreshLoader(true);
+    
+    try {
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    }
+    
+    // Hide loader after 3 seconds
+    setTimeout(() => {
+      setShowRefreshLoader(false);
+    }, 3000);
+  };
 
   const fetchNotifications = async () => {
     if (!user?.id) return;
@@ -193,14 +210,28 @@ export const NotificationsScreen: React.FC<{ onBack: () => void; onNotificationR
         </View>
       </View>
 
+      {/* Custom Refresh Animation */}
+      {showRefreshLoader && (
+        <CustomRefreshControl
+          refreshing={showRefreshLoader}
+          onRefresh={handleRefresh}
+          tintColor={theme.colors.yellow[500]}
+        />
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.yellow[500]}
+            refreshing={showRefreshLoader}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['transparent']}
+            progressBackgroundColor="transparent"
+            title=""
+            titleColor="transparent"
+            progressViewOffset={50}
           />
         }
       >
