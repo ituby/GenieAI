@@ -25,9 +25,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: 'portrait',
     icon: './assets/AppIcon.png',
     userInterfaceStyle: 'dark',
-    splash: {
-      backgroundColor: '#000000',
-    },
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
