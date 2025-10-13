@@ -10,18 +10,22 @@ import { useAuthStore } from './src/store/useAuthStore';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import { SplashScreen } from './src/components/SplashScreen';
 // i18n removed
 
 const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 export default function App() {
   const { initialize, loading, isAuthenticated } = useAuthStore();
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
+    null
+  );
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
       console.log('🚀 Initializing app...');
-      
+
       // Check for OTA updates (only in production)
       if (!__DEV__) {
         try {
@@ -44,12 +48,12 @@ export default function App() {
       } else {
         console.log('🔄 OTA updates disabled in development mode');
       }
-      
+
       // Check if user has seen onboarding
       const onboardingStatus = await AsyncStorage.getItem(ONBOARDING_KEY);
       console.log('👁️ Has seen onboarding:', onboardingStatus === 'true');
       setHasSeenOnboarding(onboardingStatus === 'true');
-      
+
       // Initialize auth (this will check for existing session)
       await initialize();
       console.log('🚀 App initialization complete');
@@ -62,6 +66,15 @@ export default function App() {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     setHasSeenOnboarding(true);
   };
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
+  // Show splash screen first
+  if (showSplash) {
+    return <SplashScreen onAnimationFinish={handleSplashFinish} />;
+  }
 
   // Skip loading screen - go directly to onboarding or login
   if (hasSeenOnboarding === null) {

@@ -24,7 +24,8 @@
       "ios": {
         "resourceClass": "m-medium",
         "simulator": false,
-        "distribution": "store"
+        "distribution": "store",
+        "buildNumber": "auto"
       }
     }
   },
