@@ -31,13 +31,13 @@ export const TalkWithGenieButton: React.FC<TalkWithGenieButtonProps> = ({
         style={styles.button}
       >
         <View style={styles.buttonContent}>
+          <Text style={styles.buttonText}>Talk with Genie</Text>
           <Icon
             name="sparkle"
             size={size === 'small' ? 14 : size === 'large' ? 18 : 16}
             color="#FFFFFF"
             weight="fill"
           />
-          <Text style={styles.buttonText}>Talk with Genie</Text>
         </View>
       </TouchableOpacity>
     </LinearGradient>

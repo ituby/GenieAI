@@ -334,7 +334,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           />
         </TouchableOpacity>
         <Text variant="h4" style={styles.largeTitle} numberOfLines={1}>
-          Create Goal
+          Genie
         </Text>
         <View style={styles.spacer} />
       </View>
@@ -594,21 +594,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   style={styles.createButtonGradient}
                 >
                   <View style={styles.createButtonContent}>
+                    <Text style={styles.createButtonText}>
+                      {isCreatingPlan
+                        ? 'Genie is Creating Your Plan...'
+                        : 'Send to Genie'}
+                    </Text>
                     {loading || isCreatingPlan ? (
                       <ActivityIndicator size="small" color="#000000" />
                     ) : (
                       <Icon
-                        name="brain"
+                        name="sparkle"
                         size={20}
                         color="#000000"
                         weight="fill"
                       />
                     )}
-                    <Text style={styles.createButtonText}>
-                      {isCreatingPlan
-                        ? 'Genie is Creating Your Plan...'
-                        : 'Talk with Genie'}
-                    </Text>
                   </View>
                 </AnimatedLinearGradient>
               </TouchableOpacity>

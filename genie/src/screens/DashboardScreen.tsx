@@ -1003,7 +1003,7 @@ export const DashboardScreen: React.FC = () => {
                 </View>
 
                 <Text variant="h3" style={styles.createGoalTitle}>
-                  Create Your First Goal
+                  Genie
                 </Text>
 
                 <Text
