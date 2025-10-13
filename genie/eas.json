@@ -25,7 +25,11 @@
         "resourceClass": "m-medium",
         "simulator": false,
         "distribution": "store",
-        "autoIncrement": "buildNumber"
+        "autoIncrement": true
+      },
+      "android": {
+        "resourceClass": "m-medium",
+        "autoIncrement": true
       }
     }
   },

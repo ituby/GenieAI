@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
   name: 'Genie',
-  version: '1.0.0',
+  version: '1.0.1',
   description: 'Your personal growth companion',
   tagline: 'Your wish becomes your daily plan',
 } as const;
@@ -13,17 +13,9 @@ export const GOAL_CATEGORIES = [
   'custom',
 ] as const;
 
-export const GOAL_STATUSES = [
-  'active',
-  'completed',
-  'paused',
-] as const;
+export const GOAL_STATUSES = ['active', 'completed', 'paused'] as const;
 
-export const TASK_TIMES = [
-  'morning',
-  'afternoon',
-  'evening',
-] as const;
+export const TASK_TIMES = ['morning', 'afternoon', 'evening'] as const;
 
 export const NOTIFICATION_TYPES = [
   'task_reminder',
