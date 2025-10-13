@@ -31,6 +31,7 @@ import { GoalCard } from '../components/domain/GoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { TaskItem } from '../components/domain/TaskItem';
+import { SplashScreen } from '../components/SplashScreen';
 import { useTheme } from '../theme/index';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
@@ -93,6 +94,7 @@ export const DashboardScreen: React.FC = () => {
   const [showTokenPurchaseModal, setShowTokenPurchaseModal] =
     React.useState(false);
   const [customTokenAmount, setCustomTokenAmount] = React.useState('');
+  const [showSplash, setShowSplash] = React.useState(true);
   const [customTokenPrice, setCustomTokenPrice] = React.useState(0);
   const [selectedPackage, setSelectedPackage] = React.useState<number | null>(
     null
@@ -269,6 +271,7 @@ export const DashboardScreen: React.FC = () => {
           completed,
           completed_at,
           goal_id,
+          intensity,
           created_at,
           updated_at,
           goals!inner(
@@ -296,6 +299,7 @@ export const DashboardScreen: React.FC = () => {
         completed: task.completed,
         completed_at: task.completed_at,
         goal_id: task.goal_id,
+        intensity: task.intensity,
         created_at: task.created_at,
         updated_at: task.updated_at,
         goal: {
@@ -607,6 +611,10 @@ export const DashboardScreen: React.FC = () => {
       console.error('Error toggling task:', error);
     }
   };
+
+  if (showSplash) {
+    return <SplashScreen onAnimationFinish={() => setShowSplash(false)} />;
+  }
 
   if (showNewGoal) {
     return (

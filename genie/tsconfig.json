@@ -5,9 +5,10 @@
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "node16"
   },
-  "exclude": [
-    "supabase/functions/**/*"
-  ]
+  "exclude": ["supabase/functions/**/*"]
 }
