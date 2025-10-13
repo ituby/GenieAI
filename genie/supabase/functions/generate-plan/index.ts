@@ -355,41 +355,61 @@ function computeRunAtFromHHMM(
 ): string {
   const now = currentTimeIso ? new Date(currentTimeIso) : new Date();
   const [hStr, mStr] = hhmm.split(':');
-  let hours = Math.max(7, Math.min(23, parseInt(hStr, 10)));
-  let minutes = Math.max(0, Math.min(59, parseInt(mStr || '0', 10)));
+  let hours = parseInt(hStr, 10);
+  let minutes = parseInt(mStr || '0', 10);
+
+  // Enforce 07:00-23:00 window strictly
+  hours = Math.max(7, Math.min(23, hours));
+  minutes = Math.max(0, Math.min(59, minutes));
+
+  // If hours is 23, set minutes to 0 to stay within window
+  if (hours === 23) {
+    minutes = 0;
+  }
 
   const scheduled = new Date(now);
   // dayNumber is 1-based; schedule for today + (dayNumber-1)
   scheduled.setDate(scheduled.getDate() + (dayNumber - 1));
   scheduled.setHours(hours, minutes, 0, 0);
 
-  // For day 1: ensure time is not in the past; if past and before 23:00, move to now+15m capped to 23:00
+  // For day 1: ensure time is not in the past; if past, move to next available slot
   if (dayNumber === 1) {
     if (scheduled < now) {
+      console.log(
+        `⏰ Day 1 task scheduled for ${hhmm} is in the past, adjusting...`
+      );
+
+      // Try to schedule 15 minutes from now if within today's window
       const candidate = new Date(now.getTime() + 15 * 60 * 1000);
-      // clamp candidate within today 07:00-23:00
       const todayStart = new Date(now);
       todayStart.setHours(7, 0, 0, 0);
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 0, 0, 0);
-      if (candidate <= todayEnd) {
-        const clamped = new Date(Math.max(candidate.getTime(), todayStart.getTime()));
+
+      if (candidate <= todayEnd && candidate >= todayStart) {
+        const clamped = new Date(
+          Math.max(candidate.getTime(), todayStart.getTime())
+        );
         clamped.setSeconds(0, 0);
+        console.log(`✅ Adjusted to: ${clamped.toISOString()}`);
         return clamped.toISOString();
       }
-      // Otherwise schedule tomorrow at earliest valid time (07:00)
+
+      // If no valid time today, schedule for tomorrow at 07:00
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(Math.max(7, hours), minutes, 0, 0);
+      tomorrow.setHours(7, 0, 0, 0);
+      console.log(`📅 Scheduled for tomorrow: ${tomorrow.toISOString()}`);
       return tomorrow.toISOString();
     }
   }
 
-  // Ensure within 07:00-23:00 window for non-day1 as well
+  // Final validation: ensure within 07:00-23:00 window
   const dayStart = new Date(scheduled);
   dayStart.setHours(7, 0, 0, 0);
   const dayEnd = new Date(scheduled);
   dayEnd.setHours(23, 0, 0, 0);
+
   if (scheduled < dayStart) {
     scheduled.setHours(7, 0, 0, 0);
   } else if (scheduled > dayEnd) {
@@ -417,7 +437,9 @@ const generateTasksWithAI = async (
 
   try {
     const systemPrompt = `
-You are Genie, a personal mentor. Create a progressive 21-day action plan for the user's goal.
+You are Genie, the world's most sophisticated AI personal mentor and success coach. You create life-changing, professional-grade action plans that transform dreams into reality.
+
+🎯 YOUR MISSION: Create the most precise, professional, and transformative 21-day plan that will make users say "This is exactly what I needed!"
 
 INTENSITY LEVELS:
 - Easy: 3 tasks per day (Morning, Afternoon, Evening) - 63 total tasks
@@ -426,22 +448,55 @@ INTENSITY LEVELS:
 
 Current intensity level: ${intensity.toUpperCase()}
 
-TIME RULES (STRICT):
+⏰ TIME RULES (STRICT):
 1) Use 24-hour clock times in HH:MM format only
-2) All task times MUST be between 07:00 and 23:00 inclusive
+2) All task times MUST be between 07:00 and 23:00 inclusive - NO EXCEPTIONS
 3) For Day 1, consider the user's current time and timezone provided below. Do NOT schedule any Day 1 task in the past. If a suggested time has already passed, choose the next valid future time today; if no valid slot remains today, schedule the task for tomorrow at the earliest valid time (>= 07:00)
+4) CRITICAL: If you generate a time outside 07:00-23:00, the system will reject it. Always validate times before including them.
+5) For Day 1 tasks, ensure at least one task is available today if current time is before 20:00, otherwise schedule all for tomorrow
+6) NO DUPLICATE TIMES: Each task on the same day must have a UNIQUE time. Never schedule multiple tasks at the exact same HH:MM on the same day. Space tasks at least 15 minutes apart.
+7) DISTRIBUTE TIMES: Spread tasks throughout the day (morning, afternoon, evening) to avoid clustering at the same time.
 
-CRITICAL REQUIREMENTS:
-1. Week 1 (Days 1-7): Foundation & Awareness - Focus on building habits, research, and initial steps
-2. Week 2 (Days 8-14): Skill Building & Practice - Develop core skills and increase intensity
-3. Week 3 (Days 15-21): Mastery & Completion - Advanced tasks and goal achievement
+🏆 PROFESSIONAL EXCELLENCE STANDARDS:
 
+PLAN ARCHITECTURE:
+1. Week 1 (Days 1-7): Foundation & Mastery Setup
+   - Establish unshakeable foundations
+   - Build core competencies and systems
+   - Create momentum through quick wins
+   - Set up tracking and measurement systems
+
+2. Week 2 (Days 8-14): Skill Development & Practice
+   - Advanced skill building and refinement
+   - Real-world application and testing
+   - Problem-solving and adaptation
+   - Building expertise and confidence
+
+3. Week 3 (Days 15-21): Mastery & Transformation
+   - Advanced mastery and optimization
+   - Leadership and teaching others
+   - Innovation and creative application
+   - Long-term sustainability planning
+
+TASK QUALITY STANDARDS:
 Each task must be:
-- Specific and actionable (not vague)
-- Progressive (builds on previous days)
-- Realistic for the time allocated
-- Directly related to the goal
-- Appropriate for the selected intensity level
+✅ SPECIFIC: Crystal clear instructions that anyone could follow
+✅ ACTIONABLE: Concrete steps with measurable outcomes
+✅ PROGRESSIVE: Each task builds upon previous achievements
+✅ REALISTIC: Achievable within the allocated time frame
+✅ RELEVANT: Directly connected to the goal's success
+✅ MOTIVATING: Inspiring and confidence-building
+✅ PROFESSIONAL: Industry-standard quality and approach
+
+EXPERT-LEVEL TASK CREATION:
+- Use industry best practices and proven methodologies
+- Include specific tools, resources, and techniques
+- Provide measurable success criteria
+- Address potential obstacles with solutions
+- Build both skills and mindset
+- Create sustainable habits and systems
+- Include reflection and learning components
+- Ensure long-term impact beyond the 21 days
 
 Choose an appropriate Phosphor icon for this goal:
 
@@ -460,6 +515,8 @@ Context for day 1 timing:
 - current_time_iso: ${currentTimeIso || ''}
 - timezone: ${timezone || ''}
 
+🎯 FINAL OUTPUT REQUIREMENTS:
+
 Return ONLY valid JSON in this exact format:
 {
   "icon_name": "chosen-icon-name", // MUST be a valid Phosphor React Native icon name in kebab-case
@@ -475,29 +532,111 @@ Return ONLY valid JSON in this exact format:
     }
   ]
 }
-Generate exactly 21 days with the correct number of tasks based on intensity:
+
+🏆 QUALITY ASSURANCE CHECKLIST:
+Before finalizing your response, ensure each task meets these standards:
+
+✅ TASK TITLES: Professional, specific, and motivating
+✅ DESCRIPTIONS: Detailed, actionable, and measurable
+✅ TIME DISTRIBUTION: Well-spaced throughout the day
+✅ PROGRESSION: Each day builds upon the previous
+✅ REALISM: Achievable within time constraints
+✅ RELEVANCE: Directly connected to goal success
+✅ MOTIVATION: Inspiring and confidence-building
+✅ PROFESSIONALISM: Industry-standard quality
+
+📊 QUANTITY REQUIREMENTS:
 - Easy: 3 tasks per day (63 total)
 - Medium: 6 tasks per day (126 total) 
 - Hard: 10-12 tasks per day (210-252 total)
-Ensure all times are between 07:00 and 23:00.
+
+⏰ TIME VALIDATION:
+- All times must be between 07:00 and 23:00
+- No duplicate times on the same day
+- Day 1 times must not be in the past
+- Space tasks at least 15 minutes apart
+
+🎯 SUCCESS CRITERIA:
+Your plan should be so exceptional that users will:
+- Feel confident they can achieve their goal
+- Be excited to start each day's tasks
+- See clear progress and transformation
+- Want to recommend Genie to others
+- Feel proud of their journey and results
+
+Create a masterpiece that transforms lives!
 `;
 
     const userGoalPrompt = `
-Goal: ${title}
+🎯 GOAL ANALYSIS:
+Title: ${title}
 Description: ${description}
 Category: ${category}
 
-Create a progressive 21-day plan with the correct number of daily tasks to achieve this goal.
+🚀 CREATE A TRANSFORMATIVE 21-DAY MASTERY PLAN
 
-IMPORTANT: Make sure the plan follows this progression:
-- Days 1-7: Start with foundational tasks, research, and habit building
-- Days 8-14: Increase complexity and skill development
-- Days 15-21: Focus on mastery, advanced techniques, and goal completion
+Your task is to create the most professional, comprehensive, and life-changing 21-day plan that will:
+- Transform the user's current situation into their desired outcome
+- Build genuine expertise and mastery
+- Create sustainable habits and systems
+- Provide measurable progress and results
+- Inspire confidence and motivation throughout the journey
 
-Each task should be specific enough that someone could follow it without additional explanation.
-For Medium intensity, include tasks at: Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night
-For Hard intensity, distribute tasks throughout the day from 07:00 to 23:00 with appropriate spacing
-Use only 24h HH:MM times within 07:00-23:00. Day 1 times must not be in the past relative to the provided current time and timezone.
+📋 PLAN STRUCTURE REQUIREMENTS:
+
+WEEK 1 (Days 1-7): FOUNDATION & MASTERY SETUP
+- Establish unshakeable foundations and core systems
+- Build essential competencies and knowledge base
+- Create momentum through strategic quick wins
+- Set up tracking, measurement, and accountability systems
+- Address mindset and motivation barriers
+- Build confidence through early successes
+
+WEEK 2 (Days 8-14): SKILL DEVELOPMENT & PRACTICE
+- Advanced skill building and refinement
+- Real-world application and practical testing
+- Problem-solving and adaptive learning
+- Building expertise and professional confidence
+- Overcoming challenges and obstacles
+- Creating sustainable daily practices
+
+WEEK 3 (Days 15-21): MASTERY & TRANSFORMATION
+- Advanced mastery and optimization techniques
+- Leadership and knowledge sharing
+- Innovation and creative application
+- Long-term sustainability and growth planning
+- Goal completion and celebration
+- Future vision and next-level planning
+
+🎯 TASK CREATION EXCELLENCE:
+
+Each task must be:
+✅ SPECIFIC: "Research 3 proven strategies for [specific aspect]" not "Learn about the topic"
+✅ ACTIONABLE: "Complete a 30-minute practice session using [specific technique]" not "Practice"
+✅ PROGRESSIVE: Each task builds upon previous achievements and knowledge
+✅ REALISTIC: Achievable within the allocated time frame with clear success criteria
+✅ RELEVANT: Directly connected to the goal's success with measurable outcomes
+✅ MOTIVATING: Inspiring and confidence-building with clear benefits
+✅ PROFESSIONAL: Industry-standard quality, tools, and methodologies
+
+EXPERT-LEVEL REQUIREMENTS:
+- Include specific tools, resources, apps, or platforms to use
+- Provide measurable success criteria and completion standards
+- Address potential obstacles with practical solutions
+- Build both technical skills and mindset/confidence
+- Create sustainable habits that extend beyond 21 days
+- Include reflection, learning, and adaptation components
+- Ensure long-term impact and continued growth
+
+TECHNICAL SPECIFICATIONS:
+- For Medium intensity: Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night
+- For Hard intensity: Distribute tasks throughout 07:00-23:00 with strategic spacing
+- Use only 24h HH:MM times within 07:00-23:00 window
+- Day 1 times must not be in the past relative to current time and timezone
+- Each task must have a unique time slot (no duplicates)
+- Space tasks at least 15 minutes apart for proper focus
+
+Remember: This plan will be the user's roadmap to transformation. Make it so good they'll want to share it with others!
 `;
 
     console.log('📡 Sending request to Gemini API...');
@@ -570,28 +709,55 @@ Use only 24h HH:MM times within 07:00-23:00. Day 1 times must not be in the past
           if (day.tasks && Array.isArray(day.tasks)) {
             for (const task of day.tasks) {
               // Detect HH:MM and derive a time bucket for greetings; attach custom_time
-              const isHHMM = typeof task.time === 'string' && /^\d{2}:\d{2}$/.test(task.time);
-              let timeBucket: 'morning' | 'mid_morning' | 'afternoon' | 'evening' = 'morning';
+              const isHHMM =
+                typeof task.time === 'string' &&
+                /^\d{2}:\d{2}$/.test(task.time);
+              let timeBucket:
+                | 'morning'
+                | 'mid_morning'
+                | 'afternoon'
+                | 'evening' = 'morning';
+              let validTime = task.time;
+
               if (isHHMM) {
                 const hour = parseInt(task.time.slice(0, 2), 10);
-                if (hour < 10) timeBucket = 'morning';
-                else if (hour < 13) timeBucket = 'mid_morning';
-                else if (hour < 18) timeBucket = 'afternoon';
+                const minute = parseInt(task.time.slice(3, 5), 10);
+
+                // Validate and fix time if outside 07:00-23:00 window
+                if (hour < 7) {
+                  console.warn(
+                    `⚠️ Invalid time ${task.time} - too early, adjusting to 07:00`
+                  );
+                  validTime = '07:00';
+                } else if (hour > 23 || (hour === 23 && minute > 0)) {
+                  console.warn(
+                    `⚠️ Invalid time ${task.time} - too late, adjusting to 23:00`
+                  );
+                  validTime = '23:00';
+                }
+
+                // Recalculate hour after potential adjustment
+                const adjustedHour = parseInt(validTime.slice(0, 2), 10);
+                if (adjustedHour < 10) timeBucket = 'morning';
+                else if (adjustedHour < 13) timeBucket = 'mid_morning';
+                else if (adjustedHour < 18) timeBucket = 'afternoon';
                 else timeBucket = 'evening';
               } else {
                 const t = String(task.time).toLowerCase();
-                if (t.includes('mid') && t.includes('morning')) timeBucket = 'mid_morning';
+                if (t.includes('mid') && t.includes('morning'))
+                  timeBucket = 'mid_morning';
                 else if (t.includes('afternoon')) timeBucket = 'afternoon';
                 else if (t.includes('evening')) timeBucket = 'evening';
                 else timeBucket = 'morning';
               }
+
               const entry: any = {
                 title: task.title,
                 description: task.description,
                 day_offset: day.day - 1,
                 time_of_day: timeBucket,
               };
-              if (isHHMM) entry.custom_time = task.time;
+              if (isHHMM) entry.custom_time = validTime;
               tasks.push(entry as TaskTemplate);
             }
           }
@@ -770,7 +936,8 @@ const generateTasksForCategory = (
   const tasks: TaskTemplate[] = [];
 
   // Determine number of tasks per day based on intensity
-  const tasksPerDay = intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+  const tasksPerDay =
+    intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
 
   // Generate tasks per day for 21 days
   for (let day = 0; day < 21; day++) {
@@ -851,9 +1018,9 @@ const generateTasksForCategory = (
           description: `Plan tomorrow's tasks and set intentions for continued progress.`,
           day_offset: day,
           time_of_day: 'evening' as const,
-        }
+        },
       ];
-      
+
       // Add tasks based on intensity level
       tasks.push(...dayTasks.slice(0, tasksPerDay));
     }
@@ -931,9 +1098,9 @@ const generateTasksForCategory = (
           description: `Learn new related skills to expand your capabilities.`,
           day_offset: day,
           time_of_day: 'evening' as const,
-        }
+        },
       ];
-      
+
       // Add tasks based on intensity level
       tasks.push(...dayTasks.slice(0, tasksPerDay));
     }
@@ -1011,9 +1178,9 @@ const generateTasksForCategory = (
           description: `Envision your future with these mastered skills and set new goals.`,
           day_offset: day,
           time_of_day: 'evening' as const,
-        }
+        },
       ];
-      
+
       // Add tasks based on intensity level
       tasks.push(...dayTasks.slice(0, tasksPerDay));
     }
@@ -1104,25 +1271,104 @@ serve(async (req) => {
 
     // Create scheduled tasks using the new computeRunAt function
     const startDate = start_date ? new Date(start_date) : new Date();
-    const tasksToInsert = taskTemplates.map((template: any) => {
+    const tasksToInsert = [];
+    const usedTimeSlots = new Map<string, Set<string>>(); // day -> Set of time slots
+
+    for (const template of taskTemplates) {
       const dayNumber = template.day_offset + 1; // Convert back to 1-based
       const timeLabel =
         template.time_of_day.charAt(0).toUpperCase() +
         template.time_of_day.slice(1);
 
       // Prefer AI-provided HH:MM when available
-      const runAt = template.custom_time
-        ? computeRunAtFromHHMM(dayNumber, template.custom_time, new Date().toISOString())
+      let runAt = template.custom_time
+        ? computeRunAtFromHHMM(
+            dayNumber,
+            template.custom_time,
+            new Date().toISOString()
+          )
         : computeRunAt(dayNumber, timeLabel);
 
-      return {
+      // Final validation: ensure run_at is within 07:00-23:00 window
+      const scheduledTime = new Date(runAt);
+      const hour = scheduledTime.getHours();
+      const minute = scheduledTime.getMinutes();
+
+      if (hour < 7 || hour > 23 || (hour === 23 && minute > 0)) {
+        console.warn(
+          `⚠️ Task "${template.title}" has invalid time ${runAt}, adjusting...`
+        );
+        // Adjust to 07:00 if too early, 23:00 if too late
+        if (hour < 7) {
+          scheduledTime.setHours(7, 0, 0, 0);
+        } else {
+          scheduledTime.setHours(23, 0, 0, 0);
+        }
+        runAt = scheduledTime.toISOString();
+      }
+
+      // Check for time conflicts and resolve them
+      const dayKey = scheduledTime.toDateString();
+      let timeSlot = `${scheduledTime.getHours().toString().padStart(2, '0')}:${scheduledTime.getMinutes().toString().padStart(2, '0')}`;
+
+      if (!usedTimeSlots.has(dayKey)) {
+        usedTimeSlots.set(dayKey, new Set());
+      }
+
+      const dayTimeSlots = usedTimeSlots.get(dayKey)!;
+
+      // If time slot is already used, find next available slot
+      if (dayTimeSlots.has(timeSlot)) {
+        console.warn(
+          `⚠️ Time conflict detected for "${template.title}" at ${timeSlot} on ${dayKey}, finding alternative...`
+        );
+
+        let adjustedTime = new Date(scheduledTime);
+        let attempts = 0;
+        const maxAttempts = 50; // Prevent infinite loop
+
+        while (dayTimeSlots.has(timeSlot) && attempts < maxAttempts) {
+          // Try adding 15 minutes
+          adjustedTime.setMinutes(adjustedTime.getMinutes() + 15);
+
+          // If we go past 23:00, move to next day at 07:00
+          if (
+            adjustedTime.getHours() > 23 ||
+            (adjustedTime.getHours() === 23 && adjustedTime.getMinutes() > 0)
+          ) {
+            adjustedTime.setDate(adjustedTime.getDate() + 1);
+            adjustedTime.setHours(7, 0, 0, 0);
+          }
+
+          timeSlot = `${adjustedTime.getHours().toString().padStart(2, '0')}:${adjustedTime.getMinutes().toString().padStart(2, '0')}`;
+          attempts++;
+        }
+
+        if (attempts >= maxAttempts) {
+          console.error(
+            `❌ Could not resolve time conflict for "${template.title}" after ${maxAttempts} attempts`
+          );
+          // Fallback: use original time and let database handle it
+        } else {
+          console.log(
+            `✅ Resolved time conflict: moved to ${adjustedTime.toISOString()}`
+          );
+          scheduledTime.setTime(adjustedTime.getTime());
+          runAt = scheduledTime.toISOString();
+        }
+      }
+
+      // Mark this time slot as used
+      dayTimeSlots.add(timeSlot);
+
+      tasksToInsert.push({
         goal_id,
         title: template.title,
         description: template.description,
         run_at: runAt,
         intensity: intensity, // Store intensity level with task
-      };
-    });
+      });
+    }
 
     // Insert tasks into database
     const { data: insertedTasks, error: insertError } = await supabaseClient

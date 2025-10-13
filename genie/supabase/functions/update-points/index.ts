@@ -108,21 +108,21 @@ serve(async (req) => {
     let pointsChange = 0;
     let reason = '';
 
-    // Base points multipliers
-    const intensityMultiplier =
-      intensity === 'easy' ? 1 : intensity === 'medium' ? 2 : 4;
+    // Correct points system: Easy = 10, Medium = 20, Hard = 40
+    const basePoints =
+      intensity === 'easy' ? 10 : intensity === 'medium' ? 20 : 40;
 
     switch (action) {
       case 'complete':
-        pointsChange = 20 * intensityMultiplier; // Base 20 points * multiplier
+        pointsChange = basePoints; // Easy = 10, Medium = 20, Hard = 40
         reason = `Task completed (${intensity} intensity)`;
         break;
       case 'incomplete':
-        pointsChange = -10 * intensityMultiplier; // Base -10 points * multiplier
+        pointsChange = -Math.floor(basePoints / 2); // Half the base points as penalty
         reason = `Task marked as incomplete (${intensity} intensity)`;
         break;
       case 'expire':
-        pointsChange = -20 * intensityMultiplier; // Base -20 points * multiplier
+        pointsChange = -basePoints; // Full base points as penalty
         reason = `Task expired without response (${intensity} intensity)`;
         break;
     }

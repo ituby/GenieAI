@@ -607,7 +607,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     <Text style={styles.createButtonText}>
                       {isCreatingPlan
                         ? 'Genie is Creating Your Plan...'
-                        : 'Create Plan with Genie'}
+                        : 'Talk with Genie'}
                     </Text>
                   </View>
                 </AnimatedLinearGradient>

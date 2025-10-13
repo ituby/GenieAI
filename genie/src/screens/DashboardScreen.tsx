@@ -58,7 +58,9 @@ const STATS_HORIZONTAL_PADDING = 20; // matches styles.statsContainer paddingHor
 const STATS_GAP = 16; // matches styles.statsContainer gap
 const STATS_PER_ROW = 3;
 const STAT_CARD_SIZE = Math.floor(
-  (WINDOW_WIDTH - STATS_HORIZONTAL_PADDING * 2 - STATS_GAP * (STATS_PER_ROW - 1)) /
+  (WINDOW_WIDTH -
+    STATS_HORIZONTAL_PADDING * 2 -
+    STATS_GAP * (STATS_PER_ROW - 1)) /
     STATS_PER_ROW
 );
 
@@ -91,7 +93,9 @@ export const DashboardScreen: React.FC = () => {
     React.useState(false);
   const [customTokenAmount, setCustomTokenAmount] = React.useState('');
   const [customTokenPrice, setCustomTokenPrice] = React.useState(0);
-  const [selectedPackage, setSelectedPackage] = React.useState<number | null>(null);
+  const [selectedPackage, setSelectedPackage] = React.useState<number | null>(
+    null
+  );
   const [userTokens, setUserTokens] = React.useState({
     used: 0,
     remaining: 0,
@@ -327,14 +331,14 @@ export const DashboardScreen: React.FC = () => {
 
   const handleRefresh = () => {
     setShowRefreshLoader(true);
-    
+
     if (user?.id) {
       fetchGoals(user.id);
       fetchTodaysTasks();
       fetchUserTokens(); // Add this to refresh tokens data
       fetchTotalPoints(); // Add this to refresh points data
     }
-    
+
     // Hide loader after 3 seconds
     setTimeout(() => {
       setShowRefreshLoader(false);
@@ -719,7 +723,7 @@ export const DashboardScreen: React.FC = () => {
                 Hello, {getUserName()}
               </Text>
               <Text variant="body" style={styles.motivationalText}>
-                Every step forward is progress
+                Tell me what you're wishing for
               </Text>
             </View>
           </View>
@@ -788,7 +792,9 @@ export const DashboardScreen: React.FC = () => {
                 <View style={styles.usageRateDivider} />
                 <View style={styles.usageRateStat}>
                   <Text variant="h2" style={styles.usageRateNumber}>
-                    {userTokens.remaining}
+                    {userTokens.isSubscribed
+                      ? userTokens.monthlyTokens - userTokens.used
+                      : userTokens.remaining}
                   </Text>
                   <Text
                     variant="caption"
@@ -805,7 +811,7 @@ export const DashboardScreen: React.FC = () => {
                     style={[
                       styles.usageRateProgressFill,
                       {
-                        width: `${(userTokens.used / userTokens.total) * 100}%`,
+                        width: `${(userTokens.used / (userTokens.isSubscribed ? userTokens.monthlyTokens : userTokens.total)) * 100}%`,
                       },
                     ]}
                   />
@@ -815,8 +821,9 @@ export const DashboardScreen: React.FC = () => {
                   color="tertiary"
                   style={styles.usageRateProgressText}
                 >
-                  {userTokens.used} of {userTokens.total}{' '}
-                  {userTokens.isSubscribed ? 'monthly' : 'free'} plans used
+                  {userTokens.isSubscribed
+                    ? `Used ${userTokens.used} / ${userTokens.monthlyTokens} monthly tokens`
+                    : `${userTokens.used} of ${userTokens.total} free plans used`}
                 </Text>
               </View>
               {!userTokens.isSubscribed && (
@@ -988,7 +995,7 @@ export const DashboardScreen: React.FC = () => {
                   color="secondary"
                   style={styles.createGoalDescription}
                 >
-                  Tell Genie what you want to achieve, and we'll create a
+                  Tell me what you're wishing for, and I'll create a
                   personalized 21-day plan with daily tasks, rewards, and smart
                   notifications.
                 </Text>
@@ -1025,13 +1032,13 @@ export const DashboardScreen: React.FC = () => {
                     >
                       <View style={styles.createGoalButtonContent}>
                         <Icon
-                          name="star"
+                          name="sparkle"
                           size={16}
                           color="#FFFFFF"
                           weight="fill"
                         />
                         <Text style={styles.createGoalButtonText}>
-                          Begin Your Transformation
+                          Talk with Genie
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -1131,8 +1138,8 @@ export const DashboardScreen: React.FC = () => {
                       ]}
                     >
                       {userTokens.remaining <= 0
-                        ? 'Subscribe now to add new goal'
-                        : 'Add Goal'}
+                        ? 'Subscribe now to talk with Genie'
+                        : 'Talk with Genie'}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1433,20 +1440,28 @@ export const DashboardScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.tokenOption,
-                      selectedPackage === 5 && styles.tokenOptionSelected
+                      selectedPackage === 5 && styles.tokenOptionSelected,
                     ]}
                     activeOpacity={0.7}
                     onPress={() => {
                       setSelectedPackage(5);
                       setCustomTokenAmount('5');
-                      setCustomTokenPrice(5.00);
+                      setCustomTokenPrice(5.0);
                     }}
                   >
                     <View style={styles.tokenOptionHeader}>
-                      <Text variant="h4" style={styles.tokenAmount}>5 Tokens</Text>
-                      <Text variant="h3" style={styles.tokenPrice}>$5.00</Text>
+                      <Text variant="h4" style={styles.tokenAmount}>
+                        5 Tokens
+                      </Text>
+                      <Text variant="h3" style={styles.tokenPrice}>
+                        $5.00
+                      </Text>
                     </View>
-                    <Text variant="caption" color="secondary" style={styles.tokenDescription}>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.tokenDescription}
+                    >
                       Perfect for trying out premium features
                     </Text>
                   </TouchableOpacity>
@@ -1454,23 +1469,33 @@ export const DashboardScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.tokenOption,
-                      selectedPackage === 10 && styles.tokenOptionSelected
+                      selectedPackage === 10 && styles.tokenOptionSelected,
                     ]}
                     activeOpacity={0.7}
                     onPress={() => {
                       setSelectedPackage(10);
                       setCustomTokenAmount('10');
-                      setCustomTokenPrice(8.50);
+                      setCustomTokenPrice(8.5);
                     }}
                   >
                     <View style={styles.popularBadge}>
-                      <Text variant="caption" style={styles.popularText}>POPULAR</Text>
+                      <Text variant="caption" style={styles.popularText}>
+                        POPULAR
+                      </Text>
                     </View>
                     <View style={styles.tokenOptionHeader}>
-                      <Text variant="h4" style={styles.tokenAmount}>10 Tokens</Text>
-                      <Text variant="h3" style={styles.tokenPrice}>$8.50</Text>
+                      <Text variant="h4" style={styles.tokenAmount}>
+                        10 Tokens
+                      </Text>
+                      <Text variant="h3" style={styles.tokenPrice}>
+                        $8.50
+                      </Text>
                     </View>
-                    <Text variant="caption" color="secondary" style={styles.tokenDescription}>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.tokenDescription}
+                    >
                       Best value for regular users
                     </Text>
                   </TouchableOpacity>
@@ -1478,20 +1503,28 @@ export const DashboardScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.tokenOption,
-                      selectedPackage === 25 && styles.tokenOptionSelected
+                      selectedPackage === 25 && styles.tokenOptionSelected,
                     ]}
                     activeOpacity={0.7}
                     onPress={() => {
                       setSelectedPackage(25);
                       setCustomTokenAmount('25');
-                      setCustomTokenPrice(20.00);
+                      setCustomTokenPrice(20.0);
                     }}
                   >
                     <View style={styles.tokenOptionHeader}>
-                      <Text variant="h4" style={styles.tokenAmount}>25 Tokens</Text>
-                      <Text variant="h3" style={styles.tokenPrice}>$20.00</Text>
+                      <Text variant="h4" style={styles.tokenAmount}>
+                        25 Tokens
+                      </Text>
+                      <Text variant="h3" style={styles.tokenPrice}>
+                        $20.00
+                      </Text>
                     </View>
-                    <Text variant="caption" color="secondary" style={styles.tokenDescription}>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.tokenDescription}
+                    >
                       Great for power users
                     </Text>
                   </TouchableOpacity>
@@ -1512,7 +1545,11 @@ export const DashboardScreen: React.FC = () => {
                       keyboardType="numeric"
                       maxLength={3}
                     />
-                    <Text variant="caption" color="secondary" style={styles.customTokenLabel}>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.customTokenLabel}
+                    >
                       tokens
                     </Text>
                   </View>
@@ -1521,7 +1558,11 @@ export const DashboardScreen: React.FC = () => {
                       <Text variant="h3" style={styles.customTokenPrice}>
                         ${customTokenPrice.toFixed(2)}
                       </Text>
-                      <Text variant="caption" color="secondary" style={styles.customTokenPriceLabel}>
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.customTokenPriceLabel}
+                      >
                         Total Price
                       </Text>
                     </View>
@@ -1539,7 +1580,12 @@ export const DashboardScreen: React.FC = () => {
                       alert('Purchase feature coming soon!');
                     }}
                   >
-                    <Icon name="credit-card" size={20} color="#000000" weight="fill" />
+                    <Icon
+                      name="credit-card"
+                      size={20}
+                      color="#000000"
+                      weight="fill"
+                    />
                     <Text variant="h4" style={styles.purchaseButtonText}>
                       Complete Purchase
                     </Text>
@@ -1552,7 +1598,8 @@ export const DashboardScreen: React.FC = () => {
                   color="secondary"
                   style={styles.modalDescription}
                 >
-                  Each token allows you to create one goal. Tokens are consumed when you create a new goal and cannot be refunded.
+                  Each token allows you to create one goal. Tokens are consumed
+                  when you create a new goal and cannot be refunded.
                 </Text>
               </View>
             </ScrollView>
@@ -1715,7 +1762,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 80, // Reduced space for absolute header
+    paddingTop: 96, // Increased space for larger absolute header
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1730,7 +1777,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
-    paddingBottom: 16,
+    paddingBottom: 32, // Increased height
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     shadowColor: '#000',
     shadowOffset: {

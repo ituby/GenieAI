@@ -74,8 +74,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const getTaskPoints = (intensity?: string) => {
     // Default to 'easy' if intensity is undefined or null
     const actualIntensity = intensity || 'easy';
-    const intensityMultiplier = actualIntensity === 'easy' ? 1 : actualIntensity === 'medium' ? 2 : 4;
-    return 20 * intensityMultiplier; // Base 20 points * multiplier
+    // Correct points: Easy = 10, Medium = 20, Hard = 40
+    return actualIntensity === 'easy'
+      ? 10
+      : actualIntensity === 'medium'
+        ? 20
+        : 40;
   };
 
   const isTaskTimeReached = (runAt: string) => {
@@ -87,19 +91,21 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const isTaskAvailableForReading = () => {
     const now = new Date();
     const taskTime = new Date(task.run_at);
-    
+
     // Task is available for reading if its time has been reached
     if (now >= taskTime) return true;
-    
+
     // For future tasks, only show the next upcoming task as available for reading
     if (allTasks.length === 0) return true;
-    
+
     const upcomingTasks = allTasks
-      .filter(t => !t.completed && new Date(t.run_at) > now)
-      .sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime());
-    
+      .filter((t) => !t.completed && new Date(t.run_at) > now)
+      .sort(
+        (a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime()
+      );
+
     if (upcomingTasks.length === 0) return true;
-    
+
     // Only the closest upcoming task should be available for reading
     const closestTask = upcomingTasks[0];
     return closestTask.id === task.id;
@@ -132,7 +138,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     const timer = setInterval(() => {
       const currentTime = new Date();
       const remainingMs = oneHourLater.getTime() - currentTime.getTime();
-      
+
       if (remainingMs <= 0) {
         setIsExpired(true);
         setTimeLeft(null);
@@ -155,70 +161,74 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   };
 
   return (
-    <TouchableOpacity 
-      onPress={isTaskAvailableForReadingValue ? onPress : undefined} 
+    <TouchableOpacity
+      onPress={isTaskAvailableForReadingValue ? onPress : undefined}
       activeOpacity={isTaskAvailableForReadingValue ? 0.8 : 1}
       disabled={!isTaskAvailableForReadingValue}
     >
-      <Card 
-        variant={task.completed ? 'default' : 'gradient'} 
-        padding="md" 
+      <Card
+        variant={task.completed ? 'default' : 'gradient'}
+        padding="md"
         style={[
           styles.container,
           task.completed && styles.completedContainer,
-          !isTaskAvailableForReadingValue && styles.disabledContainer
+          !isTaskAvailableForReadingValue && styles.disabledContainer,
         ]}
       >
-              <View style={styles.content}>
-                {/* Task Content */}
-                <View style={styles.taskContent}>
-                  {/* Header */}
-                  <View style={styles.taskHeader}>
-                    <Text 
-                      variant="h4" 
-                      color="primary-color"
-                      numberOfLines={1}
-                      style={[
-                        styles.taskTitle,
-                        task.completed && styles.completedText,
-                        { color: getGoalColor(task.goal.color) }
-                      ]}
-                    >
-                      {task.title}
+        <View style={styles.content}>
+          {/* Task Content */}
+          <View style={styles.taskContent}>
+            {/* Header */}
+            <View style={styles.taskHeader}>
+              <Text
+                variant="h4"
+                color="primary-color"
+                numberOfLines={1}
+                style={[
+                  styles.taskTitle,
+                  task.completed && styles.completedText,
+                  { color: getGoalColor(task.goal.color) },
+                ]}
+              >
+                {task.title}
+              </Text>
+
+              <View style={styles.timeContainer}>
+                <Icon
+                  name={getTimeOfDayIcon(task.run_at) as any}
+                  size={16}
+                  color={theme.colors.text.secondary}
+                />
+                <Text
+                  variant="caption"
+                  color={canCompleteTask ? undefined : 'tertiary'}
+                  style={
+                    canCompleteTask
+                      ? { color: '#FFFF68', fontWeight: '600' }
+                      : undefined
+                  }
+                >
+                  {canCompleteTask ? 'Do it now' : formatTime(task.run_at)}
+                </Text>
+                {timeLeft !== null && !isExpired && (
+                  <View style={styles.timerContainer}>
+                    <Icon name="clock" size={12} color="#FF4444" />
+                    <Text variant="caption" style={styles.timerText}>
+                      {formatTimeLeft(timeLeft)}
                     </Text>
-                    
-                    <View style={styles.timeContainer}>
-                      <Icon 
-                        name={getTimeOfDayIcon(task.run_at) as any}
-                        size={16}
-                        color={theme.colors.text.secondary}
-                      />
-                      <Text 
-                        variant="caption" 
-                        color={canCompleteTask ? undefined : "tertiary"}
-                        style={canCompleteTask ? { color: '#FFFF68', fontWeight: '600' } : undefined}
-                      >
-                        {canCompleteTask ? 'Do it now' : formatTime(task.run_at)}
-                      </Text>
-                      {timeLeft !== null && !isExpired && (
-                        <View style={styles.timerContainer}>
-                          <Icon name="clock" size={12} color="#FF4444" />
-                          <Text variant="caption" style={styles.timerText}>
-                            {formatTimeLeft(timeLeft)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
                   </View>
+                )}
+              </View>
+            </View>
 
             {/* Description */}
-            <Text 
-              variant="body" 
-              color="secondary" 
+            <Text
+              variant="body"
+              color="secondary"
               numberOfLines={2}
               style={[
                 styles.taskDescription,
-                task.completed && styles.completedText
+                task.completed && styles.completedText,
               ]}
             >
               {task.description}
@@ -233,28 +243,60 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 • {getTimeOfDayText(task.run_at)}
               </Text>
             </View>
-            
+
             {/* Bottom Row - Status and Points */}
             <View style={styles.bottomRow}>
               {/* Status Badge - Left Side */}
               {task.completed ? (
-                <View style={[styles.statusBadge, { backgroundColor: theme.colors.status.success + '20' }]}>
-                  <Icon name="check" size={14} color={theme.colors.status.success} weight="fill" />
-                  <Text variant="caption" style={[styles.statusText, { color: theme.colors.status.success }]}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: theme.colors.status.success + '20' },
+                  ]}
+                >
+                  <Icon
+                    name="check"
+                    size={14}
+                    color={theme.colors.status.success}
+                    weight="fill"
+                  />
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.statusText,
+                      { color: theme.colors.status.success },
+                    ]}
+                  >
                     Completed
                   </Text>
                 </View>
               ) : !canCompleteTask ? (
-                <View style={[styles.statusBadge, { backgroundColor: theme.colors.text.disabled + '20' }]}>
-                  <Icon name="clock" size={14} color={theme.colors.text.disabled} weight="fill" />
-                  <Text variant="caption" style={[styles.statusText, { color: theme.colors.text.disabled }]}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: theme.colors.text.disabled + '20' },
+                  ]}
+                >
+                  <Icon
+                    name="clock"
+                    size={14}
+                    color={theme.colors.text.disabled}
+                    weight="fill"
+                  />
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.statusText,
+                      { color: theme.colors.text.disabled },
+                    ]}
+                  >
                     Waiting
                   </Text>
                 </View>
               ) : (
                 <View style={styles.emptySpace} />
               )}
-              
+
               {/* Points Display - Right Side */}
               <View style={styles.pointsContainer}>
                 <Icon name="trophy" size={12} color="#FFFF68" weight="fill" />
@@ -270,7 +312,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       {/* Completion Status - Below Card */}
       {!task.completed && canCompleteTask && !isExpired && (
         <View style={styles.completionButtonsBelow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={onComplete}
             style={styles.completionButton}
           >
@@ -281,17 +323,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               end={{ x: 1, y: 0 }}
             >
               <Icon name="check" size={14} color="#000000" weight="fill" />
-            <Text style={styles.completedButtonText}>Completed</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={onIncomplete}
-          style={styles.incompleteButton}
-        >
-          <View style={styles.incompleteButtonContent}>
-            <Icon name="x" size={14} color="#FFFFFF" weight="fill" />
-            <Text style={styles.incompleteButtonText}>Not Completed</Text>
-          </View>
+              <Text style={styles.completedButtonText}>Completed</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onIncomplete}
+            style={styles.incompleteButton}
+          >
+            <View style={styles.incompleteButtonContent}>
+              <Icon name="x" size={14} color="#FFFFFF" weight="fill" />
+              <Text style={styles.incompleteButtonText}>Not Completed</Text>
+            </View>
           </TouchableOpacity>
         </View>
       )}

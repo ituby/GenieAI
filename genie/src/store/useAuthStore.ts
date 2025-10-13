@@ -10,7 +10,7 @@ interface AuthState {
   session: any;
   loading: boolean;
   isAuthenticated: boolean;
-  
+
   // Actions
   setUser: (user: User | null) => void;
   setSession: (session: any) => void;
@@ -29,10 +29,11 @@ export const useAuthStore = create<AuthState>()(
       loading: true,
       isAuthenticated: false,
 
-      setUser: (user) => set({ 
-        user, 
-        isAuthenticated: !!user 
-      }),
+      setUser: (user) =>
+        set({
+          user,
+          isAuthenticated: !!user,
+        }),
 
       setSession: (session) => set({ session }),
 
@@ -42,8 +43,11 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           console.log('🔐 Attempting login with:', email);
-          console.log('🔗 Supabase URL:', Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL);
-          
+          console.log(
+            '🔗 Supabase URL:',
+            Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL
+          );
+
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -63,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             loading: false,
           });
-          
+
           console.log('🔍 User set in store:', data.user);
         } catch (error) {
           set({ loading: false });
@@ -102,7 +106,7 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           console.log('🔐 Signing out...');
-          
+
           const { error } = await supabase.auth.signOut();
           if (error) throw error;
 
@@ -126,23 +130,58 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           console.log('🔐 Initializing auth...');
-          
+
+          // Helper to clear any stale Supabase auth tokens from storage
+          const clearSupabaseAuthStorage = async () => {
+            try {
+              const allKeys = await AsyncStorage.getAllKeys();
+              const supabaseKeys = allKeys.filter(
+                (k) => k.startsWith('sb-') && k.endsWith('-auth-token')
+              );
+              if (supabaseKeys.length) {
+                await AsyncStorage.multiRemove(supabaseKeys);
+                console.log('🧹 Cleared Supabase auth tokens from storage');
+              }
+            } catch (err) {
+              console.log('⚠️ Failed to clear Supabase auth storage keys', err);
+            }
+          };
+
           // First check if we have persisted session data
           const currentState = get();
           if (currentState.session && currentState.user) {
-            console.log('🔐 Found persisted session, validating with Supabase...');
-            
+            console.log(
+              '🔐 Found persisted session, validating with Supabase...'
+            );
+
             // Validate the persisted session with Supabase
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
+            const {
+              data: { session },
+              error,
+            } = await supabase.auth.getSession();
+
             if (error) {
-              console.log('❌ Persisted session invalid, clearing...');
+              console.log(
+                '❌ Persisted session invalid, clearing local auth...'
+              );
+              // Clear any locally cached tokens and persisted store to recover from invalid refresh token
+              try {
+                // Best-effort local sign-out to purge tokens without network
+                // @ts-expect-error scope is supported by supabase-js for local-only sign out
+                await supabase.auth.signOut({ scope: 'local' });
+              } catch {}
+              await clearSupabaseAuthStorage();
               set({
                 user: null,
                 session: null,
                 isAuthenticated: false,
                 loading: false,
               });
+              // Also clear our persisted Zustand auth slice to avoid rehydrating bad state
+              try {
+                await AsyncStorage.removeItem('genie-auth-store');
+                console.log('🧹 Cleared persisted auth store');
+              } catch {}
               return;
             }
 
@@ -165,11 +204,23 @@ export const useAuthStore = create<AuthState>()(
             }
           } else {
             console.log('🔐 No persisted session, checking Supabase...');
-            
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
+
+            const {
+              data: { session },
+              error,
+            } = await supabase.auth.getSession();
+
             if (error) {
               console.error('❌ Error getting session:', error);
+              // If we can't get a session due to invalid refresh token, clear local auth and persisted store
+              try {
+                // @ts-expect-error scope is supported by supabase-js for local-only sign out
+                await supabase.auth.signOut({ scope: 'local' });
+              } catch {}
+              await clearSupabaseAuthStorage();
+              try {
+                await AsyncStorage.removeItem('genie-auth-store');
+              } catch {}
               set({
                 user: null,
                 session: null,
@@ -193,7 +244,7 @@ export const useAuthStore = create<AuthState>()(
           // Listen for auth changes
           supabase.auth.onAuthStateChange((event, session) => {
             console.log('🔐 Auth state changed:', event, !!session?.user);
-            
+
             set({
               user: session?.user || null,
               session,
