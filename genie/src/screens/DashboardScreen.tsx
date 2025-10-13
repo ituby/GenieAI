@@ -25,6 +25,7 @@ import {
 import { Text, Card, Icon, Badge } from '../components';
 import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Button } from '../components/primitives/Button';
+import { TalkWithGenieButton } from '../components/primitives/TalkWithGenieButton';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard } from '../components/domain/GoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
@@ -673,7 +674,7 @@ export const DashboardScreen: React.FC = () => {
 
         <View style={styles.headerCenter}>
           <Image
-            source={require('../../assets/LogoSymbol.webp')}
+            source={require('../../assets/LogoType.webp')}
             style={styles.headerLogo}
             resizeMode="contain"
           />
@@ -718,6 +719,15 @@ export const DashboardScreen: React.FC = () => {
         {/* Content Header */}
         <View style={styles.contentHeader}>
           <View style={styles.greetingRow}>
+            <View style={styles.profileImageContainer}>
+              <View style={styles.profileImage}>
+                <Image
+                  source={require('../../assets/LogoSymbol.webp')}
+                  style={styles.profileLogo}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
             <View style={styles.greetingText}>
               <Text variant="h2" style={styles.greeting}>
                 Hello, {getUserName()}
@@ -726,6 +736,12 @@ export const DashboardScreen: React.FC = () => {
                 Tell me what you're wishing for
               </Text>
             </View>
+          </View>
+          <View style={styles.greetingButtonContainer}>
+            <TalkWithGenieButton
+              onPress={checkTokensAndCreateGoal}
+              size="medium"
+            />
           </View>
         </View>
 
@@ -1844,28 +1860,55 @@ const styles = StyleSheet.create({
   },
   contentHeader: {
     padding: 20,
-    paddingTop: 10, // Reduced padding above greeting
-    paddingBottom: 0,
+    paddingTop: 40, // Much more padding above greeting
+    paddingBottom: 20, // Added padding below greeting
   },
   headerLogo: {
-    width: 48,
-    height: 48,
+    width: 64,
+    height: 64,
   },
   greetingRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+  },
+  profileImageContainer: {
+    flex: 0,
+    marginRight: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileLogo: {
+    width: 40,
+    height: 40,
   },
   greetingText: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  greetingButtonContainer: {
     alignItems: 'center',
+    marginTop: 32,
+    marginBottom: 20,
   },
   greeting: {
-    marginBottom: 4,
+    marginBottom: 0,
+    textAlign: 'left',
   },
   motivationalText: {
     color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
+    textAlign: 'left',
     fontSize: 14,
     fontWeight: '400',
-    marginBottom: 16,
   },
   statsContainer: {
     flexDirection: 'row',
