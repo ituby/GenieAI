@@ -161,7 +161,7 @@ const generateRewards = async (
 
     // Daily consistency reward (adjusted for intensity)
     const dailyTaskCount =
-      intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+      intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 10;
     rewards.push({
       type: 'daily',
       title: 'Daily Champion',
@@ -217,7 +217,7 @@ const generateRewards = async (
         type: 'milestone',
         title: `${points} Points ${titles[index]}`,
         description: `Congratulations! You've earned ${points} points for "${goalTitle}". Your dedication is paying off!`,
-        day_offset: null,
+        day_offset: undefined,
       });
     });
 
@@ -260,7 +260,7 @@ const generateRewards = async (
   const rewards = getPersonalizedRewards(category, title, tasks);
 
   // Insert rewards into database
-  const insertedRewards = [];
+  const insertedRewards: any[] = [];
   for (const reward of rewards) {
     const { data: insertedReward, error } = await supabase
       .from('rewards')
@@ -285,7 +285,7 @@ const generateRewards = async (
   return insertedRewards;
 };
 
-// Helper function to compute run_at time
+// Helper function to compute run_at time from time-of-day labels
 function computeRunAt(dayNumber: number, timeLabel: string): string {
   const now = new Date();
   const currentHour = now.getHours();
@@ -347,13 +347,67 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
   return base.toISOString();
 }
 
+// Parse "HH:MM" and clamp into the 07:00-23:00 window
+function computeRunAtFromHHMM(
+  dayNumber: number,
+  hhmm: string,
+  currentTimeIso?: string
+): string {
+  const now = currentTimeIso ? new Date(currentTimeIso) : new Date();
+  const [hStr, mStr] = hhmm.split(':');
+  let hours = Math.max(7, Math.min(23, parseInt(hStr, 10)));
+  let minutes = Math.max(0, Math.min(59, parseInt(mStr || '0', 10)));
+
+  const scheduled = new Date(now);
+  // dayNumber is 1-based; schedule for today + (dayNumber-1)
+  scheduled.setDate(scheduled.getDate() + (dayNumber - 1));
+  scheduled.setHours(hours, minutes, 0, 0);
+
+  // For day 1: ensure time is not in the past; if past and before 23:00, move to now+15m capped to 23:00
+  if (dayNumber === 1) {
+    if (scheduled < now) {
+      const candidate = new Date(now.getTime() + 15 * 60 * 1000);
+      // clamp candidate within today 07:00-23:00
+      const todayStart = new Date(now);
+      todayStart.setHours(7, 0, 0, 0);
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 0, 0, 0);
+      if (candidate <= todayEnd) {
+        const clamped = new Date(Math.max(candidate.getTime(), todayStart.getTime()));
+        clamped.setSeconds(0, 0);
+        return clamped.toISOString();
+      }
+      // Otherwise schedule tomorrow at earliest valid time (07:00)
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(Math.max(7, hours), minutes, 0, 0);
+      return tomorrow.toISOString();
+    }
+  }
+
+  // Ensure within 07:00-23:00 window for non-day1 as well
+  const dayStart = new Date(scheduled);
+  dayStart.setHours(7, 0, 0, 0);
+  const dayEnd = new Date(scheduled);
+  dayEnd.setHours(23, 0, 0, 0);
+  if (scheduled < dayStart) {
+    scheduled.setHours(7, 0, 0, 0);
+  } else if (scheduled > dayEnd) {
+    scheduled.setHours(23, 0, 0, 0);
+  }
+
+  return scheduled.toISOString();
+}
+
 // AI-powered plan generation with Google Gemini
 const generateTasksWithAI = async (
   category: string,
   title: string,
   description: string,
   intensity: 'easy' | 'medium' | 'hard' = 'easy',
-  detailedPlan: boolean = false
+  detailedPlan: boolean = false,
+  currentTimeIso?: string,
+  timezone?: string
 ): Promise<{ tasks: TaskTemplate[]; iconName: string; color: string }> => {
   console.log('🤖 Generating AI-powered plan for:', {
     category,
@@ -366,19 +420,16 @@ const generateTasksWithAI = async (
 You are Genie, a personal mentor. Create a progressive 21-day action plan for the user's goal.
 
 INTENSITY LEVELS:
-- Easy: 3 tasks per day (Morning, Afternoon, Evening)
-- Medium: 6 tasks per day (Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night)
-- Hard: 12 tasks per day (Hourly tasks from 6 AM to 6 PM)
+- Easy: 3 tasks per day (Morning, Afternoon, Evening) - 63 total tasks
+- Medium: 6 tasks per day (Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night) - 126 total tasks
+- Hard: 10-12 tasks per day (distributed throughout 07:00-23:00) - 210-252 total tasks
 
 Current intensity level: ${intensity.toUpperCase()}
 
-SMART TIME LOGIC FOR DAY 1:
-- If goal is created before 22:00 (10 PM), tasks will be scheduled intelligently based on current time
-- First task (Morning): Starts 30 minutes from now (minimum 8:00 AM)
-- Second task (Afternoon): Scheduled for afternoon hours (14:00-16:00)
-- Third task (Evening): Scheduled for evening hours (18:00-20:00)
-- If goal is created after 22:00 (10 PM), all tasks start tomorrow morning
-- For subsequent days, use standard time slots: Morning (8:00), Afternoon (14:00), Evening (20:00)
+TIME RULES (STRICT):
+1) Use 24-hour clock times in HH:MM format only
+2) All task times MUST be between 07:00 and 23:00 inclusive
+3) For Day 1, consider the user's current time and timezone provided below. Do NOT schedule any Day 1 task in the past. If a suggested time has already passed, choose the next valid future time today; if no valid slot remains today, schedule the task for tomorrow at the earliest valid time (>= 07:00)
 
 CRITICAL REQUIREMENTS:
 1. Week 1 (Days 1-7): Foundation & Awareness - Focus on building habits, research, and initial steps
@@ -405,6 +456,10 @@ ICON CATEGORIES (all names are valid Phosphor React Native icons):
 
 CRITICAL: The icon_name field MUST be a valid Phosphor React Native icon name in kebab-case format (e.g., "person-simple-run", "user-circle", "lightbulb"). Do NOT use invalid names like "running" which don't exist in the library.
 
+Context for day 1 timing:
+- current_time_iso: ${currentTimeIso || ''}
+- timezone: ${timezone || ''}
+
 Return ONLY valid JSON in this exact format:
 {
   "icon_name": "chosen-icon-name", // MUST be a valid Phosphor React Native icon name in kebab-case
@@ -413,14 +468,18 @@ Return ONLY valid JSON in this exact format:
       "day": 1,
       "summary": "Day 1 focus",
       "tasks": [
-        { "time": "Morning", "title": "Task title", "description": "What to do" },
-        { "time": "Afternoon", "title": "Task title", "description": "What to do" },
-        { "time": "Evening", "title": "Task title", "description": "What to do" }
+        { "time": "HH:MM", "title": "Task title", "description": "What to do" },
+        { "time": "HH:MM", "title": "Task title", "description": "What to do" },
+        { "time": "HH:MM", "title": "Task title", "description": "What to do" }
       ]
     }
   ]
 }
-Generate exactly 21 days with 3 tasks each (63 total tasks).
+Generate exactly 21 days with the correct number of tasks based on intensity:
+- Easy: 3 tasks per day (63 total)
+- Medium: 6 tasks per day (126 total) 
+- Hard: 10-12 tasks per day (210-252 total)
+Ensure all times are between 07:00 and 23:00.
 `;
 
     const userGoalPrompt = `
@@ -428,7 +487,7 @@ Goal: ${title}
 Description: ${description}
 Category: ${category}
 
-Create a progressive 21-day plan with 3 daily tasks to achieve this goal.
+Create a progressive 21-day plan with the correct number of daily tasks to achieve this goal.
 
 IMPORTANT: Make sure the plan follows this progression:
 - Days 1-7: Start with foundational tasks, research, and habit building
@@ -436,6 +495,9 @@ IMPORTANT: Make sure the plan follows this progression:
 - Days 15-21: Focus on mastery, advanced techniques, and goal completion
 
 Each task should be specific enough that someone could follow it without additional explanation.
+For Medium intensity, include tasks at: Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night
+For Hard intensity, distribute tasks throughout the day from 07:00 to 23:00 with appropriate spacing
+Use only 24h HH:MM times within 07:00-23:00. Day 1 times must not be in the past relative to the provided current time and timezone.
 `;
 
     console.log('📡 Sending request to Gemini API...');
@@ -507,12 +569,30 @@ Each task should be specific enough that someone could follow it without additio
         for (const day of planData.days) {
           if (day.tasks && Array.isArray(day.tasks)) {
             for (const task of day.tasks) {
-              tasks.push({
+              // Detect HH:MM and derive a time bucket for greetings; attach custom_time
+              const isHHMM = typeof task.time === 'string' && /^\d{2}:\d{2}$/.test(task.time);
+              let timeBucket: 'morning' | 'mid_morning' | 'afternoon' | 'evening' = 'morning';
+              if (isHHMM) {
+                const hour = parseInt(task.time.slice(0, 2), 10);
+                if (hour < 10) timeBucket = 'morning';
+                else if (hour < 13) timeBucket = 'mid_morning';
+                else if (hour < 18) timeBucket = 'afternoon';
+                else timeBucket = 'evening';
+              } else {
+                const t = String(task.time).toLowerCase();
+                if (t.includes('mid') && t.includes('morning')) timeBucket = 'mid_morning';
+                else if (t.includes('afternoon')) timeBucket = 'afternoon';
+                else if (t.includes('evening')) timeBucket = 'evening';
+                else timeBucket = 'morning';
+              }
+              const entry: any = {
                 title: task.title,
                 description: task.description,
-                day_offset: day.day - 1, // Convert to 0-based index
-                time_of_day: task.time.toLowerCase(),
-              });
+                day_offset: day.day - 1,
+                time_of_day: timeBucket,
+              };
+              if (isHHMM) entry.custom_time = task.time;
+              tasks.push(entry as TaskTemplate);
             }
           }
         }
@@ -673,93 +753,269 @@ Each task should be specific enough that someone could follow it without additio
     const fallbackTasks = generateTasksForCategory(
       category,
       title,
-      description
+      description,
+      intensity
     );
     return { tasks: fallbackTasks, iconName: 'star', color: 'yellow' }; // Default icon and color for fallback
   }
 };
 
-// Template-based plan generation (fallback) - generates detailed daily plan with 3 tasks per day
+// Template-based plan generation (fallback) - generates detailed daily plan based on intensity
 const generateTasksForCategory = (
   category: string,
   title: string,
-  description: string
+  description: string,
+  intensity: 'easy' | 'medium' | 'hard' = 'easy'
 ): TaskTemplate[] => {
   const tasks: TaskTemplate[] = [];
 
-  // Generate 3 tasks per day for 21 days = 63 total tasks
+  // Determine number of tasks per day based on intensity
+  const tasksPerDay = intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+
+  // Generate tasks per day for 21 days
   for (let day = 0; day < 21; day++) {
     const dayNumber = day + 1;
     const weekNumber = Math.ceil(dayNumber / 7);
 
     // Week 1: Foundation & Awareness
     if (weekNumber === 1) {
-      tasks.push(
+      const dayTasks = [
         {
           title: `Day ${dayNumber}: Morning Intention Setting`,
           description: `Spend 10 minutes writing down your daily intention and how it connects to your goal. Visualize your success.`,
           day_offset: day,
-          time_of_day: 'morning',
+          time_of_day: 'morning' as const,
         },
         {
           title: `Day ${dayNumber}: Research & Learning`,
           description: `Spend 20 minutes researching strategies and best practices for your goal. Take notes on key insights.`,
           day_offset: day,
-          time_of_day: 'afternoon',
+          time_of_day: 'afternoon' as const,
         },
         {
           title: `Day ${dayNumber}: Progress Documentation`,
           description: `Write down what you accomplished today and how you feel about your progress. Celebrate small wins.`,
           day_offset: day,
-          time_of_day: 'evening',
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Mid-Morning Focus`,
+          description: `Take a focused 15-minute session to work on your goal. Use this time for concentrated effort.`,
+          day_offset: day,
+          time_of_day: 'mid_morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Mid-Afternoon Break`,
+          description: `Take a 10-minute break to reflect on your progress and recharge for the evening session.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Evening Review`,
+          description: `Review your day's accomplishments and plan tomorrow's focus areas.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Early Morning Preparation`,
+          description: `Set up your workspace and prepare materials for today's goal work.`,
+          day_offset: day,
+          time_of_day: 'morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Midday Check-in`,
+          description: `Check your progress and adjust your approach if needed.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Late Morning Session`,
+          description: `Dedicate 20 minutes to focused work on your goal.`,
+          day_offset: day,
+          time_of_day: 'mid_morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Afternoon Deep Work`,
+          description: `Engage in 30 minutes of deep, uninterrupted work on your goal.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Evening Reflection`,
+          description: `Spend 15 minutes reflecting on today's learnings and insights.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Night Planning`,
+          description: `Plan tomorrow's tasks and set intentions for continued progress.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
         }
-      );
+      ];
+      
+      // Add tasks based on intensity level
+      tasks.push(...dayTasks.slice(0, tasksPerDay));
     }
     // Week 2: Skill Building & Practice
     else if (weekNumber === 2) {
-      tasks.push(
+      const dayTasks = [
         {
           title: `Day ${dayNumber}: Skill Development`,
           description: `Practice and develop specific skills needed for your goal. Focus on deliberate practice.`,
           day_offset: day,
-          time_of_day: 'morning',
+          time_of_day: 'morning' as const,
         },
         {
           title: `Day ${dayNumber}: Real-world Application`,
           description: `Apply what you've learned in a real-world context. Test your skills in practical situations.`,
           day_offset: day,
-          time_of_day: 'afternoon',
+          time_of_day: 'afternoon' as const,
         },
         {
           title: `Day ${dayNumber}: Progress Evaluation`,
           description: `Evaluate your progress and identify what's working well. Adjust your approach if needed.`,
           day_offset: day,
-          time_of_day: 'evening',
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Advanced Practice`,
+          description: `Engage in advanced practice techniques to deepen your skills.`,
+          day_offset: day,
+          time_of_day: 'mid_morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Skill Integration`,
+          description: `Integrate multiple skills together in complex scenarios.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Performance Review`,
+          description: `Review your performance and identify areas for improvement.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Intensive Training`,
+          description: `Dedicate 45 minutes to intensive skill development.`,
+          day_offset: day,
+          time_of_day: 'morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Challenge Practice`,
+          description: `Challenge yourself with difficult scenarios and problems.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Skill Refinement`,
+          description: `Refine and polish your existing skills to perfection.`,
+          day_offset: day,
+          time_of_day: 'mid_morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Complex Application`,
+          description: `Apply your skills to complex, multi-step problems.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Mastery Assessment`,
+          description: `Assess your current mastery level and set new challenges.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Skill Expansion`,
+          description: `Learn new related skills to expand your capabilities.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
         }
-      );
+      ];
+      
+      // Add tasks based on intensity level
+      tasks.push(...dayTasks.slice(0, tasksPerDay));
     }
     // Week 3: Mastery & Integration
     else {
-      tasks.push(
+      const dayTasks = [
         {
           title: `Day ${dayNumber}: Advanced Practice`,
           description: `Engage in advanced practice and optimization of your skills. Push your boundaries.`,
           day_offset: day,
-          time_of_day: 'morning',
+          time_of_day: 'morning' as const,
         },
         {
           title: `Day ${dayNumber}: Mastery Demonstration`,
           description: `Demonstrate your mastery of the skills you've developed. Show your progress.`,
           day_offset: day,
-          time_of_day: 'afternoon',
+          time_of_day: 'afternoon' as const,
         },
         {
           title: `Day ${dayNumber}: Integration Practice`,
           description: `Integrate your new skills into your daily life and routine. Make it sustainable.`,
           day_offset: day,
-          time_of_day: 'evening',
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Expert-Level Challenges`,
+          description: `Tackle expert-level challenges to test your mastery.`,
+          day_offset: day,
+          time_of_day: 'mid_morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Teaching Others`,
+          description: `Teach someone else what you've learned to solidify your understanding.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Long-term Planning`,
+          description: `Plan how to maintain and continue developing your skills long-term.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Peak Performance`,
+          description: `Push yourself to peak performance levels in your goal area.`,
+          day_offset: day,
+          time_of_day: 'morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Innovation & Creativity`,
+          description: `Apply your skills in creative and innovative ways.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Leadership Application`,
+          description: `Use your skills to lead and inspire others.`,
+          day_offset: day,
+          time_of_day: 'mid_morning' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Excellence Standards`,
+          description: `Set new excellence standards for yourself based on your growth.`,
+          day_offset: day,
+          time_of_day: 'afternoon' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Legacy Building`,
+          description: `Consider how your skills can create lasting impact and legacy.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
+        },
+        {
+          title: `Day ${dayNumber}: Future Vision`,
+          description: `Envision your future with these mastered skills and set new goals.`,
+          day_offset: day,
+          time_of_day: 'evening' as const,
         }
-      );
+      ];
+      
+      // Add tasks based on intensity level
+      tasks.push(...dayTasks.slice(0, tasksPerDay));
     }
   }
 
@@ -838,7 +1094,9 @@ serve(async (req) => {
       title,
       description,
       intensity,
-      detailed_plan
+      detailed_plan,
+      new Date().toISOString(),
+      timezone
     );
 
     console.log('📋 Generated tasks:', taskTemplates.length, 'tasks');
@@ -846,14 +1104,16 @@ serve(async (req) => {
 
     // Create scheduled tasks using the new computeRunAt function
     const startDate = start_date ? new Date(start_date) : new Date();
-    const tasksToInsert = taskTemplates.map((template) => {
+    const tasksToInsert = taskTemplates.map((template: any) => {
       const dayNumber = template.day_offset + 1; // Convert back to 1-based
       const timeLabel =
         template.time_of_day.charAt(0).toUpperCase() +
         template.time_of_day.slice(1);
 
-      // Use computeRunAt for consistent time calculation
-      const runAt = computeRunAt(dayNumber, timeLabel);
+      // Prefer AI-provided HH:MM when available
+      const runAt = template.custom_time
+        ? computeRunAtFromHHMM(dayNumber, template.custom_time, new Date().toISOString())
+        : computeRunAt(dayNumber, timeLabel);
 
       return {
         goal_id,
