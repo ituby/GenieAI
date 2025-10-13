@@ -21,6 +21,7 @@ import {
   Icon,
   AILoadingModal,
   GoalSuccessModal,
+  PlanPreviewModal,
 } from '../components';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
@@ -80,11 +81,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     null
   );
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPlanPreview, setShowPlanPreview] = useState(false);
   const [successData, setSuccessData] = useState({
     taskCount: 0,
     rewardCount: 0,
     iconName: '',
     color: '',
+  });
+  const [planData, setPlanData] = useState({
+    milestones: [] as Array<{
+      week: number;
+      title: string;
+      description: string;
+      tasks: number;
+    }>,
+    goalTitle: '',
   });
 
   // Animation for gradient
@@ -147,17 +158,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       setIsCreatingPlan(true);
       setLoadingStep(1);
 
-      // Start progressive loading animation with slower pace
+      // Start progressive loading animation with faster pace to reach last title 3 seconds before results
       const interval = setInterval(() => {
         setLoadingStep((prev) => {
-          if (prev >= 14) {
-            // Stop at step 14, let the final step be triggered manually
+          if (prev >= 15) {
+            // Stop at step 15, let the final step be triggered manually
             clearInterval(interval);
-            return 14;
+            return 15;
           }
           return prev + 1;
         });
-      }, 2500); // Change step every 2500ms (2.5 seconds) for slower progression
+      }, 1500); // Change step every 1500ms (1.5 seconds) for faster progression
 
       setLoadingInterval(interval);
 
@@ -191,12 +202,41 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
         if (response.error) {
           console.error('❌ Plan generation error:', response.error);
+          // Ensure we reach the final step before showing plan preview
+          setLoadingStep(16);
+
+          // Generate fallback milestones
+          const fallbackMilestones = [
+            {
+              week: 1,
+              title: 'Foundation & Setup',
+              description:
+                'Establishing core habits and building momentum for your journey.',
+              tasks: 21,
+            },
+            {
+              week: 2,
+              title: 'Skill Development',
+              description:
+                'Advancing your skills and deepening your commitment to the goal.',
+              tasks: 21,
+            },
+            {
+              week: 3,
+              title: 'Mastery & Transformation',
+              description:
+                'Achieving mastery and preparing for long-term success.',
+              tasks: 21,
+            },
+          ];
+
           setTimeout(() => {
-            Alert.alert(
-              'Goal Created Successfully!',
-              'Your goal has been created! Genie will create your personalized 21-day plan shortly.',
-              [{ text: 'Continue', onPress: onGoalCreated }]
-            );
+            setPlanData({
+              milestones: fallbackMilestones,
+              goalTitle: formData.title.trim(),
+            });
+            setIsCreatingPlan(false);
+            setShowPlanPreview(true);
           }, 1000);
         } else {
           const taskCount = response.data?.tasks?.length || 21;
@@ -230,38 +270,66 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               );
             }
           }
-          // Ensure we reach the final step before showing success
-          setLoadingStep(15);
+          // Ensure we reach the final step before showing plan preview
+          setLoadingStep(16);
+
+          // Use milestones from AI response or generate fallback
+          const milestones =
+            response.data?.milestones ||
+            generateMilestonesFromPlan(response.data);
 
           setTimeout(() => {
-            setSuccessData({
-              taskCount,
-              rewardCount,
-              iconName: iconName || 'star',
-              color: color || 'yellow',
+            setPlanData({
+              milestones,
+              goalTitle: formData.title.trim(),
             });
             setIsCreatingPlan(false);
-            setShowSuccessModal(true);
+            setShowPlanPreview(true);
           }, 1000);
         }
       } catch (planError) {
         console.error('❌ Failed to generate plan:', planError);
-        // Ensure we reach the final step before showing success
+        // Ensure we reach the final step before showing plan preview
         setLoadingStep(15);
 
-        setSuccessData({
-          taskCount: 21,
-          rewardCount: 5,
-          iconName: 'star',
-          color: 'yellow',
-        });
-        setIsCreatingPlan(false);
-        setShowSuccessModal(true);
+        // Generate fallback milestones
+        const fallbackMilestones = [
+          {
+            week: 1,
+            title: 'Foundation & Setup',
+            description:
+              'Establishing core habits and building momentum for your journey.',
+            tasks: 21,
+          },
+          {
+            week: 2,
+            title: 'Skill Development',
+            description:
+              'Advancing your skills and deepening your commitment to the goal.',
+            tasks: 21,
+          },
+          {
+            week: 3,
+            title: 'Mastery & Transformation',
+            description:
+              'Achieving mastery and preparing for long-term success.',
+            tasks: 21,
+          },
+        ];
+
+        setTimeout(() => {
+          setPlanData({
+            milestones: fallbackMilestones,
+            goalTitle: formData.title.trim(),
+          });
+          setIsCreatingPlan(false);
+          setShowPlanPreview(true);
+        }, 1000);
       }
     } catch (error: any) {
       console.error('❌ Goal creation error:', error);
       // Ensure we reach the final step before showing error
-      setLoadingStep(15);
+      setLoadingStep(16);
 
       Alert.alert('Error', `Failed to create goal: ${error.message}`);
     } finally {
@@ -303,6 +371,99 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     }
 
     setFormData((prev) => ({ ...prev, intensity }));
+  };
+
+  const generateMilestonesFromPlan = (planData: any) => {
+    // Extract milestones from the plan data
+    const milestones = [];
+
+    if (planData?.days) {
+      // Group days by week
+      const weeks = {};
+      planData.days.forEach((day: any) => {
+        const weekNumber = Math.ceil(day.day / 7);
+        if (!weeks[weekNumber]) {
+          weeks[weekNumber] = {
+            week: weekNumber,
+            title: `Week ${weekNumber} Focus`,
+            description: `Building momentum and establishing key habits for your goal.`,
+            tasks: 0,
+          };
+        }
+        weeks[weekNumber].tasks += day.tasks?.length || 0;
+      });
+
+      // Convert to array and add descriptions
+      Object.values(weeks).forEach((week: any) => {
+        if (week.week === 1) {
+          week.title = 'Foundation & Setup';
+          week.description =
+            'Establishing core habits and building momentum for your journey.';
+        } else if (week.week === 2) {
+          week.title = 'Skill Development';
+          week.description =
+            'Advancing your skills and deepening your commitment to the goal.';
+        } else if (week.week === 3) {
+          week.title = 'Mastery & Transformation';
+          week.description =
+            'Achieving mastery and preparing for long-term success.';
+        }
+        milestones.push(week);
+      });
+    }
+
+    // Fallback if no plan data
+    if (milestones.length === 0) {
+      return [
+        {
+          week: 1,
+          title: 'Foundation & Setup',
+          description:
+            'Establishing core habits and building momentum for your journey.',
+          tasks: 21,
+        },
+        {
+          week: 2,
+          title: 'Skill Development',
+          description:
+            'Advancing your skills and deepening your commitment to the goal.',
+          tasks: 21,
+        },
+        {
+          week: 3,
+          title: 'Mastery & Transformation',
+          description: 'Achieving mastery and preparing for long-term success.',
+          tasks: 21,
+        },
+      ];
+    }
+
+    return milestones;
+  };
+
+  const handleApprovePlan = () => {
+    setShowPlanPreview(false);
+    setSuccessData({
+      taskCount: planData.milestones.reduce(
+        (sum, milestone) => sum + milestone.tasks,
+        0
+      ),
+      rewardCount: 5,
+      iconName: 'star',
+      color: 'yellow',
+    });
+    setShowSuccessModal(true);
+  };
+
+  const handleTryAgain = () => {
+    setShowPlanPreview(false);
+    // Reset form and allow user to try again
+    setFormData({
+      title: '',
+      description: '',
+      intensity: 'easy',
+    });
+    setErrors({});
   };
 
   const handleStartJourney = () => {
@@ -542,7 +703,16 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           <AILoadingModal
             visible={isCreatingPlan}
             currentStep={loadingStep}
-            totalSteps={15}
+            totalSteps={16}
+          />
+
+          {/* Plan Preview Modal */}
+          <PlanPreviewModal
+            visible={showPlanPreview}
+            milestones={planData.milestones}
+            goalTitle={planData.goalTitle}
+            onApprove={handleApprovePlan}
+            onTryAgain={handleTryAgain}
           />
 
           {/* Goal Success Modal */}

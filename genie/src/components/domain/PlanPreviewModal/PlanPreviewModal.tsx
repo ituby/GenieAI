@@ -1,0 +1,314 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Modal,
+  Image,
+  Animated,
+  Dimensions,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
+import { Text } from '../../primitives';
+import { useTheme } from '../../../theme';
+import { Icon } from '../../primitives';
+
+interface Milestone {
+  week: number;
+  title: string;
+  description: string;
+  tasks: number;
+}
+
+interface PlanPreviewModalProps {
+  visible: boolean;
+  milestones: Milestone[];
+  goalTitle: string;
+  onApprove: () => void;
+  onTryAgain: () => void;
+}
+
+export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
+  visible,
+  milestones,
+  goalTitle,
+  onApprove,
+  onTryAgain,
+}) => {
+  const theme = useTheme();
+  const [fadeAnimation] = useState(new Animated.Value(0));
+  const [slideAnimation] = useState(new Animated.Value(50));
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnimation, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnimation, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnimation.setValue(0);
+      slideAnimation.setValue(50);
+    }
+  }, [visible, fadeAnimation, slideAnimation]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+    >
+      <View style={styles.overlay}>
+        <Animated.View
+          style={[
+            styles.modalContainer,
+            {
+              opacity: fadeAnimation,
+              transform: [{ translateY: slideAnimation }],
+            },
+          ]}
+        >
+          <View
+            style={[styles.modal, { backgroundColor: 'rgba(0, 0, 0, 0.85)' }]}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text variant="h4" style={[styles.title, { color: '#FFFFFF' }]}>
+                Plan Confirmation
+              </Text>
+            </View>
+
+            {/* Milestones */}
+            <ScrollView
+              style={styles.milestonesContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {milestones.map((milestone, index) => (
+                <View key={milestone.week} style={styles.milestoneCard}>
+                  <View style={styles.milestoneHeader}>
+                    <View style={styles.weekBadge}>
+                      <Text style={styles.weekText}>Week {milestone.week}</Text>
+                    </View>
+                    <View style={styles.taskCount}>
+                      <Icon
+                        name="check-circle"
+                        size={16}
+                        color="#FFFF68"
+                        weight="fill"
+                      />
+                      <Text style={styles.taskCountText}>
+                        {milestone.tasks} tasks
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text
+                    variant="h4"
+                    style={[styles.milestoneTitle, { color: '#FFFFFF' }]}
+                  >
+                    {milestone.title}
+                  </Text>
+
+                  <Text
+                    variant="body"
+                    style={[
+                      styles.milestoneDescription,
+                      { color: '#FFFFFF', opacity: 0.8 },
+                    ]}
+                  >
+                    {milestone.description}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Approve Button */}
+            <TouchableOpacity
+              style={styles.approveButton}
+              onPress={onApprove}
+              activeOpacity={0.8}
+            >
+              <View style={styles.approveButtonContent}>
+                <Icon
+                  name="check-circle"
+                  size={20}
+                  color="#000000"
+                  weight="fill"
+                />
+                <Text style={styles.approveButtonText}>Approve Plan</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Try Again Button - Outside modal */}
+        <TouchableOpacity
+          style={styles.tryAgainTextButton}
+          onPress={onTryAgain}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.tryAgainTextButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+};
+
+const { width, height } = Dimensions.get('window');
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  modalContainer: {
+    width: width * 0.95,
+    maxWidth: 500,
+    maxHeight: height * 0.95,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#FFFF68',
+    padding: 2,
+    marginTop: 0,
+    shadowColor: '#FFFF68',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modal: {
+    width: '100%',
+    borderRadius: 22,
+    paddingTop: 12,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  logo: {
+    width: 35,
+    height: 35,
+    marginBottom: 8,
+  },
+  title: {
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '700',
+  },
+  subtitle: {
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: 14,
+  },
+  milestonesContainer: {
+    maxHeight: height * 0.9,
+    marginBottom: 16,
+  },
+  milestoneCard: {
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.2)',
+  },
+  milestoneHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  weekBadge: {
+    backgroundColor: '#FFFF68',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  weekText: {
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  taskCount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  taskCountText: {
+    color: '#FFFF68',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  milestoneTitle: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  milestoneDescription: {
+    lineHeight: 18,
+    fontSize: 13,
+  },
+  tryAgainTextButton: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  tryAgainTextButtonText: {
+    color: '#FFFF68',
+    fontSize: 16,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  approveButton: {
+    backgroundColor: '#FFFF68',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    shadowColor: '#FFFF68',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  approveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  approveButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+});

@@ -19,80 +19,86 @@ interface AILoadingModalProps {
 
 const loadingMessages = [
   {
-    icon: "MagicWand",
-    title: "Gathering your wishes...",
-    subtitle: "Genie is reading your goal carefully."
+    icon: 'MagicWand',
+    title: 'Reading your goal...',
+    subtitle: 'Understanding your vision.',
   },
   {
-    icon: "Brain",
-    title: "Thinking deeply...",
-    subtitle: "Crafting ideas that actually fit your goal."
+    icon: 'Brain',
+    title: 'Thinking deeply...',
+    subtitle: 'Crafting perfect ideas.',
   },
   {
-    icon: "Lightbulb",
-    title: "Connecting the dots...",
-    subtitle: "Turning your thoughts into daily actions."
+    icon: 'Lightbulb',
+    title: 'Connecting dots...',
+    subtitle: 'Turning thoughts into actions.',
   },
   {
-    icon: "MagnifyingGlass",
-    title: "Analyzing your motivation...",
-    subtitle: "Understanding what drives you most."
+    icon: 'MagnifyingGlass',
+    title: 'Analyzing motivation...',
+    subtitle: 'Finding what drives you.',
   },
   {
-    icon: "HandsPraying",
-    title: "Shaping your personal journey...",
-    subtitle: "Every step will lead you closer to success."
+    icon: 'HandsPraying',
+    title: 'Shaping your journey...',
+    subtitle: 'Every step leads to success.',
   },
   {
-    icon: "CalendarCheck",
-    title: "Building your 21-day roadmap...",
-    subtitle: "Structuring your tasks with logic and flow."
+    icon: 'CalendarCheck',
+    title: 'Building roadmap...',
+    subtitle: 'Structuring your 21-day plan.',
   },
   {
-    icon: "ClipboardText",
-    title: "Assigning daily missions...",
-    subtitle: "Morning, afternoon, and evening — all planned."
+    icon: 'ClipboardText',
+    title: 'Assigning missions...',
+    subtitle: 'Daily tasks planned.',
   },
   {
-    icon: "ChatsCircle",
-    title: "Writing motivational lines...",
-    subtitle: "Words that'll keep you focused each day."
+    icon: 'ChatsCircle',
+    title: 'Writing motivation...',
+    subtitle: 'Words to keep you focused.',
   },
   {
-    icon: "Star",
-    title: "Adding a touch of magic...",
-    subtitle: "Genie makes every task personal."
+    icon: 'Star',
+    title: 'Adding magic...',
+    subtitle: 'Making tasks personal.',
   },
   {
-    icon: "RocketLaunch",
-    title: "Preparing your launch plan...",
-    subtitle: "Success sequence almost ready."
+    icon: 'RocketLaunch',
+    title: 'Preparing launch...',
+    subtitle: 'Success sequence ready.',
   },
   {
-    icon: "Compass",
-    title: "Calibrating direction...",
-    subtitle: "Ensuring every task moves you forward."
+    icon: 'Compass',
+    title: 'Calibrating direction...',
+    subtitle: 'Every task moves you forward.',
   },
   {
-    icon: "PuzzlePiece",
-    title: "Filling in the missing pieces...",
-    subtitle: "Matching tasks to your skills and limits."
+    icon: 'PuzzlePiece',
+    title: 'Filling pieces...',
+    subtitle: 'Matching tasks to your skills.',
   },
   {
-    icon: "Heartbeat",
-    title: "Empowering your mindset...",
-    subtitle: "Balancing ambition and realism."
+    icon: 'Heartbeat',
+    title: 'Empowering mindset...',
+    subtitle: 'Balancing ambition and realism.',
   },
   {
-    icon: "HourglassHigh",
-    title: "Polishing your transformation path...",
-    subtitle: "One wish, many small steps."
+    icon: 'HourglassHigh',
+    title: 'Polishing path...',
+    subtitle: 'One wish, many steps.',
   },
   {
-    icon: "CheckCircle",
-    title: "Finalizing your plan...",
-    subtitle: "Almost done — your 21-day journey awaits."
-  }
+    icon: 'Bell',
+    title: 'Creating notifications...',
+    subtitle:
+      "We're creating personalized notifications and tasks for your goal. This may take up to a minute to craft your perfect plan.",
+  },
+  {
+    icon: 'CheckCircle',
+    title: 'Finalizing plan...',
+    subtitle: 'Your 21-day journey awaits.',
+  },
 ];
 
 export const AILoadingModal: React.FC<AILoadingModalProps> = ({
@@ -139,7 +145,9 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
     }
   }, [visible, breathingAnimation]);
 
-  const currentStepData = loadingMessages[Math.min(currentStep - 1, loadingMessages.length - 1)] || loadingMessages[0];
+  const currentStepData =
+    loadingMessages[Math.min(currentStep - 1, loadingMessages.length - 1)] ||
+    loadingMessages[0];
 
   return (
     <Modal
@@ -150,40 +158,47 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer]}>
-          <View style={[styles.modal, { backgroundColor: 'rgba(0, 0, 0, 0.85)' }]}>
-            {/* Logo with breathing animation */}
-          <Animated.View
-            style={[
-              styles.logoContainer,
-              {
-                transform: [{ scale: breathingAnimation }],
-              },
-            ]}
+          <View
+            style={[styles.modal, { backgroundColor: 'rgba(0, 0, 0, 0.85)' }]}
           >
-            <Image
-              source={require('../../../../assets/LogoSymbol.webp')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </Animated.View>
+            {/* Logo with breathing animation */}
+            <Animated.View
+              style={[
+                styles.logoContainer,
+                {
+                  transform: [{ scale: breathingAnimation }],
+                },
+              ]}
+            >
+              <Image
+                source={require('../../../../assets/LogoSymbol.webp')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </Animated.View>
 
+            {/* Dynamic content */}
+            <View style={styles.content}>
+              <Text variant="h5" style={[styles.title, { color: '#FFFFFF' }]}>
+                {currentStepData.title}
+              </Text>
+              <Text
+                variant="body"
+                style={[styles.subtitle, { color: '#FFFFFF', opacity: 0.8 }]}
+              >
+                {currentStepData.subtitle}
+              </Text>
+            </View>
 
-          {/* Dynamic content */}
-          <View style={styles.content}>
-            <Text variant="h4" style={[styles.title, { color: '#FFFFFF' }]}>
-              {currentStepData.title}
-            </Text>
-            <Text variant="body" style={[styles.subtitle, { color: '#FFFFFF', opacity: 0.8 }]}>
-              {currentStepData.subtitle}
-            </Text>
-          </View>
-
-          {/* Genie is working indicator */}
-          <View style={styles.workingIndicator}>
-            <Text variant="caption" style={[styles.workingText, { color: '#FFFFFF', opacity: 0.6 }]}>
-              ✨ Genie is working its magic...
-            </Text>
-          </View>
+            {/* Genie is working indicator */}
+            <View style={styles.workingIndicator}>
+              <Text
+                variant="caption"
+                style={[styles.workingText, { color: '#FFFFFF', opacity: 0.6 }]}
+              >
+                ✨ Genie is working its magic...
+              </Text>
+            </View>
           </View>
         </View>
       </View>

@@ -520,6 +520,26 @@ Context for day 1 timing:
 Return ONLY valid JSON in this exact format:
 {
   "icon_name": "chosen-icon-name", // MUST be a valid Phosphor React Native icon name in kebab-case
+  "milestones": [
+    {
+      "week": 1,
+      "title": "Foundation & Setup",
+      "description": "Establishing core habits and building momentum for your journey.",
+      "tasks": 21
+    },
+    {
+      "week": 2,
+      "title": "Skill Development",
+      "description": "Advancing your skills and deepening your commitment to the goal.",
+      "tasks": 21
+    },
+    {
+      "week": 3,
+      "title": "Mastery & Transformation",
+      "description": "Achieving mastery and preparing for long-term success.",
+      "tasks": 21
+    }
+  ],
   "days": [
     {
       "day": 1,
@@ -774,6 +794,33 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
 
       console.log(`✅ AI generated ${tasks.length} tasks successfully`);
 
+      // Extract milestones from AI response
+      let milestones = planData.milestones || [];
+      
+      // If no milestones provided, generate fallback milestones
+      if (!milestones || milestones.length === 0) {
+        milestones = [
+          {
+            week: 1,
+            title: "Foundation & Setup",
+            description: "Establishing core habits and building momentum for your journey.",
+            tasks: Math.ceil(tasks.length / 3)
+          },
+          {
+            week: 2,
+            title: "Skill Development",
+            description: "Advancing your skills and deepening your commitment to the goal.",
+            tasks: Math.ceil(tasks.length / 3)
+          },
+          {
+            week: 3,
+            title: "Mastery & Transformation",
+            description: "Achieving mastery and preparing for long-term success.",
+            tasks: Math.ceil(tasks.length / 3)
+          }
+        ];
+      }
+
       // Extract icon name and color from AI response
       let iconName = planData.icon_name || 'star'; // Default fallback
 
@@ -905,7 +952,7 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
 
       console.log(`🎨 AI selected icon: ${iconName}, color: ${color}`);
 
-      return { tasks, iconName, color };
+      return { tasks, iconName, color, milestones };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
       console.error('Raw text:', cleanedText);
@@ -922,7 +969,27 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
       description,
       intensity
     );
-    return { tasks: fallbackTasks, iconName: 'star', color: 'yellow' }; // Default icon and color for fallback
+    const fallbackMilestones = [
+      {
+        week: 1,
+        title: "Foundation & Setup",
+        description: "Establishing core habits and building momentum for your journey.",
+        tasks: Math.ceil(fallbackTasks.length / 3)
+      },
+      {
+        week: 2,
+        title: "Skill Development",
+        description: "Advancing your skills and deepening your commitment to the goal.",
+        tasks: Math.ceil(fallbackTasks.length / 3)
+      },
+      {
+        week: 3,
+        title: "Mastery & Transformation",
+        description: "Achieving mastery and preparing for long-term success.",
+        tasks: Math.ceil(fallbackTasks.length / 3)
+      }
+    ];
+    return { tasks: fallbackTasks, iconName: 'star', color: 'yellow', milestones: fallbackMilestones }; // Default icon and color for fallback
   }
 };
 
@@ -1256,6 +1323,7 @@ serve(async (req) => {
       tasks: taskTemplates,
       iconName,
       color,
+      milestones,
     } = await generateTasksWithAI(
       category,
       title,
@@ -1530,6 +1598,7 @@ serve(async (req) => {
         rewards: rewards,
         icon_name: iconName,
         color: color,
+        milestones: milestones,
         message: `Generated ${insertedTasks.length} tasks and ${rewards.length} rewards for your goal`,
       }),
       {
