@@ -2377,8 +2377,6 @@ const styles = StyleSheet.create({
   sideMenuProfileImage: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 104, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2439,17 +2437,14 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   sideMenuFooter: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
-    right: 24,
-    alignItems: 'center',
-    gap: 4,
+    marginTop: 16,
+    marginBottom: 8,
+    alignItems: 'flex-start',
   },
   sideMenuFooterText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   goalMenuOverlay: {
     position: 'absolute',
