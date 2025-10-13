@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -49,6 +49,7 @@ import { NotificationsScreen } from './NotificationsScreen';
 import { ProfileScreen } from './ProfileScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { HelpSupportScreen } from './HelpSupportScreen';
+import { SubscriptionScreen } from './SubscriptionScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 import { useNotificationCount } from '../hooks/useNotificationCount';
@@ -82,6 +83,7 @@ export const DashboardScreen: React.FC = () => {
   const [showProfile, setShowProfile] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showHelpSupport, setShowHelpSupport] = React.useState(false);
+  const [showSubscription, setShowSubscription] = React.useState(false);
   const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
   const [totalPoints, setTotalPoints] = React.useState(0);
   const [showSideMenu, setShowSideMenu] = React.useState(false);
@@ -105,6 +107,7 @@ export const DashboardScreen: React.FC = () => {
     monthlyTokens: 0,
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
+  const [refreshBreathingAnimation] = useState(new Animated.Value(1));
 
   // Animation for button border
   const borderAnimation = useRef(new Animated.Value(0)).current;
@@ -125,6 +128,28 @@ export const DashboardScreen: React.FC = () => {
       PushTokenService.setupPushNotifications(user.id);
     }
   }, [user?.id]);
+
+  // Breathing animation for refresh loader
+  useEffect(() => {
+    if (showRefreshLoader) {
+      const breathing = Animated.loop(
+        Animated.sequence([
+          Animated.timing(refreshBreathingAnimation, {
+            toValue: 1.3,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(refreshBreathingAnimation, {
+            toValue: 0.9,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      breathing.start();
+      return () => breathing.stop();
+    }
+  }, [showRefreshLoader, refreshBreathingAnimation]);
 
   // Start Add Goal button animation
   useEffect(() => {
@@ -645,13 +670,6 @@ export const DashboardScreen: React.FC = () => {
     >
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
-        {/* Blur overlay */}
-        <View style={styles.blurOverlay} />
-        {/* Additional blur effect */}
-        <View style={styles.blurEffect} />
-        {/* Extra blur layers */}
-        <View style={styles.blurEffect2} />
-        <View style={styles.blurEffect3} />
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <View style={styles.notificationIconContainer}>
@@ -695,11 +713,22 @@ export const DashboardScreen: React.FC = () => {
 
       {/* Custom Refresh Animation */}
       {showRefreshLoader && (
-        <CustomRefreshControl
-          refreshing={showRefreshLoader}
-          onRefresh={handleRefresh}
-          tintColor={theme.colors.yellow[500]}
-        />
+        <View style={styles.refreshLoaderContainer}>
+          <Animated.View
+            style={[
+              styles.refreshLoaderImage,
+              {
+                transform: [{ scale: refreshBreathingAnimation }],
+              },
+            ]}
+          >
+            <Image
+              source={require('../../assets/LogoSymbol.webp')}
+              style={styles.refreshLoaderLogo}
+              resizeMode="contain"
+            />
+          </Animated.View>
+        </View>
       )}
 
       <ScrollView
@@ -720,35 +749,14 @@ export const DashboardScreen: React.FC = () => {
       >
         {/* Content Header */}
         <View style={styles.contentHeader}>
-          <View style={styles.greetingRow}>
-            <View style={styles.profileImageContainer}>
-              <View style={styles.profileImage}>
-                <Image
-                  source={require('../../assets/LogoSymbol.webp')}
-                  style={styles.profileLogo}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
-            <View style={styles.greetingText}>
-              <Text variant="h2" style={styles.greeting}>
-                Hello, {getUserName()}
-              </Text>
-              <Text variant="body" style={styles.motivationalText}>
-                Tell me what you're wishing for
-              </Text>
-            </View>
+          {/* Dashboard Slogan */}
+          <View style={styles.dashboardSloganContainer}>
+            <Text variant="body" style={styles.dashboardSloganText}>
+              Tell me what you're wishing for
+            </Text>
           </View>
-          <View style={styles.greetingButtonContainer}>
-            <TalkWithGenieButton
-              onPress={checkTokensAndCreateGoal}
-              size="medium"
-            />
-          </View>
-        </View>
 
-        {/* Usage Rate Card */}
-        <View style={styles.sectionCompact}>
+          {/* Usage Rate Card */}
           <Card variant="gradient" padding="md" style={styles.usageRateCard}>
             <View style={styles.usageRateHeader}>
               <View style={styles.usageRateTitleContainer}>
@@ -866,6 +874,13 @@ export const DashboardScreen: React.FC = () => {
               )}
             </View>
           </Card>
+
+          <View style={styles.greetingButtonContainer}>
+            <TalkWithGenieButton
+              onPress={checkTokensAndCreateGoal}
+              size="medium"
+            />
+          </View>
         </View>
 
         {/* Quick Stats */}
@@ -1313,11 +1328,45 @@ export const DashboardScreen: React.FC = () => {
           />
           <View style={styles.sideMenuShadow} />
           <View style={styles.sideMenu}>
-            <View style={styles.sideMenuHeader}>
-              <Text variant="h4">Menu</Text>
-              <Button variant="ghost" onPress={() => setShowSideMenu(false)}>
+            {/* Profile Image - Above Header */}
+            <View style={styles.sideMenuProfileSection}>
+              <View style={styles.sideMenuProfileImage}>
+                <Image
+                  source={require('../../assets/LogoSymbol.webp')}
+                  style={styles.sideMenuProfileLogo}
+                  resizeMode="contain"
+                />
+              </View>
+              <Button
+                variant="ghost"
+                onPress={() => setShowSideMenu(false)}
+                style={styles.sideMenuCloseButton}
+              >
                 <Icon name="x" size={20} color="#FFFF68" />
               </Button>
+            </View>
+
+            {/* Greeting Text */}
+            <View style={styles.sideMenuGreetingSection}>
+              <Text variant="h4" style={styles.sideMenuGreetingTitle}>
+                Hello, {getUserName()}
+              </Text>
+              <Text variant="body" style={styles.sideMenuGreetingSubtitle}>
+                Tell me what you're wishing for
+              </Text>
+            </View>
+
+            <View style={styles.sideMenuHeader}>
+              {/* Header content can go here if needed */}
+            </View>
+            <View style={styles.sideMenuGreetingButton}>
+              <TalkWithGenieButton
+                onPress={() => {
+                  setShowSideMenu(false);
+                  checkTokensAndCreateGoal();
+                }}
+                size="medium"
+              />
             </View>
             <View style={styles.sideMenuContent}>
               <Button
@@ -1356,6 +1405,20 @@ export const DashboardScreen: React.FC = () => {
               >
                 Help & Support
               </Button>
+              {userTokens.isSubscribed && (
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  onPress={() => {
+                    setShowSideMenu(false);
+                    setShowSubscription(true);
+                  }}
+                  leftIcon={<Icon name="crown" size={20} color="#FFFF68" />}
+                  style={styles.sideMenuButton}
+                >
+                  My Subscription
+                </Button>
+              )}
               <View style={styles.sideMenuDivider} />
               <Button
                 variant="ghost"
@@ -1420,6 +1483,11 @@ export const DashboardScreen: React.FC = () => {
       {/* Help & Support Screen */}
       {showHelpSupport && (
         <HelpSupportScreen onBack={() => setShowHelpSupport(false)} />
+      )}
+
+      {/* Subscription Screen */}
+      {showSubscription && (
+        <SubscriptionScreen onBack={() => setShowSubscription(false)} />
       )}
 
       {/* Token Purchase Modal */}
@@ -1780,7 +1848,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 96, // Increased space for larger absolute header
+    paddingTop: 80, // Reduced space for header
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1795,55 +1863,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
-    paddingBottom: 32, // Increased height
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 8,
+    paddingBottom: 0, // Removed padding below header
+    backgroundColor: 'rgba(0, 0, 0, 0.9)', // More opaque background
   },
-  blurOverlay: {
+  dashboardSloganContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingBottom: 16, // Added padding below slogan
+    marginBottom: 8,
+  },
+  dashboardSloganText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  refreshLoaderContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    zIndex: -1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
   },
-  blurEffect: {
-    position: 'absolute',
-    top: -20,
-    left: -20,
-    right: -20,
-    bottom: -20,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 30,
-    zIndex: -2,
+  refreshLoaderImage: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  blurEffect2: {
-    position: 'absolute',
-    top: -30,
-    left: -30,
-    right: -30,
-    bottom: -30,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderRadius: 40,
-    zIndex: -3,
-  },
-  blurEffect3: {
-    position: 'absolute',
-    top: -40,
-    left: -40,
-    right: -40,
-    bottom: -40,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 50,
-    zIndex: -4,
+  refreshLoaderLogo: {
+    width: 60,
+    height: 60,
   },
   headerLeft: {
     flex: 1,
@@ -1861,9 +1915,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   contentHeader: {
-    padding: 20,
-    paddingTop: 40, // Much more padding above greeting
-    paddingBottom: 20, // Added padding below greeting
+    padding: 16,
+    paddingTop: 8, // Further reduced padding above
+    paddingBottom: 12, // Reduced padding below
   },
   headerLogo: {
     width: 64,
@@ -1899,8 +1953,8 @@ const styles = StyleSheet.create({
   },
   greetingButtonContainer: {
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 8,
   },
   greeting: {
     marginBottom: 0,
@@ -2006,8 +2060,8 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   sectionCompact: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    marginBottom: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -2105,7 +2159,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   usageRateTitleContainer: {
     flexDirection: 'row',
@@ -2140,7 +2194,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 104, 0.4)',
   },
   usageRateContent: {
-    gap: 16,
+    gap: 12,
   },
   usageRateStats: {
     flexDirection: 'row',
@@ -2313,14 +2367,60 @@ const styles = StyleSheet.create({
     borderLeftColor: '#FFFF68', // Yellow border
     zIndex: 2003,
   },
-  sideMenuHeader: {
+  sideMenuProfileSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  sideMenuProfileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sideMenuGreetingSection: {
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  sideMenuHeader: {
+    marginBottom: 24,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)', // Subtle white border with transparency
+  },
+  sideMenuGreeting: {
+    flex: 1,
+  },
+  sideMenuProfileLogo: {
+    width: 40,
+    height: 40,
+  },
+  sideMenuGreetingText: {
+    alignItems: 'flex-start',
+  },
+  sideMenuGreetingTitle: {
+    color: '#FFFFFF',
+    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'left',
+  },
+  sideMenuGreetingSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    textAlign: 'left',
+  },
+  sideMenuCloseButton: {
+    // No special positioning needed
+  },
+  sideMenuGreetingButton: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   sideMenuContent: {
     gap: 8,
