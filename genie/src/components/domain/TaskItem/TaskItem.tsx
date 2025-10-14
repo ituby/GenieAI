@@ -30,6 +30,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isExpired, setIsExpired] = useState(false);
 
+  const truncateWords = (text: string, maxWords: number) => {
+    const words = (text || '').trim().split(/\s+/);
+    if (words.length <= maxWords) return text;
+    return words.slice(0, maxWords).join(' ') + ' ...';
+  };
+
   const getTimeOfDayIcon = (runAt: string) => {
     const hour = new Date(runAt).getHours();
     if (hour < 12) return 'sun';
@@ -236,10 +242,19 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
             {/* Goal Info */}
             <View style={styles.goalInfo}>
-              <Text variant="caption" color="primary-color">
-                {task.goal.title}
+              <Text
+                variant="caption"
+                color="primary-color"
+                numberOfLines={1}
+                style={{ flex: 1 }}
+              >
+                {truncateWords(task.goal.title, 6)}
               </Text>
-              <Text variant="caption" color="tertiary">
+              <Text
+                variant="caption"
+                color="tertiary"
+                style={{ textAlign: 'right' }}
+              >
                 • {getTimeOfDayText(task.run_at)}
               </Text>
             </View>
@@ -552,7 +567,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   taskDescription: {
-    marginBottom: 8,
+    marginBottom: 12,
     lineHeight: 20,
   },
   goalInfo: {

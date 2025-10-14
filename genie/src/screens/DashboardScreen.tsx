@@ -54,6 +54,7 @@ import { SubscriptionScreen } from './SubscriptionScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 import { useNotificationCount } from '../hooks/useNotificationCount';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Layout constants for evenly sized stat cards
 const WINDOW_WIDTH = Dimensions.get('window').width;
@@ -109,6 +110,7 @@ export const DashboardScreen: React.FC = () => {
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
   const [refreshBreathingAnimation] = useState(new Animated.Value(1));
+  const PROGRESS_KEY = 'genie:new-goal-progress';
 
   // Animation for button border
   const borderAnimation = useRef(new Animated.Value(0)).current;
@@ -127,6 +129,19 @@ export const DashboardScreen: React.FC = () => {
 
       // Setup push notifications
       PushTokenService.setupPushNotifications(user.id);
+
+      // Check if there is in-progress new goal state to resume
+      (async () => {
+        try {
+          const raw = await AsyncStorage.getItem(PROGRESS_KEY);
+          if (!raw) return;
+          const saved = JSON.parse(raw);
+          if (saved && saved.userId === user.id) {
+            // Auto-open NewGoalScreen to restore UX
+            setShowNewGoal(true);
+          }
+        } catch {}
+      })();
     }
   }, [user?.id]);
 

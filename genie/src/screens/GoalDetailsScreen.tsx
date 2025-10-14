@@ -383,13 +383,15 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const progressPercentage =
     totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Function to format title into up to 3 lines, limiting line 1 and 2 to 3 words
+  // Function to format title into up to 4 lines
+  // Lines 1-3 are limited to 4 words each; the 4th line contains the remainder
   const formatTitle = (title: string) => {
     const words = title.trim().split(/\s+/);
-    const line1 = words.slice(0, 3).join(' ');
-    const line2 = words.slice(3, 6).join(' ');
-    const line3 = words.slice(6).join(' ');
-    return [line1, line2, line3].filter(Boolean).join('\n');
+    const line1 = words.slice(0, 4).join(' ');
+    const line2 = words.slice(4, 8).join(' ');
+    const line3 = words.slice(8, 12).join(' ');
+    const line4 = words.slice(12).join(' ');
+    return [line1, line2, line3, line4].filter(Boolean).join('\n');
   };
 
   // Function to format date for display
@@ -544,7 +546,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                   />
                 </View>
                 <View>
-                  <Text variant="h4" style={styles.goalTitle} numberOfLines={3}>
+                  <Text variant="h4" style={styles.goalTitle} numberOfLines={4}>
                     {formatTitle(currentGoal.title)}
                   </Text>
                   <Text
@@ -943,19 +945,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   goalTitleContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'flex-start',
     flex: 1,
     marginRight: 16,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    marginTop: 2,
+    marginRight: 0,
+    marginBottom: 8,
   },
   goalTitle: {
     marginBottom: 4,

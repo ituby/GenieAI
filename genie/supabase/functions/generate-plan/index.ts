@@ -438,6 +438,7 @@ const generateTasksWithAI = async (
   category: string;
   subcategory?: string | null;
   marketingDomain?: string | null;
+  deliverables?: any;
 }> => {
   console.log('🤖 Generating AI-powered plan for:', {
     category,
@@ -618,6 +619,41 @@ Your plan should be so exceptional that users will:
 - Feel proud of their journey and results
 
 Create a masterpiece that transforms lives!
+
+📦 DELIVERABLES CONTRACT (MANDATORY):
+In addition to the plan, you MUST produce concrete deliverables tailored to the user's exact request (domain-agnostic). Return them inside a top-level "deliverables" object in the SAME JSON, alongside "days", "milestones", etc.
+
+Rules:
+- Detect the user's intent and domain from the title/description
+- Produce high-quality deliverables that directly satisfy the user's explicit asks
+- Always include the keys below; use empty arrays when a section is not applicable
+- Examples of domains and deliverables (guidance, not mandatory):
+  - film/video: chosen topic, synopsis, character bios, scene ideas, script snippets, filming checklist, assets
+  - language_learning: vocabulary lists, dialogues, practice scripts, resource links
+  - fitness: weekly workout tables, exercise library, form cues
+  - business/startup: lean canvas snapshot, ICP profile, messaging bullets, backlog
+  - career: portfolio outline, project briefs, interview Q&A bank
+  - content_creation: content calendar, post ideas, outlines
+
+Deliverables JSON shape (always include all keys; add domain-specific blocks under "sections"):
+{
+  "deliverables": {
+    "overview": {
+      "chosen_topic": "string",
+      "rationale": "string",
+      "synopsis": "string"
+    },
+    "sections": [
+      {
+        "type": "string", // e.g., "characters", "scenes", "scripts", "checklist", "assets", "resources", or domain-specific
+        "title": "string",
+        "items": [ { "label": "string", "content": "string", "meta": {} } ]
+      }
+    ]
+  }
+}
+
+STRICT: The entire response must still be ONE JSON object containing category/color/icon_name/subcategory/marketing_domain/milestones/days AND deliverables as defined above. The examples are illustrative only; adapt to ANY request.
 `;
 
     const userGoalPrompt = `
@@ -675,9 +711,7 @@ Each task must be (MANDATORY):
 ✅ PROFESSIONAL: Industry-standard quality, tools, and methodologies
 
 DELIVERABLE ALIGNMENT (CRITICAL):
-- If the user asked for scripts: include tasks like "Outline 3-act structure", "Write character list", "Draft scene list", "Write 2 scenes (first draft)", "Polish dialogue".
-- If the user asked for character list: include tasks like "Define 6-8 characters with roles and arcs", "Create bios", "Map relationships".
-- If the user asked for scene ideas/filming: include tasks like "Brainstorm 10 visual scenes", "Create mood board", "Draft shooting schedule", "Location scouting list".
+- Detect the user's explicit asks and ensure the deliverables object includes sections that fulfill them. Do NOT assume a specific domain; adapt the sections and items to the user's request.
 
 EXPERT-LEVEL REQUIREMENTS:
 - Include specific tools, resources, apps, or platforms to use
@@ -697,6 +731,9 @@ TECHNICAL SPECIFICATIONS:
 - Space tasks at least 15 minutes apart for proper focus
 
 Remember: This plan will be the user's roadmap to transformation. Make it so good they'll want to share it with others!
+
+DELIVERABLES MUST EXIST:
+- Ensure the "deliverables" object is present and populated specifically for the user's intent. Include an "overview" and one or more "sections" whose content directly fulfills what they asked for.
 `;
 
     console.log('📡 Sending request to Gemini API...');
@@ -863,6 +900,29 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
           },
         ];
       }
+
+      // Extract deliverables if present and minimally validate shape
+      let deliverables: any = planData.deliverables || {
+        overview: { chosen_topic: '', rationale: '', synopsis: '' },
+        sections: [],
+      };
+
+      // Basic normalization to guarantee keys exist
+      const ensure = (obj: any, key: string, fallback: any) => {
+        if (obj[key] === undefined || obj[key] === null) obj[key] = fallback;
+      };
+      if (typeof deliverables !== 'object' || Array.isArray(deliverables)) {
+        deliverables = {
+          overview: { chosen_topic: '', rationale: '', synopsis: '' },
+          sections: [],
+        };
+      }
+      ensure(deliverables, 'overview', {
+        chosen_topic: '',
+        rationale: '',
+        synopsis: '',
+      });
+      ensure(deliverables, 'sections', []);
 
       // Extract category, icon name, and color from AI response
       // Validate category from AI or fallback with heuristic classifier (then input category)
@@ -1228,6 +1288,7 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
         category: aiCategory,
         subcategory,
         marketingDomain,
+        deliverables,
       };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
@@ -1275,6 +1336,10 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
       category: (category as string) || 'custom',
       subcategory: null,
       marketingDomain: null,
+      deliverables: {
+        overview: { chosen_topic: '', rationale: '', synopsis: '' },
+        sections: [],
+      },
     }; // Default icon/color; include typing fields
   }
 };
@@ -1611,6 +1676,7 @@ serve(async (req) => {
       color,
       milestones,
       category: aiCategory,
+      deliverables,
     } = await generateTasksWithAI(
       category,
       title,
@@ -1887,6 +1953,7 @@ serve(async (req) => {
         color: color,
         category: aiCategory,
         milestones: milestones,
+        deliverables: deliverables,
         message: `Generated ${insertedTasks.length} tasks and ${rewards.length} rewards for your goal`,
       }),
       {

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Button,
   Text,
@@ -102,6 +103,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   });
   const [createdGoalId, setCreatedGoalId] = useState<string | null>(null);
   const [planCategory, setPlanCategory] = useState<string | null>(null);
+  const [planIconName, setPlanIconName] = useState<string | null>(null);
+  const [planColor, setPlanColor] = useState<string | null>(null);
 
   // Publish preference: true = publish with developers (earn points & rewards), false = private (no points/rewards)
   const [publishWithDevelopers, setPublishWithDevelopers] =
@@ -118,6 +121,182 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
     };
   }, [loadingInterval]);
+
+  // Keys for persisting progress
+  const PROGRESS_KEY = 'genie:new-goal-progress';
+
+  const persistProgress = async (data: any) => {
+    try {
+      const payload = JSON.stringify({ ...data, userId: user?.id || null });
+      await AsyncStorage.setItem(PROGRESS_KEY, payload);
+    } catch (e) {
+      // Non-critical
+    }
+  };
+
+  const clearProgress = async () => {
+    try {
+      await AsyncStorage.removeItem(PROGRESS_KEY);
+    } catch {}
+  };
+
+  const restoreProgress = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(PROGRESS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved || saved.userId !== user?.id) return;
+
+      // Restore basic form/progress state
+      if (saved.formData) setFormData(saved.formData);
+      if (saved.createdGoalId) setCreatedGoalId(saved.createdGoalId);
+      if (typeof saved.loadingStep === 'number')
+        setLoadingStep(saved.loadingStep);
+      if (typeof saved.isCreatingPlan === 'boolean')
+        setIsCreatingPlan(saved.isCreatingPlan);
+      if (typeof saved.showPlanPreview === 'boolean')
+        setShowPlanPreview(saved.showPlanPreview);
+      if (saved.planData) setPlanData(saved.planData);
+      if (saved.planCategory) setPlanCategory(saved.planCategory);
+      if (saved.planIconName) setPlanIconName(saved.planIconName);
+      if (saved.planColor) setPlanColor(saved.planColor);
+
+      // If we were in the middle of creation, re-trigger plan generation
+      if (saved.state === 'creating' && saved.createdGoalId && saved.formData) {
+        resumePlanGeneration(saved.createdGoalId, saved.formData);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    restoreProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const resumePlanGeneration = async (
+    goalId: string,
+    savedForm: typeof formData
+  ) => {
+    try {
+      setIsCreatingPlan(true);
+      // Recreate the interval progression
+      const interval = setInterval(() => {
+        setLoadingStep((prev) => (prev >= 15 ? 15 : prev + 1));
+      }, 1500);
+      setLoadingInterval(interval);
+
+      const response = await supabase.functions.invoke('generate-plan', {
+        body: {
+          user_id: user?.id,
+          goal_id: goalId,
+          category: 'custom',
+          title: savedForm.title.trim(),
+          description: savedForm.description.trim(),
+          intensity: savedForm.intensity,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          current_time_iso: new Date().toISOString(),
+          language: 'en',
+          detailed_plan: true,
+        },
+      });
+
+      if (response.error) {
+        setLoadingStep(16);
+        const fallbackMilestones = [
+          {
+            week: 1,
+            title: 'Foundation & Setup',
+            description:
+              'Establishing core habits and building momentum for your journey.',
+            tasks: 21,
+          },
+          {
+            week: 2,
+            title: 'Skill Development',
+            description:
+              'Advancing your skills and deepening your commitment to the goal.',
+            tasks: 21,
+          },
+          {
+            week: 3,
+            title: 'Mastery & Transformation',
+            description:
+              'Achieving mastery and preparing for long-term success.',
+            tasks: 21,
+          },
+        ];
+        setTimeout(() => {
+          const data = {
+            milestones: fallbackMilestones,
+            goalTitle: savedForm.title.trim(),
+            subcategory: null,
+            marketingDomain: null,
+          };
+          setPlanData(data);
+          setIsCreatingPlan(false);
+          setShowPlanPreview(true);
+          persistProgress({
+            state: 'preview',
+            isCreatingPlan: false,
+            showPlanPreview: true,
+            planData: data,
+            createdGoalId: goalId,
+            formData: savedForm,
+            loadingStep: 16,
+            planCategory,
+          });
+        }, 1000);
+      } else {
+        const taskCount = response.data?.tasks?.length || 21;
+        const rewardCount = response.data?.rewards?.length || 0;
+        const iconName = response.data?.icon_name || 'star';
+        const aiColor =
+          (response.data?.color as string | undefined) || undefined;
+        const category = response.data?.category || 'custom';
+        const subcategory = response.data?.subcategory || null;
+        const marketingDomain = response.data?.marketing_domain || null;
+
+        setPlanCategory(category);
+        setPlanIconName(iconName);
+        setPlanColor(aiColor || mapCategoryToColor(category));
+        setLoadingStep(16);
+        const milestones =
+          response.data?.milestones ||
+          generateMilestonesFromPlan(response.data);
+
+        setTimeout(() => {
+          const data = {
+            milestones,
+            goalTitle: savedForm.title.trim(),
+            subcategory,
+            marketingDomain,
+          };
+          setPlanData(data);
+          setIsCreatingPlan(false);
+          setShowPlanPreview(true);
+          persistProgress({
+            state: 'preview',
+            isCreatingPlan: false,
+            showPlanPreview: true,
+            planData: data,
+            createdGoalId: goalId,
+            formData: savedForm,
+            loadingStep: 16,
+            planCategory: category,
+            planIconName: iconName,
+            planColor: aiColor || mapCategoryToColor(category),
+          });
+        }, 1000);
+      }
+    } catch (e) {
+      setIsCreatingPlan(false);
+    } finally {
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+        setLoadingInterval(null);
+      }
+    }
+  };
 
   useEffect(() => {
     // Start gradient animation loop
@@ -187,12 +366,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: 'custom',
-        status: 'active',
+        status: 'paused',
         start_date: new Date().toISOString().split('T')[0],
       });
 
       console.log('✅ Goal created:', goal.id);
       setCreatedGoalId(goal.id);
+
+      // Persist initial progress
+      persistProgress({
+        state: 'creating',
+        isCreatingPlan: true,
+        loadingStep: 1,
+        createdGoalId: goal.id,
+        formData,
+      });
 
       // Then generate AI plan with detailed 21-day roadmap
       try {
@@ -250,12 +438,27 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
+            persistProgress({
+              state: 'preview',
+              isCreatingPlan: false,
+              showPlanPreview: true,
+              planData: {
+                milestones: fallbackMilestones,
+                goalTitle: formData.title.trim(),
+                subcategory: null,
+                marketingDomain: null,
+              },
+              createdGoalId: goal.id,
+              formData,
+              loadingStep: 16,
+            });
           }, 1000);
         } else {
           const taskCount = response.data?.tasks?.length || 21;
           const rewardCount = response.data?.rewards?.length || 0;
           const iconName = response.data?.icon_name || 'star';
-          const color = response.data?.color || 'yellow';
+          const aiColor =
+            (response.data?.color as string | undefined) || undefined;
           const category = response.data?.category || 'custom';
           const subcategory = response.data?.subcategory || null;
           const marketingDomain = response.data?.marketing_domain || null;
@@ -264,29 +467,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             taskCount,
             rewardCount,
             iconName,
-            color,
+            color: aiColor,
           });
           setPlanCategory(category);
-
-          // Update goal with AI-selected icon and color
-          if (iconName && iconName !== 'star') {
-            try {
-              await supabase
-                .from('goals')
-                .update({ icon_name: iconName, color: color })
-                .eq('id', goal.id);
-              console.log(
-                '🎨 Updated goal with icon and color:',
-                iconName,
-                color
-              );
-            } catch (iconError) {
-              console.warn(
-                '⚠️ Failed to update goal icon and color:',
-                iconError
-              );
-            }
-          }
+          setPlanIconName(iconName);
+          setPlanColor(aiColor || mapCategoryToColor(category));
           // Ensure we reach the final step before showing plan preview
           setLoadingStep(16);
 
@@ -304,6 +489,23 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
+            persistProgress({
+              state: 'preview',
+              isCreatingPlan: false,
+              showPlanPreview: true,
+              planData: {
+                milestones,
+                goalTitle: formData.title.trim(),
+                subcategory,
+                marketingDomain,
+              },
+              createdGoalId: goal.id,
+              formData,
+              loadingStep: 16,
+              planCategory: category,
+              planIconName: iconName,
+              planColor: aiColor || mapCategoryToColor(category),
+            });
           }, 1000);
         }
       } catch (planError) {
@@ -345,6 +547,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           });
           setIsCreatingPlan(false);
           setShowPlanPreview(true);
+          persistProgress({
+            state: 'preview',
+            isCreatingPlan: false,
+            showPlanPreview: true,
+            planData: {
+              milestones: fallbackMilestones,
+              goalTitle: formData.title.trim(),
+              subcategory: null,
+              marketingDomain: null,
+            },
+            createdGoalId: goal.id,
+            formData,
+            loadingStep: 16,
+          });
         }, 1000);
       }
     } catch (error: any) {
@@ -359,6 +575,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         clearInterval(loadingInterval);
         setLoadingInterval(null);
       }
+      persistProgress({
+        state: 'idle',
+        isCreatingPlan: false,
+        loadingStep: 1,
+        createdGoalId,
+        formData,
+      });
       setIsCreatingPlan(false);
       setLoadingStep(1);
     }
@@ -481,6 +704,26 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     });
     // If user consented to share and a goal was created, insert shared submission row
     try {
+      // Apply final AI selections to goal and activate it
+      if (createdGoalId) {
+        const finalCategory = (planCategory as any) || 'custom';
+        const finalIcon = planIconName || 'star';
+        const finalColor = planColor || mapCategoryToColor(finalCategory);
+        try {
+          await supabase
+            .from('goals')
+            .update({
+              status: 'active',
+              category: finalCategory,
+              icon_name: finalIcon,
+              color: finalColor,
+            })
+            .eq('id', createdGoalId);
+        } catch (e) {
+          console.warn('Failed to activate goal with AI settings:', e);
+        }
+      }
+
       if (publishWithDevelopers && createdGoalId && user?.id) {
         // Fetch user points for this goal (if exists)
         const { data: pointsRow } = await supabase
@@ -521,6 +764,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     }
 
     setShowSuccessModal(true);
+    // Mark as completed in progress store
+    persistProgress({ state: 'success' });
+  };
+
+  // Category -> color name mapping used when AI doesn't provide a color
+  const mapCategoryToColor = (category: string): string => {
+    const map: Record<string, string> = {
+      lifestyle: 'green',
+      career: 'blue',
+      mindset: 'purple',
+      character: 'pink',
+      custom: 'yellow',
+    };
+    return map[category] || 'yellow';
   };
 
   const handleTryAgain = () => {
@@ -532,11 +789,14 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       intensity: 'easy',
     });
     setErrors({});
+    // Clear persisted progress on try again
+    clearProgress();
   };
 
   const handleStartJourney = () => {
     setShowSuccessModal(false);
     onGoalCreated?.();
+    clearProgress();
   };
 
   return (
