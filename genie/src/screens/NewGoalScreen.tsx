@@ -265,7 +265,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         setPlanIconName(iconName);
         setPlanColor(aiColor || mapCategoryToColor(category));
         setLoadingStep(16);
-        const milestones =
+        // Prefer AI-provided milestones; otherwise derive from days
+        let milestones =
           response.data?.milestones ||
           generateMilestonesFromPlan(response.data);
         const planOutline =
@@ -274,6 +275,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             title: m.title,
             description: m.description,
           }));
+
+        // If we have a 3-item outline, align milestone titles/descriptions to it
+        if (
+          Array.isArray(planOutline) &&
+          planOutline.length >= 3 &&
+          Array.isArray(milestones) &&
+          milestones.length >= 3
+        ) {
+          milestones = milestones.slice(0, 3).map((m: any, idx: number) => ({
+            ...m,
+            title: planOutline[idx]?.title || m.title,
+            description: planOutline[idx]?.description || m.description,
+          }));
+        }
 
         setTimeout(() => {
           const data = {
@@ -495,10 +510,29 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           // Ensure we reach the final step before showing plan preview
           setLoadingStep(16);
 
-          // Use milestones from AI response or generate fallback
-          const milestones =
+          // Use milestones from AI response or derive from days
+          let milestones =
             response.data?.milestones ||
             generateMilestonesFromPlan(response.data);
+          // Build outline and align milestone titles/descriptions if possible
+          const planOutline =
+            response.data?.plan_outline ||
+            milestones.map((m: any) => ({
+              title: m.title,
+              description: m.description,
+            }));
+          if (
+            Array.isArray(planOutline) &&
+            planOutline.length >= 3 &&
+            Array.isArray(milestones) &&
+            milestones.length >= 3
+          ) {
+            milestones = milestones.slice(0, 3).map((m: any, idx: number) => ({
+              ...m,
+              title: planOutline[idx]?.title || m.title,
+              description: planOutline[idx]?.description || m.description,
+            }));
+          }
 
           setTimeout(() => {
             setPlanData({
@@ -506,12 +540,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               goalTitle: formData.title.trim(),
               subcategory,
               marketingDomain,
-              planOutline:
-                response.data?.plan_outline ||
-                milestones.map((m: any) => ({
-                  title: m.title,
-                  description: m.description,
-                })),
+              planOutline,
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
@@ -524,6 +553,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 goalTitle: formData.title.trim(),
                 subcategory,
                 marketingDomain,
+                planOutline,
               },
               createdGoalId: goal.id,
               formData,
@@ -1098,6 +1128,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             visible={showPlanPreview}
             milestones={planData.milestones}
             goalTitle={planData.goalTitle}
+            planOutline={planData.planOutline}
             onApprove={handleApprovePlan}
             onTryAgain={handleTryAgain}
           />

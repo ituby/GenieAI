@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   StyleSheet,
@@ -49,6 +50,13 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
   useEffect(() => {
     fetchSubscriptionData();
   }, []);
+
+  // Refresh when screen gains focus (e.g., returning from plan generation)
+  useFocusEffect(
+    useCallback(() => {
+      fetchSubscriptionData();
+    }, [user?.id])
+  );
 
   const fetchSubscriptionData = async () => {
     try {

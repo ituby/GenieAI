@@ -523,53 +523,15 @@ export const DashboardScreen: React.FC = () => {
 
   const handleGoalCreated = async () => {
     setShowNewGoal(false);
-
-    // Update tokens in database after creating a goal
+    // Tokens are deducted server-side by the Edge Function; just refresh UI
     if (user?.id) {
       try {
-        // Check if user has tokens record
-        const { data: existingTokens } = await supabase
-          .from('user_tokens')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (existingTokens) {
-          // Update existing record atomically; do not decrement for subscribed users
-          const updateData: any = {
-            tokens_used: existingTokens.tokens_used + 1,
-            updated_at: new Date().toISOString(),
-          };
-          if (!existingTokens.is_subscribed) {
-            updateData.tokens_remaining = Math.max(
-              0,
-              (existingTokens.tokens_remaining || 0) - 1
-            );
-          }
-
-          await supabase
-            .from('user_tokens')
-            .update(updateData)
-            .eq('user_id', user.id);
-        } else {
-          // Create new record
-          await supabase.from('user_tokens').insert({
-            user_id: user.id,
-            tokens_used: 1,
-            tokens_remaining: 2,
-            total_tokens: 3,
-            is_subscribed: false,
-          });
-        }
-
-        // Refresh tokens from server to avoid stale UI
         await fetchUserTokens();
-
         fetchGoals(user.id);
         fetchTodaysTasks();
         fetchTotalPoints();
       } catch (error) {
-        console.error('Error updating tokens:', error);
+        console.error('Error refreshing after goal creation:', error);
       }
     }
   };

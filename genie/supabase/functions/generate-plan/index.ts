@@ -422,6 +422,73 @@ function computeRunAtFromHHMM(
   return scheduled.toISOString();
 }
 
+// Build tailored section outline when AI doesn't provide one
+function buildTailoredOutline(
+  title: string,
+  description: string,
+  category: string
+): Array<{ title: string; description: string }> {
+  const shortTitle = (title || '').trim().slice(0, 60);
+  const shortDesc = (description || '').trim().slice(0, 140);
+  const cat = (category || 'custom').toLowerCase();
+  const theme =
+    cat === 'career'
+      ? 'professional growth'
+      : cat === 'mindset'
+        ? 'mental strength'
+        : cat === 'character'
+          ? 'personal excellence'
+          : cat === 'lifestyle'
+            ? 'healthy habits'
+            : 'personal mastery';
+
+  return [
+    {
+      title: `Week 1 • ${shortTitle || 'Foundations'} Foundations`,
+      description:
+        shortDesc ||
+        `Lay the groundwork for ${shortTitle || 'your goal'} with ${theme}, systems, and quick wins.`,
+    },
+    {
+      title: `Week 2 • ${shortTitle || 'Goal'} Development`,
+      description: `Deepen skills and practice through realistic outputs aligned to "${shortTitle || 'your goal'}".`,
+    },
+    {
+      title: `Week 3 • ${shortTitle || 'Goal'} Mastery`,
+      description: `Integrate, optimize, and finalize deliverables. Lock in habits for long-term ${theme}.`,
+    },
+  ];
+}
+
+// Build tailored milestones when AI doesn't provide them
+function buildTailoredMilestones(totalTasks: number, title: string) {
+  const perWeek = Math.max(1, Math.ceil((totalTasks || 63) / 3));
+  const t = (title || 'Your Goal').trim().slice(0, 60);
+  return [
+    {
+      week: 1,
+      title: `Kickoff • ${t} Foundations`,
+      description:
+        'Establish core systems, momentum, and measurement to start strong.',
+      tasks: perWeek,
+    },
+    {
+      week: 2,
+      title: `Build • ${t} Skills & Outputs`,
+      description:
+        'Advance skills with deliberate practice and concrete mid-journey outputs.',
+      tasks: perWeek,
+    },
+    {
+      week: 3,
+      title: `Elevate • ${t} Mastery`,
+      description:
+        'Integrate, optimize, and prepare for sustainable long-term success.',
+      tasks: perWeek,
+    },
+  ];
+}
+
 // AI-powered plan generation with Google Gemini
 const generateTasksWithAI = async (
   category: string,
@@ -881,49 +948,15 @@ DELIVERABLES MUST EXIST:
       let milestones = planData.milestones || [];
       const planOutline = Array.isArray(planData.plan_outline)
         ? planData.plan_outline
-        : [
-            {
-              title: 'Foundation & Setup',
-              description:
-                'Establishing the core foundation and systems tailored to this goal.',
-            },
-            {
-              title: 'Skill Development',
-              description:
-                'Developing skills and producing partial outputs aligned with the request.',
-            },
-            {
-              title: 'Mastery & Transformation',
-              description:
-                'Finalizing deliverables and preparing for long-term success.',
-            },
-          ];
+        : buildTailoredOutline(
+            title,
+            description,
+            planData.category || category
+          );
 
       // If no milestones provided, generate fallback milestones
       if (!milestones || milestones.length === 0) {
-        milestones = [
-          {
-            week: 1,
-            title: 'Foundation & Setup',
-            description:
-              'Establishing core habits and building momentum for your journey.',
-            tasks: Math.ceil(tasks.length / 3),
-          },
-          {
-            week: 2,
-            title: 'Skill Development',
-            description:
-              'Advancing your skills and deepening your commitment to the goal.',
-            tasks: Math.ceil(tasks.length / 3),
-          },
-          {
-            week: 3,
-            title: 'Mastery & Transformation',
-            description:
-              'Achieving mastery and preparing for long-term success.',
-            tasks: Math.ceil(tasks.length / 3),
-          },
-        ];
+        milestones = buildTailoredMilestones(tasks.length, title);
       }
 
       // Extract deliverables if present and minimally validate shape
@@ -961,8 +994,27 @@ DELIVERABLES MUST EXIST:
       const toLower = (v: any) =>
         typeof v === 'string' ? v.toLowerCase() : '';
       const combined = `${toLower(title)} ${toLower(description)}`;
-      const classifyHeuristic = (): (typeof validCategories)[number] => {
+      const classifyHeuristic = (
+        md?: string
+      ): (typeof validCategories)[number] => {
         const hasAny = (arr: string[]) => arr.some((k) => combined.includes(k));
+        const domain = toLower(md || '');
+        // Marketing domain hints
+        if (['wellness', 'lifestyle', 'health'].includes(domain))
+          return 'lifestyle';
+        if (
+          [
+            'career growth',
+            'education',
+            'finance',
+            'business',
+            'productivity',
+          ].includes(domain)
+        )
+          return 'career';
+        if (domain === 'mindset') return 'mindset';
+
+        // Textual heuristics
         if (
           hasAny([
             'sleep',
@@ -975,7 +1027,9 @@ DELIVERABLES MUST EXIST:
             'exercise',
             'habit',
             'morning routine',
-            'read',
+            'wellness',
+            'mediterranean',
+            'yoga',
           ])
         )
           return 'lifestyle';
@@ -994,8 +1048,10 @@ DELIVERABLES MUST EXIST:
             'startup',
             'study',
             'course',
-            'learn ',
+            'learn',
             'skill',
+            'coding',
+            'programming',
           ])
         )
           return 'career';
@@ -1009,6 +1065,7 @@ DELIVERABLES MUST EXIST:
             'stress',
             'gratitude',
             'journal',
+            'discipline of mind',
           ])
         )
           return 'mindset';
@@ -1032,7 +1089,7 @@ DELIVERABLES MUST EXIST:
       if (validCategories.includes(aiRaw as any)) {
         aiCategory = aiRaw as (typeof validCategories)[number];
       } else {
-        const guessed = classifyHeuristic();
+        const guessed = classifyHeuristic(planData.marketing_domain);
         aiCategory =
           guessed !== 'custom'
             ? guessed
@@ -1332,40 +1389,112 @@ DELIVERABLES MUST EXIST:
       description,
       intensity
     );
-    const fallbackMilestones = [
-      {
-        week: 1,
-        title: 'Foundation & Setup',
-        description:
-          'Establishing core habits and building momentum for your journey.',
-        tasks: Math.ceil(fallbackTasks.length / 3),
-      },
-      {
-        week: 2,
-        title: 'Skill Development',
-        description:
-          'Advancing your skills and deepening your commitment to the goal.',
-        tasks: Math.ceil(fallbackTasks.length / 3),
-      },
-      {
-        week: 3,
-        title: 'Mastery & Transformation',
-        description: 'Achieving mastery and preparing for long-term success.',
-        tasks: Math.ceil(fallbackTasks.length / 3),
-      },
-    ];
+    const fallbackMilestones = buildTailoredMilestones(
+      fallbackTasks.length,
+      title
+    );
+    const fallbackOutline = buildTailoredOutline(title, description, category);
+
+    // Heuristic classification and icon/color mapping on failure
+    const combined = `${(title || '').toLowerCase()} ${(description || '').toLowerCase()}`;
+    const hasAny = (arr: string[]) => arr.some((k) => combined.includes(k));
+    let aiCategory:
+      | 'lifestyle'
+      | 'career'
+      | 'mindset'
+      | 'character'
+      | 'custom' = 'custom';
+    if (
+      hasAny([
+        'sleep',
+        'diet',
+        'nutrition',
+        'health',
+        'fitness',
+        'workout',
+        'run',
+        'exercise',
+        'habit',
+        'morning routine',
+        'read',
+      ])
+    ) {
+      aiCategory = 'lifestyle';
+    } else if (
+      hasAny([
+        'career',
+        'job',
+        'promotion',
+        'interview',
+        'cv',
+        'portfolio',
+        'money',
+        'finance',
+        'budget',
+        'business',
+        'startup',
+        'study',
+        'course',
+        'learn ',
+        'skill',
+      ])
+    ) {
+      aiCategory = 'career';
+    } else if (
+      hasAny([
+        'mindset',
+        'meditat',
+        'focus',
+        'confidence',
+        'anxiety',
+        'stress',
+        'gratitude',
+        'journal',
+      ])
+    ) {
+      aiCategory = 'mindset';
+    } else if (
+      hasAny([
+        'character',
+        'discipline',
+        'volunteer',
+        'kindness',
+        'patience',
+        'consistency',
+        'integrity',
+      ])
+    ) {
+      aiCategory = 'character';
+    }
+
+    const categoryColorMap: Record<typeof aiCategory, string> = {
+      lifestyle: 'green',
+      career: 'blue',
+      mindset: 'purple',
+      character: 'pink',
+      custom: 'yellow',
+    } as const;
+    const defaultIconForCategory: Record<typeof aiCategory, string> = {
+      lifestyle: 'heart',
+      career: 'briefcase',
+      mindset: 'brain',
+      character: 'star',
+      custom: 'target',
+    } as const;
+
     return {
       tasks: fallbackTasks,
-      iconName: 'star',
-      color: 'yellow',
+      iconName: defaultIconForCategory[aiCategory],
+      color: categoryColorMap[aiCategory],
       milestones: fallbackMilestones,
-      category: (category as string) || 'custom',
+      category: aiCategory,
       subcategory: null,
       marketingDomain: null,
       deliverables: {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },
         sections: [],
       },
+      planOutline: fallbackOutline,
     }; // Default icon/color; include typing fields
   }
 };
@@ -1695,6 +1824,43 @@ serve(async (req) => {
       detailed_plan,
     });
 
+    // Deduct a token server-side (source of truth)
+    try {
+      const { data: tokenRow } = await supabaseClient
+        .from('user_tokens')
+        .select('*')
+        .eq('user_id', user_id)
+        .single();
+
+      if (tokenRow) {
+        const currentRemaining = Number(tokenRow.tokens_remaining || 0);
+        const shouldDecrement = currentRemaining > 0; // consume manual tokens if present
+        const updateData: any = {
+          tokens_used: (tokenRow.tokens_used || 0) + 1,
+          updated_at: new Date().toISOString(),
+        };
+        if (shouldDecrement) {
+          updateData.tokens_remaining = Math.max(0, currentRemaining - 1);
+        }
+        await supabaseClient
+          .from('user_tokens')
+          .update(updateData)
+          .eq('user_id', user_id);
+      } else {
+        await supabaseClient.from('user_tokens').insert({
+          user_id,
+          tokens_used: 1,
+          tokens_remaining: 2,
+          total_tokens: 3,
+          is_subscribed: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (tokErr) {
+      console.warn('⚠️ Token deduction skipped:', tokErr);
+    }
+
     // Generate tasks using AI (with template fallback)
     const {
       tasks: taskTemplates,
@@ -1703,6 +1869,7 @@ serve(async (req) => {
       milestones,
       category: aiCategory,
       deliverables,
+      planOutline,
     } = await generateTasksWithAI(
       category,
       title,
