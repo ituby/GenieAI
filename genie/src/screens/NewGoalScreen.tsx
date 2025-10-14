@@ -97,6 +97,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       tasks: number;
     }>,
     goalTitle: '',
+    subcategory: null as string | null,
+    marketingDomain: null as string | null,
   });
   const [createdGoalId, setCreatedGoalId] = useState<string | null>(null);
   const [planCategory, setPlanCategory] = useState<string | null>(null);
@@ -243,6 +245,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             setPlanData({
               milestones: fallbackMilestones,
               goalTitle: formData.title.trim(),
+              subcategory: null,
+              marketingDomain: null,
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
@@ -253,6 +257,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           const iconName = response.data?.icon_name || 'star';
           const color = response.data?.color || 'yellow';
           const category = response.data?.category || 'custom';
+          const subcategory = response.data?.subcategory || null;
+          const marketingDomain = response.data?.marketing_domain || null;
 
           console.log('✅ AI Plan generated:', {
             taskCount,
@@ -293,6 +299,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             setPlanData({
               milestones,
               goalTitle: formData.title.trim(),
+              subcategory,
+              marketingDomain,
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
@@ -332,6 +340,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           setPlanData({
             milestones: fallbackMilestones,
             goalTitle: formData.title.trim(),
+            subcategory: null,
+            marketingDomain: null,
           });
           setIsCreatingPlan(false);
           setShowPlanPreview(true);
@@ -489,8 +499,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           intensity: formData.intensity,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           category: (planCategory as any) || 'custom',
-          subcategory: null,
-          marketing_domain: null,
+          subcategory: planData.subcategory,
+          marketing_domain: planData.marketingDomain,
           plan_milestones: planData.milestones,
           tasks_generated: planData.milestones.reduce(
             (sum, m) => sum + (m.tasks || 0),

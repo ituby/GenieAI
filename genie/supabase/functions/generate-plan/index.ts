@@ -436,6 +436,8 @@ const generateTasksWithAI = async (
   color: string;
   milestones: any[];
   category: string;
+  subcategory?: string | null;
+  marketingDomain?: string | null;
 }> => {
   console.log('🤖 Generating AI-powered plan for:', {
     category,
@@ -531,6 +533,13 @@ COLOR SELECTION (category -> color mapping):
 - character: "pink"
 - custom: "yellow"
 
+SUBCATEGORY (REQUIRED):
+- Provide a short, concrete subcategory for the goal (e.g., career: "screenwriting", "frontend", "personal finance"; lifestyle: "sleep", "running").
+- Keep it 1-3 words, lowercase.
+
+MARKETING DOMAIN (REQUIRED):
+- Provide a concise marketing domain label the goal best fits: one of ["content creation", "productivity", "wellness", "education", "finance", "creative arts", "career growth", "mindset", "lifestyle", "health", "business"]. If none fit exactly, choose the closest.
+
 Context for day 1 timing (use these EXACTLY to compute user's local time and apply the 20:00 cut-off):
 - current_time_iso: ${currentTimeIso || ''}
 - timezone: ${timezone || ''}
@@ -542,6 +551,8 @@ Return ONLY valid JSON in this exact format:
   "category": "one-of:lifestyle|career|mindset|character|custom", // required
   "color": "mapped-color", // required: must match the category->color mapping above
   "icon_name": "chosen-icon-name", // MUST be a valid Phosphor React Native icon name in kebab-case
+  "subcategory": "short-subcategory",
+  "marketing_domain": "one-of:content creation|productivity|wellness|education|finance|creative arts|career growth|mindset|lifestyle|health|business",
   "milestones": [
     {
       "week": 1,
@@ -1202,7 +1213,22 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
         `🎨 AI selected icon: ${iconName}, category: ${aiCategory}, color: ${color}`
       );
 
-      return { tasks, iconName, color, milestones, category: aiCategory };
+      const subcategory: string | null =
+        typeof planData.subcategory === 'string' ? planData.subcategory : null;
+      const marketingDomain: string | null =
+        typeof planData.marketing_domain === 'string'
+          ? planData.marketing_domain
+          : null;
+
+      return {
+        tasks,
+        iconName,
+        color,
+        milestones,
+        category: aiCategory,
+        subcategory,
+        marketingDomain,
+      };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
       console.error('Raw text:', cleanedText);
@@ -1246,7 +1272,10 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
       iconName: 'star',
       color: 'yellow',
       milestones: fallbackMilestones,
-    }; // Default icon and color for fallback
+      category: (category as string) || 'custom',
+      subcategory: null,
+      marketingDomain: null,
+    }; // Default icon/color; include typing fields
   }
 };
 
@@ -1597,7 +1626,7 @@ serve(async (req) => {
 
     // Create scheduled tasks using the new computeRunAt function
     const startDate = start_date ? new Date(start_date) : new Date();
-    const tasksToInsert = [];
+    const tasksToInsert: any[] = [];
     const usedTimeSlots = new Map<string, Set<string>>(); // day -> Set of time slots
 
     for (const template of taskTemplates) {
