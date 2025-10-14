@@ -1126,38 +1126,29 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                       Share with developers
                     </Text>
                     <Text variant="caption" color="secondary" style={styles.stepDescription}>
-                      Help improve Genie by sharing your goal (anonymously) with the development team.
+                      Help us improve and promote Genie. Published goals earn points
+                      and unlock rewards & perks. Private goals do not participate
+                      in points and rewards.
                     </Text>
                   </View>
                 </Card>
 
                 {/* Publish preference */}
-                <Card style={styles.publishCard}>
-                  <View style={styles.publishContent}>
-                    <View style={styles.publishHeader}>
-                      <Icon
-                        name="users"
-                        size={20}
-                        color="#FFFF68"
-                        weight="fill"
-                      />
-                      <Text variant="h4" color="primary" style={styles.publishTitle}>
-                        Share with developers
-                      </Text>
-                    </View>
-                    <Text variant="body" color="secondary" style={styles.publishDescription}>
-                      Help improve Genie by sharing your goal (anonymously) with our development team. 
-                      You'll earn bonus points and rewards for contributing to the community!
-                    </Text>
+                <Card variant="default" padding="md" style={{ marginTop: 8 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text variant="h4">Enable sharing</Text>
                     <Switch
                       value={publishWithDevelopers}
                       onValueChange={setPublishWithDevelopers}
                       trackColor={{ false: 'rgba(255, 255, 255, 0.2)', true: '#FFFF68' }}
                       thumbColor={publishWithDevelopers ? '#000000' : '#FFFFFF'}
                     />
-                    <Text variant="caption" color="secondary" style={styles.publishNote}>
-                      Your personal information stays private. Only the goal content is shared with developers.
-                    </Text>
                   </View>
                 </Card>
               </View>
@@ -1484,22 +1475,81 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
             {/* Navigation Buttons */}
             <View style={styles.navigationButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.navButton,
-                  styles.navButtonPrimary,
-                  !canProceedToNextStep() && styles.navButtonDisabled,
-                  styles.centeredButton,
-                ]}
-                onPress={currentStep < 2 ? nextStep : handleSubmit}
-                disabled={!canProceedToNextStep() || (currentStep === 2 && loading)}
-                activeOpacity={0.8}
-              >
-                <Text variant="body" color="primary" style={[styles.navButtonText, styles.navButtonTextBlack, { textAlign: 'center' }]}>
-                  {currentStep < 2 ? 'Continue' : 'Send to Genie'}
-                </Text>
-                <Icon name={currentStep < 2 ? "arrow-right" : "rocket"} size={20} color="#000000" weight="bold" />
-              </TouchableOpacity>
+              {currentStep < 2 ? (
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    styles.navButtonPrimary,
+                    !canProceedToNextStep() && styles.navButtonDisabled,
+                    styles.centeredButton,
+                  ]}
+                  onPress={nextStep}
+                  disabled={!canProceedToNextStep()}
+                  activeOpacity={0.8}
+                >
+                  <Text variant="body" color="primary" style={[styles.navButtonText, styles.navButtonTextBlack, { textAlign: 'center' }]}>
+                    Continue
+                  </Text>
+                  <Icon name="arrow-right" size={20} color="#000000" weight="bold" />
+                </TouchableOpacity>
+              ) : (
+                <Animated.View
+                  style={[
+                    styles.createButton,
+                    {
+                      transform: [
+                        {
+                          scale: gradientAnimation.interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: [1, 1.02, 1],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    disabled={loading || isCreatingPlan}
+                    onPress={handleSubmit}
+                    activeOpacity={0.8}
+                    style={styles.createButtonTouchable}
+                  >
+                    <AnimatedLinearGradient
+                      colors={[
+                        gradientAnimation.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: ['#FFFF68', '#FFFFFF', '#FFFF68'],
+                        }),
+                        gradientAnimation.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: ['#FFFFFF', '#FFFF68', '#FFFFFF'],
+                        }),
+                      ]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.createButtonGradient}
+                    >
+                      <View style={styles.createButtonContent}>
+                        <Text style={styles.createButtonText}>
+                          {isCreatingPlan
+                            ? 'Genie is Creating Your Plan...'
+                            : 'Send to Genie'}
+                        </Text>
+                        {loading || isCreatingPlan ? (
+                          <ActivityIndicator size="small" color="#000000" />
+                        ) : (
+                          <Icon
+                            name="sparkle"
+                            size={20}
+                            color="#000000"
+                            weight="fill"
+                          />
+                        )}
+                      </View>
+                    </AnimatedLinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
               
               {currentStep > 1 && (
                 <TouchableOpacity
@@ -1992,11 +2042,11 @@ const styles = StyleSheet.create({
   },
   stepNumberCircle: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 12,
+    left: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#FFFF68',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2005,7 +2055,7 @@ const styles = StyleSheet.create({
   stepNumberText: {
     color: '#000000',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 12,
   },
   stepCardContent: {
     flex: 1,
@@ -2013,32 +2063,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 20,
   },
-  // Publish card styles
-  publishCard: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  // Create Button Styles (for Send to Genie)
+  createButton: {
     borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    marginTop: 8,
+    width: '100%',
+    overflow: 'hidden',
   },
-  publishContent: {
-    gap: 12,
+  createButtonTouchable: {
+    width: '100%',
   },
-  publishHeader: {
+  createButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
-  publishTitle: {
-    fontWeight: '600',
-  },
-  publishDescription: {
-    lineHeight: 20,
-  },
-  publishNote: {
-    lineHeight: 16,
-    fontStyle: 'italic',
+  createButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   // Advanced Settings Button
   advancedSettingsContainer: {
