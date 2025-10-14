@@ -171,6 +171,33 @@ serve(async (req) => {
       );
     }
 
+    // Sync shared_goal_submissions aggregate fields if a shared row exists for this goal
+    try {
+      // Compute adherence score: simple ratio of completed tasks to total tasks (0-100)
+      const { data: totalTasks, error: totalTasksError } = await supabaseClient
+        .from('goal_tasks')
+        .select('id, completed')
+        .eq('goal_id', goal_id);
+
+      if (!totalTasksError && totalTasks) {
+        const completedCount = totalTasks.filter(
+          (t: any) => t.completed
+        ).length;
+        const adherence =
+          totalTasks.length > 0
+            ? Math.round((completedCount / totalTasks.length) * 100)
+            : 0;
+
+        await supabaseClient
+          .from('shared_goal_submissions')
+          .update({ points_earned: newPoints, adherence_score: adherence })
+          .eq('goal_id', goal_id)
+          .eq('user_id', user_id);
+      }
+    } catch (syncErr) {
+      console.error('Error syncing shared submission aggregates:', syncErr);
+    }
+
     // Insert points history
     const { error: historyError } = await supabaseClient
       .from('points_history')

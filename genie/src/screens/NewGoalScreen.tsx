@@ -31,6 +31,7 @@ import { useGoalStore } from '../store/useGoalStore';
 import { GOAL_CATEGORIES } from '../config/constants';
 import { GoalCategory } from '../types/goal';
 import { supabase } from '../services/supabase/client';
+import { Switch } from '../components/primitives/Switch';
 
 interface NewGoalScreenProps {
   onGoalCreated?: () => void;
@@ -97,6 +98,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     }>,
     goalTitle: '',
   });
+  const [createdGoalId, setCreatedGoalId] = useState<string | null>(null);
+  const [planCategory, setPlanCategory] = useState<string | null>(null);
+
+  // Publish preference: true = publish with developers (earn points & rewards), false = private (no points/rewards)
+  const [publishWithDevelopers, setPublishWithDevelopers] =
+    useState<boolean>(true);
 
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
@@ -183,6 +190,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       });
 
       console.log('✅ Goal created:', goal.id);
+      setCreatedGoalId(goal.id);
 
       // Then generate AI plan with detailed 21-day roadmap
       try {
@@ -244,6 +252,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           const rewardCount = response.data?.rewards?.length || 0;
           const iconName = response.data?.icon_name || 'star';
           const color = response.data?.color || 'yellow';
+          const category = response.data?.category || 'custom';
 
           console.log('✅ AI Plan generated:', {
             taskCount,
@@ -251,6 +260,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             iconName,
             color,
           });
+          setPlanCategory(category);
 
           // Update goal with AI-selected icon and color
           if (iconName && iconName !== 'star') {
@@ -374,13 +384,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     setFormData((prev) => ({ ...prev, intensity }));
   };
 
-  const generateMilestonesFromPlan = (planData: any) => {
+  type Milestone = {
+    week: number;
+    title: string;
+    description: string;
+    tasks: number;
+  };
+  const generateMilestonesFromPlan = (planData: any): Milestone[] => {
     // Extract milestones from the plan data
-    const milestones = [];
+    const milestones: Milestone[] = [];
 
     if (planData?.days) {
       // Group days by week
-      const weeks = {};
+      const weeks: Record<number, Milestone> = {} as any;
       planData.days.forEach((day: any) => {
         const weekNumber = Math.ceil(day.day / 7);
         if (!weeks[weekNumber]) {
@@ -395,7 +411,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       });
 
       // Convert to array and add descriptions
-      Object.values(weeks).forEach((week: any) => {
+      Object.values(weeks).forEach((week) => {
         if (week.week === 1) {
           week.title = 'Foundation & Setup';
           week.description =
@@ -442,7 +458,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     return milestones;
   };
 
-  const handleApprovePlan = () => {
+  const handleApprovePlan = async () => {
     setShowPlanPreview(false);
     setSuccessData({
       taskCount: planData.milestones.reduce(
@@ -453,6 +469,47 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       iconName: 'star',
       color: 'yellow',
     });
+    // If user consented to share and a goal was created, insert shared submission row
+    try {
+      if (publishWithDevelopers && createdGoalId && user?.id) {
+        // Fetch user points for this goal (if exists)
+        const { data: pointsRow } = await supabase
+          .from('user_points')
+          .select('points')
+          .eq('user_id', user.id)
+          .eq('goal_id', createdGoalId)
+          .single();
+
+        // Insert shared submission
+        await supabase.from('shared_goal_submissions').insert({
+          user_id: user.id,
+          goal_id: createdGoalId,
+          request_title: formData.title.trim(),
+          request_description: formData.description.trim(),
+          intensity: formData.intensity,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          category: (planCategory as any) || 'custom',
+          subcategory: null,
+          marketing_domain: null,
+          plan_milestones: planData.milestones,
+          tasks_generated: planData.milestones.reduce(
+            (sum, m) => sum + (m.tasks || 0),
+            0
+          ),
+          program_start_at: new Date().toISOString(),
+          program_end_at: null,
+          points_earned: pointsRow?.points || 0,
+          adherence_score: 0,
+          status: 'active',
+          publish_with_developers: true,
+          consent_version: 'v1',
+          notes: null,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to insert shared submission:', e);
+    }
+
     setShowSuccessModal(true);
   };
 
@@ -540,6 +597,30 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               inputStyle={styles.rightAlignedInput}
               placeholderTextColor="rgba(255, 255, 255, 0.3)"
             />
+
+            {/* Publish preference */}
+            <Card variant="default" padding="md" style={{ marginTop: 8 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text variant="h4">Share with developers</Text>
+                <Switch
+                  value={publishWithDevelopers}
+                  onValueChange={setPublishWithDevelopers}
+                />
+              </View>
+              <View style={{ marginTop: 8 }}>
+                <Text variant="caption" color="secondary">
+                  Help us improve and promote Genie. Published goals earn points
+                  and unlock rewards & perks. Private goals do not participate
+                  in points and rewards.
+                </Text>
+              </View>
+            </Card>
 
             {/* Intensity Level Selection */}
             <View style={styles.intensitySection}>
