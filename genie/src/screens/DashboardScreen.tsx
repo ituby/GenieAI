@@ -2391,7 +2391,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 300,
     backgroundColor: 'rgba(0, 0, 0, 0.85)', // Subtle black with transparency
-    paddingTop: 100, // Safe area padding
+    paddingTop: 60, // Reduced safe area padding
     paddingHorizontal: 24,
     paddingVertical: 24,
     borderLeftWidth: 1,
@@ -2402,7 +2402,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 8,
     paddingBottom: 20,
   },
   sideMenuProfileImage: {
@@ -2471,6 +2471,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     alignItems: 'flex-start',
+    paddingLeft: 24, // align with side menu horizontal padding
   },
   sideMenuFooterText: {
     color: 'rgba(255, 255, 255, 0.5)',
