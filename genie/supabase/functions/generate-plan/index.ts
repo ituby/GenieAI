@@ -18,6 +18,7 @@ interface GeneratePlanRequest {
   start_date?: string;
   language?: string;
   detailed_plan?: boolean;
+  preview_only?: boolean;
 }
 
 interface TaskTemplate {

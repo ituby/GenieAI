@@ -170,7 +170,10 @@ export const useGoalStore = create<GoalState>((set, get) => ({
   deleteGoal: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      // First, delete the goal (this will cascade delete related data)
+      // Delete goal tasks explicitly to avoid orphaned tasks in dashboards
+      await supabase.from('goal_tasks').delete().eq('goal_id', id);
+
+      // Then delete the goal
       const { error } = await supabase.from('goals').delete().eq('id', id);
 
       if (error) throw error;
