@@ -14,11 +14,15 @@ interface GeneratePlanRequest {
   title: string;
   description: string;
   intensity?: 'easy' | 'medium' | 'hard';
-  timezone: string;
+  timezone: string; // Legacy field - kept for backward compatibility
   start_date?: string;
   language?: string;
   detailed_plan?: boolean;
   preview_only?: boolean;
+  // New device timezone fields
+  device_now_iso: string; // Current device time in ISO format with offset
+  device_timezone: string; // IANA timezone (e.g., Asia/Jerusalem)
+  device_utc_offset_minutes?: number; // UTC offset in minutes (optional for debugging)
 }
 
 interface TaskTemplate {
@@ -288,328 +292,107 @@ const generateRewards = async (
   return insertedRewards;
 };
 
-// Helper function to compute run_at time from time-of-day labels
-function computeRunAt(
+// Device timezone-aware timing function with strict 07:00-23:00 window
+function computeRunAtDeviceAware(
   dayNumber: number,
-  timeLabel: string,
-  currentTimeIso?: string,
-  timezone?: string
-): string {
-  // Use provided current time or fallback to now
-  const now = currentTimeIso ? new Date(currentTimeIso) : new Date();
-
-  // Convert to user's timezone if provided
-  let userTime = now;
-  if (timezone) {
-    try {
-      // Create a date in the user's timezone
-      const userDate = new Date(
-        now.toLocaleString('en-US', { timeZone: timezone })
-      );
-      userTime = userDate;
-    } catch (e) {
-      console.warn('Invalid timezone provided, using server time:', e);
-      userTime = now;
-    }
-  }
-
-  const currentHour = userTime.getHours();
-  const currentMinute = userTime.getMinutes();
-
-  // Define time slots and their hours
+  timeOfDay: 'morning' | 'mid_morning' | 'afternoon' | 'evening',
+  deviceNowIso: string,
+  deviceTimezone: string,
+  startDate?: string
+): { runAt: string; localRunAt: string; startDecision: 'today' | 'tomorrow' } {
+  const deviceNow = new Date(deviceNowIso);
+  
+  // Define standard time slots (device local time)
   const timeSlots = {
-    Morning: 8,
-    'Mid-Morning': 10,
-    Afternoon: 14,
-    'Mid-Afternoon': 16,
-    Evening: 20,
-    Night: 22,
+    morning: 8,
+    mid_morning: 10,
+    afternoon: 14,
+    evening: 20,
   };
 
-  let targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
-  let startDay = 0; // Start from today
+  const targetHour = timeSlots[timeOfDay] || 8;
+  
+  // Calculate target date in device timezone
+  const targetDate = new Date(deviceNow);
+  if (startDate) {
+    // Use provided start date
+    const start = new Date(startDate);
+    targetDate.setFullYear(start.getFullYear(), start.getMonth(), start.getDate());
+  }
+  targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
+  targetDate.setHours(targetHour, 0, 0, 0);
 
-  // For the first day (dayNumber === 1), calculate smart timing based on user's current time
+  let startDecision: 'today' | 'tomorrow' = 'today';
+  let finalLocalTime = targetDate;
+
+  // For day 1, apply deterministic start decision
   if (dayNumber === 1) {
-    const standardHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
-
-    // Smart scheduling logic based on time of day
-    if (currentHour >= 22) {
-      // After 22:00 - too late, start tomorrow
-      startDay = 1;
-      targetHour = standardHour;
-    } else if (currentHour >= 20) {
-      // 20:00-21:59 - only schedule evening tasks (20:00+)
-      if (standardHour >= 20) {
-        startDay = 0; // Start today
-        targetHour = standardHour;
-      } else {
-        startDay = 1; // Move to tomorrow
-        targetHour = standardHour;
-      }
-    } else if (currentHour >= 17) {
-      // 17:00-19:59 - can fit afternoon + evening tasks
-      if (standardHour >= 17) {
-        startDay = 0; // Start today
-        targetHour = standardHour;
-      } else {
-        startDay = 1; // Move morning tasks to tomorrow
-        targetHour = standardHour;
-      }
-    } else if (currentHour >= 15) {
-      // 15:00-16:59 - can fit afternoon + evening tasks
-      if (standardHour >= 15) {
-        startDay = 0; // Start today
-        targetHour = standardHour;
-      } else {
-        startDay = 1; // Move morning tasks to tomorrow
-        targetHour = standardHour;
-      }
+    const currentHour = deviceNow.getHours();
+    const currentMinute = deviceNow.getMinutes();
+    
+    // Check if there's any legal slot remaining today (07:00-23:00)
+    const hasLegalSlotToday = currentHour < 23 || (currentHour === 23 && currentMinute === 0);
+    
+    if (!hasLegalSlotToday) {
+      // No legal slots today, start tomorrow at 07:00
+      startDecision = 'tomorrow';
+      finalLocalTime = new Date(deviceNow);
+      finalLocalTime.setDate(finalLocalTime.getDate() + 1);
+      finalLocalTime.setHours(7, 0, 0, 0);
     } else {
-      // Before 15:00 - full day available
-      startDay = 0; // Start today
-      targetHour = standardHour;
-    }
-
-    // If we're starting today and the time has passed, apply smart compression
-    if (startDay === 0 && currentHour >= targetHour) {
-      // Apply compression based on time of day
-      let compressionMinutes = 15; // Default
-
-      if (currentHour >= 20) {
-        compressionMinutes = 30; // Evening compression
-      } else if (currentHour >= 17) {
-        compressionMinutes = 20; // Late afternoon compression
-      } else if (currentHour >= 15) {
-        compressionMinutes = 15; // Afternoon compression
-      } else if (currentHour >= 12) {
-        compressionMinutes = 10; // Midday compression
+      // Has legal slots today
+      if (targetDate <= deviceNow) {
+        // Target time has passed, find next available slot
+        const nextSlot = new Date(deviceNow);
+        nextSlot.setMinutes(nextSlot.getMinutes() + 15); // 15 minutes from now
+        nextSlot.setSeconds(0, 0);
+        
+        // Clamp to 23:00 maximum
+        if (nextSlot.getHours() >= 23) {
+          // Move to tomorrow at 07:00
+          startDecision = 'tomorrow';
+          finalLocalTime = new Date(deviceNow);
+          finalLocalTime.setDate(finalLocalTime.getDate() + 1);
+          finalLocalTime.setHours(7, 0, 0, 0);
+        } else {
+          finalLocalTime = nextSlot;
+        }
       } else {
-        compressionMinutes = 5; // Morning - minimal compression
+        // Target time is in the future, use it
+        finalLocalTime = targetDate;
       }
-
-      // Schedule for current time + compression interval
-      const compressedTime = new Date(
-        userTime.getTime() + compressionMinutes * 60 * 1000
-      );
-      targetHour = compressedTime.getHours();
-      const targetMinutes = compressedTime.getMinutes();
-
-      const base = new Date(userTime);
-      base.setHours(targetHour, targetMinutes, 0, 0);
-      return base.toISOString();
     }
   } else {
-    // For subsequent days (dayNumber > 1), always schedule for future days
-    // Don't schedule tasks for today if they're not day 1
-    startDay = dayNumber - 1; // dayNumber 2 = tomorrow, dayNumber 3 = day after tomorrow, etc.
-
-    // Reset to standard time slots for future days
-    targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
+    // For days 2+, always schedule in the future
+    finalLocalTime = targetDate;
   }
 
-  const base = new Date(userTime);
-  base.setDate(base.getDate() + startDay);
-  base.setHours(targetHour, 0, 0, 0);
+  // Clamp to 07:00-23:00 window (device local time)
+  const clampedHour = Math.max(7, Math.min(23, finalLocalTime.getHours()));
+  finalLocalTime.setHours(clampedHour, finalLocalTime.getMinutes(), 0, 0);
 
-  return base.toISOString();
+  // Convert to UTC for database storage
+  const runAtUtc = finalLocalTime.toISOString();
+  
+  // Keep local time for UI display
+  const localRunAt = finalLocalTime.toISOString();
+
+  return {
+    runAt: runAtUtc,
+    localRunAt: localRunAt,
+    startDecision: startDecision
+  };
 }
 
-// Parse "HH:MM" and clamp into the 07:00-23:00 window
-function computeRunAtFromHHMM(
-  dayNumber: number,
-  hhmm: string,
-  currentTimeIso?: string,
-  timezone?: string
-): string {
-  const now = currentTimeIso ? new Date(currentTimeIso) : new Date();
-
-  // Convert to user's timezone if provided
-  let userTime = now;
-  if (timezone) {
-    try {
-      const userDate = new Date(
-        now.toLocaleString('en-US', { timeZone: timezone })
-      );
-      userTime = userDate;
-    } catch (e) {
-      console.warn('Invalid timezone provided, using server time:', e);
-      userTime = now;
-    }
-  }
-  const [hStr, mStr] = hhmm.split(':');
-  let hours = parseInt(hStr, 10);
-  let minutes = parseInt(mStr || '0', 10);
-
-  // Enforce 07:00-23:00 window strictly
-  hours = Math.max(7, Math.min(23, hours));
-  minutes = Math.max(0, Math.min(59, minutes));
-
-  // If hours is 23, set minutes to 0 to stay within window
-  if (hours === 23) {
-    minutes = 0;
-  }
-
-  const scheduled = new Date(userTime);
-  // dayNumber is 1-based; schedule for today + (dayNumber-1)
-  scheduled.setDate(scheduled.getDate() + (dayNumber - 1));
-  scheduled.setHours(hours, minutes, 0, 0);
-
-  // For day 1: smart scheduling based on current time
-  if (dayNumber === 1) {
-    const currentHour = userTime.getHours();
-    const currentMinute = userTime.getMinutes();
-    const currentTime = currentHour * 60 + currentMinute; // Convert to minutes for easier comparison
-
-    // Smart scheduling logic based on time of day
-    if (currentHour >= 22) {
-      // After 22:00 - too late, schedule for tomorrow
-      console.log(
-        `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, too late to start today. Scheduling for tomorrow.`
-      );
-      const tomorrow = new Date(userTime);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(hours, minutes, 0, 0);
-      return tomorrow.toISOString();
-    } else if (currentHour >= 20) {
-      // 20:00-21:59 - only schedule evening tasks (20:00-23:00)
-      if (hours >= 20) {
-        console.log(
-          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling evening tasks only.`
-        );
-        // Keep the original time if it's evening
-      } else {
-        // Move non-evening tasks to tomorrow
-        console.log(
-          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, moving non-evening task to tomorrow.`
-        );
-        const tomorrow = new Date(userTime);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(hours, minutes, 0, 0);
-        return tomorrow.toISOString();
-      }
-    } else if (currentHour >= 17) {
-      // 17:00-19:59 - can fit afternoon + evening tasks
-      if (hours >= 17) {
-        console.log(
-          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling afternoon/evening tasks.`
-        );
-        // Keep the original time if it's afternoon/evening
-      } else {
-        // Move morning tasks to tomorrow
-        console.log(
-          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, moving morning task to tomorrow.`
-        );
-        const tomorrow = new Date(userTime);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(hours, minutes, 0, 0);
-        return tomorrow.toISOString();
-      }
-    } else if (currentHour >= 15) {
-      // 15:00-16:59 - can fit afternoon + evening tasks, compress if needed
-      if (hours >= 15) {
-        console.log(
-          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling afternoon/evening tasks.`
-        );
-        // Keep the original time if it's afternoon/evening
-      } else {
-        // Move morning tasks to tomorrow
-        console.log(
-          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, moving morning task to tomorrow.`
-        );
-        const tomorrow = new Date(userTime);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(hours, minutes, 0, 0);
-        return tomorrow.toISOString();
-      }
-    } else if (currentHour >= 12) {
-      // 12:00-14:59 - can fit most tasks, compress if needed
-      console.log(
-        `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling tasks with compression if needed.`
-      );
-      // Keep original time, but will be adjusted if in the past
-    } else {
-      // Before 12:00 - full day available
-      console.log(
-        `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, full day available.`
-      );
-      // Keep original time, but will be adjusted if in the past
-    }
-
-    // If time is in the past, apply smart compression based on current time
-    if (scheduled < userTime) {
-      console.log(
-        `⏰ Day 1 task scheduled for ${hhmm} is in the past, applying smart compression...`
-      );
-
-      // Smart compression based on time of day
-      let compressionInterval = 15; // Default 15 minutes between tasks
-      let maxTasksToday = 0;
-
-      if (currentHour >= 20) {
-        // 20:00+ - only 1-2 evening tasks
-        compressionInterval = 30;
-        maxTasksToday = 2;
-      } else if (currentHour >= 17) {
-        // 17:00-19:59 - 3-4 tasks with 20-30 min intervals
-        compressionInterval = 20;
-        maxTasksToday = 4;
-      } else if (currentHour >= 15) {
-        // 15:00-16:59 - 5-6 tasks with 15-20 min intervals
-        compressionInterval = 15;
-        maxTasksToday = 6;
-      } else if (currentHour >= 12) {
-        // 12:00-14:59 - 7-8 tasks with 10-15 min intervals
-        compressionInterval = 10;
-        maxTasksToday = 8;
-      } else {
-        // Before 12:00 - full day available
-        compressionInterval = 5;
-        maxTasksToday = 12;
-      }
-
-      // Try to schedule with compression
-      const candidate = new Date(
-        userTime.getTime() + compressionInterval * 60 * 1000
-      );
-      const todayStart = new Date(userTime);
-      todayStart.setHours(7, 0, 0, 0);
-      const todayEnd = new Date(userTime);
-      todayEnd.setHours(23, 0, 0, 0);
-
-      if (candidate <= todayEnd && candidate >= todayStart) {
-        const clamped = new Date(
-          Math.max(candidate.getTime(), todayStart.getTime())
-        );
-        clamped.setSeconds(0, 0);
-        console.log(
-          `✅ Compressed to: ${clamped.toISOString()} (${compressionInterval}min interval)`
-        );
-        return clamped.toISOString();
-      }
-
-      // If no valid time today, schedule for tomorrow at 07:00
-      const tomorrow = new Date(userTime);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(7, 0, 0, 0);
-      console.log(`📅 Scheduled for tomorrow: ${tomorrow.toISOString()}`);
-      return tomorrow.toISOString();
-    }
-  }
-
-  // Final validation: ensure within 07:00-23:00 window
-  const dayStart = new Date(scheduled);
-  dayStart.setHours(7, 0, 0, 0);
-  const dayEnd = new Date(scheduled);
-  dayEnd.setHours(23, 0, 0, 0);
-
-  if (scheduled < dayStart) {
-    scheduled.setHours(7, 0, 0, 0);
-  } else if (scheduled > dayEnd) {
-    scheduled.setHours(23, 0, 0, 0);
-  }
-
-  return scheduled.toISOString();
+// Helper function to convert AI-provided HH:MM to time_of_day
+function convertHHMMToTimeOfDay(hhmm: string): 'morning' | 'mid_morning' | 'afternoon' | 'evening' {
+  const [hoursStr] = hhmm.split(':');
+  const hours = parseInt(hoursStr, 10);
+  
+  if (hours < 10) return 'morning';
+  if (hours < 13) return 'mid_morning';
+  if (hours < 18) return 'afternoon';
+  return 'evening';
 }
 
 // Build tailored section outline when AI doesn't provide one
@@ -1172,8 +955,7 @@ DELIVERABLES MUST EXIST:
       });
       ensure(deliverables, 'sections', []);
 
-      // Extract category, icon name, and color from AI response
-      // Validate category from AI or fallback with heuristic classifier (then input category)
+      // Use the category selected by the user (no AI classification needed)
       const validCategories = [
         'lifestyle',
         'career',
@@ -1181,109 +963,10 @@ DELIVERABLES MUST EXIST:
         'character',
         'custom',
       ] as const;
-      const toLower = (v: any) =>
-        typeof v === 'string' ? v.toLowerCase() : '';
-      const combined = `${toLower(title)} ${toLower(description)}`;
-      const classifyHeuristic = (
-        md?: string
-      ): (typeof validCategories)[number] => {
-        const hasAny = (arr: string[]) => arr.some((k) => combined.includes(k));
-        const domain = toLower(md || '');
-        // Marketing domain hints
-        if (['wellness', 'lifestyle', 'health'].includes(domain))
-          return 'lifestyle';
-        if (
-          [
-            'career growth',
-            'education',
-            'finance',
-            'business',
-            'productivity',
-          ].includes(domain)
-        )
-          return 'career';
-        if (domain === 'mindset') return 'mindset';
-
-        // Textual heuristics
-        if (
-          hasAny([
-            'sleep',
-            'diet',
-            'nutrition',
-            'health',
-            'fitness',
-            'workout',
-            'run',
-            'exercise',
-            'habit',
-            'morning routine',
-            'wellness',
-            'mediterranean',
-            'yoga',
-          ])
-        )
-          return 'lifestyle';
-        if (
-          hasAny([
-            'career',
-            'job',
-            'promotion',
-            'interview',
-            'cv',
-            'portfolio',
-            'money',
-            'finance',
-            'budget',
-            'business',
-            'startup',
-            'study',
-            'course',
-            'learn',
-            'skill',
-            'coding',
-            'programming',
-          ])
-        )
-          return 'career';
-        if (
-          hasAny([
-            'mindset',
-            'meditat',
-            'focus',
-            'confidence',
-            'anxiety',
-            'stress',
-            'gratitude',
-            'journal',
-            'discipline of mind',
-          ])
-        )
-          return 'mindset';
-        if (
-          hasAny([
-            'character',
-            'discipline',
-            'volunteer',
-            'kindness',
-            'patience',
-            'consistency',
-            'integrity',
-          ])
-        )
-          return 'character';
-        return 'custom';
-      };
-
-      let aiCategory: (typeof validCategories)[number];
-      const aiRaw = toLower(planData.category);
-      if (validCategories.includes(aiRaw as any)) {
-        aiCategory = aiRaw as (typeof validCategories)[number];
-      } else {
-        const guessed = classifyHeuristic(planData.marketing_domain);
-        aiCategory =
-          guessed !== 'custom'
-            ? guessed
-            : (category as (typeof validCategories)[number]) || 'custom';
+      
+      let aiCategory: (typeof validCategories)[number] = category as (typeof validCategories)[number];
+      if (!validCategories.includes(aiCategory)) {
+        aiCategory = 'custom'; // Fallback to custom if invalid
       }
 
       // Map color strictly by category per mapping
@@ -1296,231 +979,7 @@ DELIVERABLES MUST EXIST:
           custom: 'yellow',
         };
 
-      let iconName = planData.icon_name || 'star'; // Default fallback
-
-      // Validate icon name - ensure it's a valid Phosphor React Native icon and allowed by us
-      const validCategoryIcons: Record<
-        (typeof validCategories)[number],
-        string[]
-      > = {
-        lifestyle: [
-          'heart',
-          'leaf',
-          'sun',
-          'moon',
-          'tree',
-          'bicycle',
-          'person-simple-run',
-          'person-simple-walk',
-          'person-simple-bike',
-          'music-notes',
-          'camera',
-          'book',
-          'flower',
-          'cloud',
-          'rainbow',
-          'drop',
-          'mountains',
-          'wave',
-          'fire',
-        ],
-        career: [
-          'briefcase',
-          'laptop',
-          'target',
-          'lightbulb',
-          'rocket',
-          'trophy',
-          'medal',
-          'book',
-          'pencil',
-          'calculator',
-          'users',
-          'handshake',
-          'money',
-          'bank',
-          'building',
-          'coins',
-          'credit-card',
-          'wallet',
-          'chart-line',
-          'chart-pie',
-          'storefront',
-          'graduation-cap',
-        ],
-        mindset: [
-          'brain',
-          'eye',
-          'heart',
-          'lightbulb',
-          'star',
-          'compass',
-          'target',
-          'shield',
-          'lock',
-          'key',
-          'puzzle-piece',
-          'infinity',
-          'atom',
-          'flask',
-          'globe',
-          'test-tube',
-          'book-open',
-          'graduation-cap',
-          'fingerprint',
-          'eye-closed',
-          'password',
-        ],
-        character: [
-          'user-circle',
-          'users',
-          'handshake',
-          'heart',
-          'shield',
-          'star',
-          'medal',
-          'trophy',
-          'compass',
-          'user',
-          'user-square',
-          'hand-heart',
-          'crown',
-          'sparkle',
-        ],
-        custom: [
-          'star',
-          'heart',
-          'lightbulb',
-          'target',
-          'rocket',
-          'trophy',
-          'medal',
-          'tree',
-          'sparkle',
-          'crown',
-          'infinity',
-          'puzzle-piece',
-          'bell',
-          'chat-circle',
-          'chat-text',
-          'paper-plane',
-          'calendar',
-          'clock',
-          'map-pin',
-          'globe-hemisphere-west',
-          'thumbs-up',
-          'thumbs-down',
-        ],
-      };
-
-      const validIcons = [
-        // Nature & Environment
-        'leaf',
-        'tree',
-        'flower',
-        'sun',
-        'moon',
-        'cloud',
-        'rainbow',
-        'drop',
-        'mountains',
-        'wave',
-        'fire',
-
-        // People & Activities
-        'user',
-        'user-circle',
-        'user-square',
-        'users',
-        'handshake',
-        'person-simple-run',
-        'person-simple-walk',
-        'person-simple-bike',
-        'bicycle',
-        'heart',
-        'hand-heart',
-
-        // Objects & Tools
-        'camera',
-        'music-notes',
-        'book',
-        'pencil',
-        'paint-brush',
-        'notebook',
-        'briefcase',
-        'laptop',
-        'device-mobile',
-        'calculator',
-        'lightbulb',
-        'wrench',
-        'gear',
-        'magnifying-glass',
-        'target',
-
-        // Business & Finance
-        'money',
-        'coins',
-        'credit-card',
-        'wallet',
-        'bank',
-        'chart-line',
-        'chart-pie',
-        'building',
-        'storefront',
-
-        // Science & Knowledge
-        'atom',
-        'brain',
-        'flask',
-        'globe',
-        'compass',
-        'test-tube',
-        'book-open',
-        'graduation-cap',
-
-        // Security & System
-        'lock',
-        'lock-key',
-        'key',
-        'shield',
-        'fingerprint',
-        'eye',
-        'eye-closed',
-        'password',
-        'folder',
-        'file',
-
-        // Creativity & Motivation
-        'star',
-        'rocket',
-        'trophy',
-        'medal',
-        'sparkle',
-        'crown',
-        'infinity',
-        'puzzle-piece',
-
-        // Misc
-        'bell',
-        'chat-circle',
-        'chat-text',
-        'paper-plane',
-        'calendar',
-        'clock',
-        'map-pin',
-        'globe-hemisphere-west',
-        'thumbs-up',
-        'thumbs-down',
-      ];
-
-      if (!validIcons.includes(iconName)) {
-        console.warn(
-          `⚠️ Invalid icon name "${iconName}" from AI, using fallback "star"`
-        );
-        iconName = 'star';
-      }
-
-      // Enforce category-allowed icons; if icon not in category list, choose default for that category
+      // Select appropriate icon for the user-selected category
       const defaultIconForCategory: Record<
         (typeof validCategories)[number],
         string
@@ -1531,20 +990,55 @@ DELIVERABLES MUST EXIST:
         character: 'star',
         custom: 'target',
       };
-      if (!validCategoryIcons[aiCategory].includes(iconName)) {
-        console.warn(
-          `⚠️ Icon "${iconName}" not allowed for category "${aiCategory}", using default "${defaultIconForCategory[aiCategory]}"`
-        );
-        iconName = defaultIconForCategory[aiCategory];
-      }
 
-      // If category is still custom, try inferring from icon choice
-      if (aiCategory === 'custom') {
-        for (const [cat, icons] of Object.entries(validCategoryIcons)) {
-          if (icons.includes(iconName)) {
-            aiCategory = cat as (typeof validCategories)[number];
-            break;
-          }
+      let iconName = defaultIconForCategory[aiCategory];
+      
+      // If AI provided an icon name, validate it's allowed for this category
+      if (planData.icon_name) {
+        const validCategoryIcons: Record<
+          (typeof validCategories)[number],
+          string[]
+        > = {
+          lifestyle: [
+            'heart', 'leaf', 'sun', 'moon', 'tree', 'bicycle',
+            'person-simple-run', 'person-simple-walk', 'person-simple-bike',
+            'music-notes', 'camera', 'book', 'flower', 'cloud',
+            'rainbow', 'drop', 'mountains', 'wave', 'fire',
+          ],
+          career: [
+            'briefcase', 'laptop', 'target', 'lightbulb', 'rocket',
+            'trophy', 'medal', 'book', 'pencil', 'calculator',
+            'users', 'handshake', 'money', 'bank', 'building',
+            'coins', 'credit-card', 'wallet', 'chart-line',
+            'chart-pie', 'storefront', 'graduation-cap',
+          ],
+          mindset: [
+            'brain', 'eye', 'heart', 'lightbulb', 'star',
+            'compass', 'target', 'shield', 'lock', 'key',
+            'puzzle-piece', 'infinity', 'atom', 'flask',
+            'globe', 'test-tube', 'book-open', 'graduation-cap',
+            'fingerprint', 'eye-closed', 'password',
+          ],
+          character: [
+            'user-circle', 'users', 'handshake', 'heart',
+            'shield', 'star', 'medal', 'trophy', 'compass',
+            'user', 'user-square', 'hand-heart', 'crown', 'sparkle',
+          ],
+          custom: [
+            'star', 'heart', 'lightbulb', 'target', 'rocket',
+            'trophy', 'medal', 'tree', 'sparkle', 'crown',
+            'infinity', 'puzzle-piece', 'bell', 'chat-circle',
+            'chat-text', 'paper-plane', 'calendar', 'clock',
+            'map-pin', 'globe-hemisphere-west', 'thumbs-up', 'thumbs-down',
+          ],
+        };
+
+        if (validCategoryIcons[aiCategory].includes(planData.icon_name)) {
+          iconName = planData.icon_name;
+        } else {
+          console.warn(
+            `⚠️ AI suggested icon "${planData.icon_name}" not allowed for category "${aiCategory}", using default "${defaultIconForCategory[aiCategory]}"`
+          );
         }
       }
 
@@ -1595,92 +1089,34 @@ DELIVERABLES MUST EXIST:
     );
     const fallbackOutline = buildTailoredOutline(title, description, category);
 
-    // Heuristic classification and icon/color mapping on failure
-    const combined = `${(title || '').toLowerCase()} ${(description || '').toLowerCase()}`;
-    const hasAny = (arr: string[]) => arr.some((k) => combined.includes(k));
-    let aiCategory:
-      | 'lifestyle'
-      | 'career'
-      | 'mindset'
-      | 'character'
-      | 'custom' = 'custom';
-    if (
-      hasAny([
-        'sleep',
-        'diet',
-        'nutrition',
-        'health',
-        'fitness',
-        'workout',
-        'run',
-        'exercise',
-        'habit',
-        'morning routine',
-        'read',
-      ])
-    ) {
-      aiCategory = 'lifestyle';
-    } else if (
-      hasAny([
-        'career',
-        'job',
-        'promotion',
-        'interview',
-        'cv',
-        'portfolio',
-        'money',
-        'finance',
-        'budget',
-        'business',
-        'startup',
-        'study',
-        'course',
-        'learn ',
-        'skill',
-      ])
-    ) {
-      aiCategory = 'career';
-    } else if (
-      hasAny([
-        'mindset',
-        'meditat',
-        'focus',
-        'confidence',
-        'anxiety',
-        'stress',
-        'gratitude',
-        'journal',
-      ])
-    ) {
-      aiCategory = 'mindset';
-    } else if (
-      hasAny([
-        'character',
-        'discipline',
-        'volunteer',
-        'kindness',
-        'patience',
-        'consistency',
-        'integrity',
-      ])
-    ) {
-      aiCategory = 'character';
+    // Use the category selected by the user (no heuristic classification needed)
+    const validCategories = [
+      'lifestyle',
+      'career',
+      'mindset',
+      'character',
+      'custom',
+    ] as const;
+    
+    let aiCategory: (typeof validCategories)[number] = category as (typeof validCategories)[number];
+    if (!validCategories.includes(aiCategory)) {
+      aiCategory = 'custom'; // Fallback to custom if invalid
     }
 
-    const categoryColorMap: Record<typeof aiCategory, string> = {
+    const categoryColorMap: Record<(typeof validCategories)[number], string> = {
       lifestyle: 'green',
       career: 'blue',
       mindset: 'purple',
       character: 'pink',
       custom: 'yellow',
-    } as const;
-    const defaultIconForCategory: Record<typeof aiCategory, string> = {
+    };
+    const defaultIconForCategory: Record<(typeof validCategories)[number], string> = {
       lifestyle: 'heart',
       career: 'briefcase',
       mindset: 'brain',
       character: 'star',
       custom: 'target',
-    } as const;
+    };
 
     return {
       tasks: fallbackTasks,
@@ -1995,11 +1431,34 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Generate request ID for tracking
+  const requestId = crypto.randomUUID();
+  const startTime = Date.now();
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Parse and validate request
+    let requestData: GeneratePlanRequest;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      console.error(`[${requestId}] Invalid JSON in request:`, parseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid JSON in request body',
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
 
     const {
       user_id,
@@ -2008,21 +1467,224 @@ serve(async (req) => {
       title,
       description,
       intensity = 'easy',
-      timezone,
+      timezone, // Legacy field
       start_date,
       language = 'en',
       detailed_plan = false,
-    }: GeneratePlanRequest = await req.json();
+    } = requestData;
 
-    console.log('📋 Plan generation request:', {
+    // Validate required fields
+    const requiredFields = ['user_id', 'goal_id', 'category', 'title', 'description'];
+    const missingFields = requiredFields.filter(field => !requestData[field as keyof GeneratePlanRequest]);
+    
+    if (missingFields.length > 0) {
+      console.error(`[${requestId}] Missing required fields:`, missingFields);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    // Handle missing device timezone fields with fallback
+    let device_now_iso = requestData.device_now_iso;
+    let device_timezone = requestData.device_timezone;
+    let device_utc_offset_minutes = requestData.device_utc_offset_minutes;
+
+    if (!device_now_iso || !device_timezone) {
+      console.warn(`[${requestId}] Missing device timezone fields, using fallback values`);
+      const now = new Date();
+      device_now_iso = now.toISOString();
+      device_timezone = 'UTC'; // Fallback to UTC
+      device_utc_offset_minutes = 0;
+      
+      console.warn(`[${requestId}] Using fallback: device_now_iso=${device_now_iso}, device_timezone=${device_timezone}`);
+    }
+
+    // Validate field formats
+    const validCategories = ['lifestyle', 'career', 'mindset', 'character', 'goal', 'learning', 'health', 'finance', 'social', 'fitness', 'creativity', 'custom'];
+    if (!validCategories.includes(category)) {
+      console.error(`[${requestId}] Invalid category:`, category);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    const validIntensities = ['easy', 'medium', 'hard'];
+    if (!validIntensities.includes(intensity)) {
+      console.error(`[${requestId}] Invalid intensity:`, intensity);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Invalid intensity. Must be one of: ${validIntensities.join(', ')}`,
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    // Validate UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(user_id)) {
+      console.error(`[${requestId}] Invalid user_id format:`, user_id);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid user_id format',
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    if (!uuidRegex.test(goal_id)) {
+      console.error(`[${requestId}] Invalid goal_id format:`, goal_id);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid goal_id format',
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    // Validate device timezone fields
+    try {
+      const deviceNow = new Date(requestData.device_now_iso);
+      if (isNaN(deviceNow.getTime())) {
+        throw new Error('Invalid device_now_iso format');
+      }
+    } catch (timeError) {
+      console.error(`[${requestId}] Invalid device_now_iso format:`, requestData.device_now_iso);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid device_now_iso format. Must be valid ISO string with timezone offset.',
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    // Validate IANA timezone format (basic check)
+    const ianaTimezoneRegex = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+    if (!ianaTimezoneRegex.test(requestData.device_timezone)) {
+      console.error(`[${requestId}] Invalid device_timezone format:`, requestData.device_timezone);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid device_timezone format. Must be IANA timezone (e.g., Asia/Jerusalem).',
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
+    // Verify goal ownership
+    const { data: goal, error: goalError } = await supabaseClient
+      .from('goals')
+      .select('id, user_id, title')
+      .eq('id', goal_id)
+      .eq('user_id', user_id)
+      .single();
+
+    if (goalError || !goal) {
+      console.error(`[${requestId}] Goal not found or access denied:`, goalError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Goal not found or access denied',
+          request_id: requestId,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        }
+      );
+    }
+
+    console.log(`[${requestId}] Plan generation request validated:`, {
       user_id,
       goal_id,
       category,
-      title,
-      description,
+      title: title.substring(0, 50) + '...',
       intensity,
-      detailed_plan,
+      device_timezone,
+      device_now_iso: device_now_iso.substring(0, 19) + '...',
+      start_date,
     });
+
+    // Implement idempotency: clean up existing data for this goal
+    console.log(`[${requestId}] Cleaning up existing data for goal ${goal_id}...`);
+    
+    try {
+      // Delete existing tasks, rewards, and notifications for this goal
+      const { error: deleteTasksError } = await supabaseClient
+        .from('goal_tasks')
+        .delete()
+        .eq('goal_id', goal_id);
+      
+      if (deleteTasksError) {
+        console.error(`[${requestId}] Error deleting existing tasks:`, deleteTasksError);
+        // Continue anyway - this is not critical
+      }
+
+      const { error: deleteRewardsError } = await supabaseClient
+        .from('rewards')
+        .delete()
+        .eq('goal_id', goal_id);
+      
+      if (deleteRewardsError) {
+        console.error(`[${requestId}] Error deleting existing rewards:`, deleteRewardsError);
+        // Continue anyway - this is not critical
+      }
+
+      const { error: deleteNotificationsError } = await supabaseClient
+        .from('scheduled_notifications')
+        .delete()
+        .eq('user_id', user_id)
+        .in('type', ['task_reminder', 'milestone_reward', 'completion_reward']);
+      
+      if (deleteNotificationsError) {
+        console.error(`[${requestId}] Error deleting existing notifications:`, deleteNotificationsError);
+        // Continue anyway - this is not critical
+      }
+
+      console.log(`[${requestId}] Cleanup completed successfully`);
+    } catch (cleanupError) {
+      console.error(`[${requestId}] Error during cleanup:`, cleanupError);
+      // Continue anyway - this is not critical
+    }
 
     // Deduct a token server-side (source of truth)
     try {
@@ -2062,69 +1724,142 @@ serve(async (req) => {
     }
 
     // Generate tasks using AI (with template fallback)
-    const {
-      tasks: taskTemplates,
-      iconName,
-      color,
-      milestones,
-      category: aiCategory,
-      deliverables,
-      planOutline,
-    } = await generateTasksWithAI(
-      category,
-      title,
-      description,
-      intensity,
-      detailed_plan,
-      new Date().toISOString(),
-      timezone
-    );
+    let aiRunId: string | null = null;
+    let taskTemplates: any[] = [];
+    let iconName = 'star';
+    let color = 'blue';
+    let milestones: any[] = [];
+    let aiCategory = category;
+    let deliverables: any = { overview: { chosen_topic: '', rationale: '', synopsis: '' }, sections: [] };
+    let planOutline: any[] = [];
+
+    try {
+      // Record AI run start
+      const { data: aiRun, error: aiRunError } = await supabaseClient
+        .from('ai_runs')
+        .insert({
+          goal_id,
+          status: 'success', // Will update to failed if needed
+          provider_model: 'gemini-2.5-flash',
+          attempts: 1,
+        })
+        .select('id')
+        .single();
+
+      if (aiRunError) {
+        console.error(`[${requestId}] Error creating AI run record:`, aiRunError);
+      } else {
+        aiRunId = aiRun.id;
+      }
+
+      const aiStartTime = Date.now();
+      
+      const result = await generateTasksWithAI(
+        category,
+        title,
+        description,
+        intensity,
+        detailed_plan,
+        new Date().toISOString(),
+        timezone
+      );
+
+      const aiLatency = Date.now() - aiStartTime;
+
+      // Update AI run with success
+      if (aiRunId) {
+        await supabaseClient
+          .from('ai_runs')
+          .update({
+            status: 'success',
+            latency_ms: aiLatency,
+            response_size: JSON.stringify(result).length,
+          })
+          .eq('id', aiRunId);
+      }
+
+      taskTemplates = result.tasks;
+      iconName = result.iconName;
+      color = result.color;
+      milestones = result.milestones;
+      aiCategory = result.category;
+      deliverables = result.deliverables;
+      planOutline = result.planOutline || [];
+
+      console.log(`[${requestId}] AI generation successful: ${taskTemplates.length} tasks, ${aiLatency}ms`);
+
+    } catch (aiError) {
+      console.error(`[${requestId}] AI generation failed:`, aiError);
+      
+      // Update AI run with failure
+      if (aiRunId) {
+        await supabaseClient
+          .from('ai_runs')
+          .update({
+            status: 'failed',
+            error_text: aiError.message?.substring(0, 1000) || 'Unknown error',
+          })
+          .eq('id', aiRunId);
+      }
+
+      // Fallback to template generation
+      console.log(`[${requestId}] Falling back to template generation...`);
+      const fallbackResult = generateTasksForCategory(category, title, description, intensity);
+      taskTemplates = fallbackResult;
+      milestones = buildTailoredMilestones(fallbackResult.length, title);
+      planOutline = buildTailoredOutline(title, description, category);
+      
+      // Use default values for fallback
+      const categoryColorMap: Record<string, string> = {
+        lifestyle: 'green',
+        career: 'blue',
+        mindset: 'purple',
+        character: 'pink',
+        custom: 'yellow',
+      };
+      color = categoryColorMap[category] || 'yellow';
+    }
 
     console.log('📋 Generated tasks:', taskTemplates.length, 'tasks');
     console.log('🎨 Selected icon:', iconName);
 
-    // Create scheduled tasks using the new computeRunAt function
-    const startDate = start_date ? new Date(start_date) : new Date();
+    // Create scheduled tasks using device timezone-aware timing
     const tasksToInsert: any[] = [];
     const usedTimeSlots = new Map<string, Set<string>>(); // day -> Set of time slots
+    let startDecision: 'today' | 'tomorrow' = 'today';
+    let firstTaskScheduled = false;
 
     for (const template of taskTemplates) {
       const dayNumber = template.day_offset + 1; // Convert back to 1-based
-      const timeLabel =
-        template.time_of_day.charAt(0).toUpperCase() +
-        template.time_of_day.slice(1);
-
-      // Prefer AI-provided HH:MM when available
-      let runAt = template.custom_time
-        ? computeRunAtFromHHMM(
-            dayNumber,
-            template.custom_time,
-            currentTimeIso,
-            timezone
-          )
-        : computeRunAt(dayNumber, timeLabel, currentTimeIso, timezone);
-
-      // Final validation: ensure run_at is within 07:00-23:00 window
-      const scheduledTime = new Date(runAt);
-      const hour = scheduledTime.getHours();
-      const minute = scheduledTime.getMinutes();
-
-      if (hour < 7 || hour > 23 || (hour === 23 && minute > 0)) {
-        console.warn(
-          `⚠️ Task "${template.title}" has invalid time ${runAt}, adjusting...`
-        );
-        // Adjust to 07:00 if too early, 23:00 if too late
-        if (hour < 7) {
-          scheduledTime.setHours(7, 0, 0, 0);
-        } else {
-          scheduledTime.setHours(23, 0, 0, 0);
-        }
-        runAt = scheduledTime.toISOString();
+      
+      // Use AI-provided custom_time if available, otherwise use time_of_day
+      let timeOfDay = template.time_of_day;
+      if (template.custom_time) {
+        timeOfDay = convertHHMMToTimeOfDay(template.custom_time);
       }
 
-      // Check for time conflicts and resolve them
+      // Calculate run_at using device timezone-aware function
+      const timingResult = computeRunAtDeviceAware(
+        dayNumber, 
+        timeOfDay, 
+        device_now_iso, 
+        device_timezone, 
+        start_date
+      );
+
+      // Capture start decision from first task
+      if (!firstTaskScheduled) {
+        startDecision = timingResult.startDecision;
+        firstTaskScheduled = true;
+      }
+
+      let runAt = timingResult.runAt;
+      let localRunAt = timingResult.localRunAt;
+
+      // Check for time conflicts and resolve them with day folding
+      const scheduledTime = new Date(runAt);
       const dayKey = scheduledTime.toDateString();
-      let timeSlot = `${scheduledTime.getHours().toString().padStart(2, '0')}:${scheduledTime.getMinutes().toString().padStart(2, '0')}`;
+      const timeSlot = `${scheduledTime.getHours().toString().padStart(2, '0')}:${scheduledTime.getMinutes().toString().padStart(2, '0')}`;
 
       if (!usedTimeSlots.has(dayKey)) {
         usedTimeSlots.set(dayKey, new Set());
@@ -2132,56 +1867,67 @@ serve(async (req) => {
 
       const dayTimeSlots = usedTimeSlots.get(dayKey)!;
 
-      // If time slot is already used, find next available slot
+      // If time slot is already used, find next available slot or fold to next day
       if (dayTimeSlots.has(timeSlot)) {
         console.warn(
-          `⚠️ Time conflict detected for "${template.title}" at ${timeSlot} on ${dayKey}, finding alternative...`
+          `[${requestId}] Time conflict detected for "${template.title}" at ${timeSlot} on ${dayKey}, finding alternative...`
         );
 
         let adjustedTime = new Date(scheduledTime);
         let attempts = 0;
-        const maxAttempts = 50; // Prevent infinite loop
+        const maxAttempts = 20; // Increased for day folding
 
         while (dayTimeSlots.has(timeSlot) && attempts < maxAttempts) {
           // Try adding 15 minutes
           adjustedTime.setMinutes(adjustedTime.getMinutes() + 15);
 
-          // If we go past 23:00, move to next day at 07:00
-          if (
-            adjustedTime.getHours() > 23 ||
-            (adjustedTime.getHours() === 23 && adjustedTime.getMinutes() > 0)
-          ) {
+          // If we go past 23:00, fold to next day at 07:00
+          if (adjustedTime.getHours() >= 23) {
             adjustedTime.setDate(adjustedTime.getDate() + 1);
             adjustedTime.setHours(7, 0, 0, 0);
+            
+            // Update day key for next day
+            const newDayKey = adjustedTime.toDateString();
+            if (!usedTimeSlots.has(newDayKey)) {
+              usedTimeSlots.set(newDayKey, new Set());
+            }
           }
 
-          timeSlot = `${adjustedTime.getHours().toString().padStart(2, '0')}:${adjustedTime.getMinutes().toString().padStart(2, '0')}`;
+          const newTimeSlot = `${adjustedTime.getHours().toString().padStart(2, '0')}:${adjustedTime.getMinutes().toString().padStart(2, '0')}`;
+          const newDayKey = adjustedTime.toDateString();
+          const newDayTimeSlots = usedTimeSlots.get(newDayKey)!;
+          
+          if (!newDayTimeSlots.has(newTimeSlot)) {
+            runAt = adjustedTime.toISOString();
+            localRunAt = adjustedTime.toISOString();
+            break;
+          }
           attempts++;
         }
 
         if (attempts >= maxAttempts) {
           console.error(
-            `❌ Could not resolve time conflict for "${template.title}" after ${maxAttempts} attempts`
+            `[${requestId}] Could not resolve time conflict for "${template.title}" after ${maxAttempts} attempts`
           );
-          // Fallback: use original time and let database handle it
-        } else {
-          console.log(
-            `✅ Resolved time conflict: moved to ${adjustedTime.toISOString()}`
-          );
-          scheduledTime.setTime(adjustedTime.getTime());
-          runAt = scheduledTime.toISOString();
+          // Use original time and let database handle it
         }
       }
 
       // Mark this time slot as used
-      dayTimeSlots.add(timeSlot);
+      const finalTimeSlot = `${new Date(runAt).getHours().toString().padStart(2, '0')}:${new Date(runAt).getMinutes().toString().padStart(2, '0')}`;
+      const finalDayKey = new Date(runAt).toDateString();
+      const finalDayTimeSlots = usedTimeSlots.get(finalDayKey)!;
+      finalDayTimeSlots.add(finalTimeSlot);
 
       tasksToInsert.push({
         goal_id,
         title: template.title,
         description: template.description,
         run_at: runAt,
+        local_run_at: localRunAt, // Store local time for UI display
         intensity: intensity, // Store intensity level with task
+        day_offset: template.day_offset, // Store day offset for idempotency
+        time_of_day: timeOfDay, // Store time of day for idempotency
       });
     }
 
@@ -2299,10 +2045,16 @@ serve(async (req) => {
       .from('scheduled_notifications')
       .insert(rewardNotifications);
 
-    // Update the goal with the AI-selected icon and color
+    // Update the goal with the AI-selected icon, color, and device timezone info
     await supabaseClient
       .from('goals')
-      .update({ icon_name: iconName, color: color, category: aiCategory })
+      .update({ 
+        icon_name: iconName, 
+        color: color, 
+        category: aiCategory,
+        device_timezone: device_timezone,
+        start_decision: startDecision
+      })
       .eq('id', goal_id);
 
     // Send immediate notification for the first task
@@ -2338,6 +2090,9 @@ serve(async (req) => {
       }
     }
 
+    const totalTime = Date.now() - startTime;
+    console.log(`[${requestId}] Plan generation completed successfully in ${totalTime}ms`);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -2350,6 +2105,13 @@ serve(async (req) => {
         plan_outline: planOutline,
         deliverables: deliverables,
         message: `Generated ${insertedTasks.length} tasks and ${rewards.length} rewards for your goal`,
+        request_id: requestId,
+        processing_time_ms: totalTime,
+        // Device timezone metadata
+        start_decision: startDecision,
+        device_timezone_used: device_timezone,
+        today_window: '07:00-23:00',
+        device_utc_offset_minutes: device_utc_offset_minutes,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -2357,15 +2119,19 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error generating plan:', error);
+    const totalTime = Date.now() - startTime;
+    console.error(`[${requestId}] Error generating plan after ${totalTime}ms:`, error);
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error.message || 'Internal server error',
+        request_id: requestId,
+        processing_time_ms: totalTime,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     );
   }

@@ -23,6 +23,7 @@ import {
   AILoadingModal,
   GoalSuccessModal,
   PlanPreviewModal,
+  Dropdown,
 } from '../components';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
@@ -30,6 +31,85 @@ import { useTheme } from '../theme/index';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
 import { GOAL_CATEGORIES } from '../config/constants';
+
+// Category configuration with icons and colors
+const CATEGORY_CONFIG = [
+  // First row
+  {
+    value: 'lifestyle' as const,
+    label: 'Lifestyle',
+    icon: 'heart',
+    color: '#10B981', // green
+  },
+  {
+    value: 'career' as const,
+    label: 'Career',
+    icon: 'briefcase',
+    color: '#3B82F6', // blue
+  },
+  {
+    value: 'mindset' as const,
+    label: 'Mindset',
+    icon: 'brain',
+    color: '#8B5CF6', // purple
+  },
+  {
+    value: 'character' as const,
+    label: 'Character',
+    icon: 'star',
+    color: '#EC4899', // pink
+  },
+  // Second row
+  {
+    value: 'goal' as const,
+    label: 'Goal',
+    icon: 'flag',
+    color: '#EF4444', // red
+  },
+  {
+    value: 'learning' as const,
+    label: 'Learning',
+    icon: 'book',
+    color: '#06B6D4', // cyan
+  },
+  {
+    value: 'health' as const,
+    label: 'Health',
+    icon: 'heartbeat',
+    color: '#22C55E', // green
+  },
+  {
+    value: 'finance' as const,
+    label: 'Finance',
+    icon: 'currency-dollar',
+    color: '#84CC16', // lime
+  },
+  // Third row
+  {
+    value: 'social' as const,
+    label: 'Social',
+    icon: 'users',
+    color: '#A855F7', // violet
+  },
+  {
+    value: 'fitness' as const,
+    label: 'Fitness',
+    icon: 'barbell',
+    color: '#F97316', // orange
+  },
+  {
+    value: 'creativity' as const,
+    label: 'Creativity',
+    icon: 'palette',
+    color: '#EC4899', // pink
+  },
+  {
+    value: 'custom' as const,
+    label: 'Custom',
+    icon: 'target',
+    color: '#FFFF68', // Genie yellow
+  },
+];
 import { GoalCategory } from '../types/goal';
 import { supabase } from '../services/supabase/client';
 import { Switch } from '../components/primitives/Switch';
@@ -75,6 +155,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     title: '',
     description: '',
     intensity: 'easy' as 'easy' | 'medium' | 'hard',
+    category: 'custom' as GoalCategory,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
@@ -186,16 +267,23 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }, 1500);
       setLoadingInterval(interval);
 
+      // Get device timezone and current time
+      const deviceNow = new Date();
+      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
+      
       const response = await supabase.functions.invoke('generate-plan', {
         body: {
           user_id: user?.id,
           goal_id: goalId,
-          category: 'custom',
+          category: savedForm.category,
           title: savedForm.title.trim(),
           description: savedForm.description.trim(),
           intensity: savedForm.intensity,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          current_time_iso: new Date().toISOString(),
+          timezone: deviceTimezone, // Legacy field for backward compatibility
+          device_now_iso: deviceNow.toISOString(),
+          device_timezone: deviceTimezone,
+          device_utc_offset_minutes: deviceUtcOffset,
           language: 'en',
           detailed_plan: true,
         },
@@ -411,16 +499,23 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
       // Then generate AI plan with detailed 21-day roadmap
       try {
+        // Get device timezone and current time
+        const deviceNow = new Date();
+        const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
+        
         const response = await supabase.functions.invoke('generate-plan', {
           body: {
             user_id: user.id,
             goal_id: goal.id,
-            category: 'custom',
+            category: formData.category,
             title: formData.title.trim(),
             description: formData.description.trim(),
             intensity: formData.intensity,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            current_time_iso: new Date().toISOString(),
+            timezone: deviceTimezone, // Legacy field for backward compatibility
+            device_now_iso: deviceNow.toISOString(),
+            device_timezone: deviceTimezone,
+            device_utc_offset_minutes: deviceUtcOffset,
             language: 'en', // Default to English
             detailed_plan: true, // Request detailed 21-day roadmap
           },
@@ -841,6 +936,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       career: 'blue',
       mindset: 'purple',
       character: 'pink',
+      goal: 'red',
+      learning: 'cyan',
+      health: 'green',
+      finance: 'lime',
+      social: 'violet',
+      fitness: 'orange',
+      creativity: 'pink',
       custom: 'yellow',
     };
     return map[category] || 'yellow';
@@ -853,6 +955,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       title: '',
       description: '',
       intensity: 'easy',
+      category: 'custom',
     });
     setErrors({});
     // Clear persisted progress on try again
@@ -874,13 +977,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     >
       {/* Fixed Header */}
       <View style={styles.absoluteHeader}>
-        {/* Blur overlay */}
-        <View style={styles.blurOverlay} />
-        {/* Additional blur effect */}
-        <View style={styles.blurEffect} />
-        {/* Extra blur layers */}
-        <View style={styles.blurEffect2} />
-        <View style={styles.blurEffect3} />
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Icon
             name="arrow-left"
@@ -905,6 +1001,18 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         >
           {/* Form */}
           <View style={styles.form}>
+            {/* Category Selection - Dropdown */}
+            <View style={styles.categorySection}>
+              <Dropdown
+                options={CATEGORY_CONFIG}
+                value={formData.category}
+                onValueChange={(value) => updateField('category', value)}
+                placeholder="Select a category"
+                style={styles.categoryDropdown}
+                label="Category"
+              />
+            </View>
+
             <TextField
               label="What's your goal?"
               value={formData.title}
@@ -1227,51 +1335,12 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  blurOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    zIndex: -1,
-  },
-  blurEffect: {
-    position: 'absolute',
-    top: -20,
-    left: -20,
-    right: -20,
-    bottom: -20,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 30,
-    zIndex: -2,
-  },
-  blurEffect2: {
-    position: 'absolute',
-    top: -30,
-    left: -30,
-    right: -30,
-    bottom: -30,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderRadius: 40,
-    zIndex: -3,
-  },
-  blurEffect3: {
-    position: 'absolute',
-    top: -40,
-    left: -40,
-    right: -40,
-    bottom: -40,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 50,
-    zIndex: -4,
-  },
   keyboardAvoid: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
-    paddingTop: 80, // Less padding under header
+    paddingTop: 40, // Small padding under header
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1291,6 +1360,21 @@ const styles = StyleSheet.create({
   form: {
     padding: 20,
     gap: 20,
+  },
+  categorySection: {
+    gap: 12,
+  },
+  categoryDropdown: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#3B82F6',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   descriptionContainer: {
     minHeight: 120,

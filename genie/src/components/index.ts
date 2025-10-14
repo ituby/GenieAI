@@ -6,6 +6,7 @@ export * from './primitives/Input';
 export * from './primitives/Input/TextField';
 export * from './primitives/Icon';
 export * from './primitives/Badge';
+export * from './primitives/Dropdown';
 
 // Complex components (to be added)
 // export * from './complex/HeaderBar';

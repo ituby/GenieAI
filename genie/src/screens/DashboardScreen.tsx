@@ -16,13 +16,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
-import {
-  Svg,
-  Rect,
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop,
-} from 'react-native-svg';
+import Svg from 'react-native-svg';
+import { Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { Text, Card, Icon, Badge } from '../components';
 import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Button } from '../components/primitives/Button';
@@ -32,7 +27,7 @@ import { GoalCard } from '../components/domain/GoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { TaskItem } from '../components/domain/TaskItem';
-import { useTheme } from '../theme/index';
+import { useTheme } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
 import { GoalsService } from '../features/goals/services/goals.service';

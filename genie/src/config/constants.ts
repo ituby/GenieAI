@@ -10,6 +10,13 @@ export const GOAL_CATEGORIES = [
   'career',
   'mindset',
   'character',
+  'goal',
+  'learning',
+  'health',
+  'finance',
+  'social',
+  'fitness',
+  'creativity',
   'custom',
 ] as const;
 
