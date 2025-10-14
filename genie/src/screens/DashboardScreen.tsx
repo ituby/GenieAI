@@ -110,6 +110,7 @@ export const DashboardScreen: React.FC = () => {
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
   const [refreshBreathingAnimation] = useState(new Animated.Value(1));
+  const [logoBreathingAnimation] = useState(new Animated.Value(1));
   const PROGRESS_KEY = 'genie:new-goal-progress';
 
   // Animation for button border
@@ -166,6 +167,26 @@ export const DashboardScreen: React.FC = () => {
       return () => breathing.stop();
     }
   }, [showRefreshLoader, refreshBreathingAnimation]);
+
+  // Breathing animation for dashboard logo
+  useEffect(() => {
+    const logoBreathing = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoBreathingAnimation, {
+          toValue: 1.1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoBreathingAnimation, {
+          toValue: 0.95,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    logoBreathing.start();
+    return () => logoBreathing.stop();
+  }, [logoBreathingAnimation]);
 
   // Start Add Goal button animation
   useEffect(() => {
@@ -745,6 +766,20 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.contentHeader}>
           {/* Dashboard Slogan */}
           <View style={styles.dashboardSloganContainer}>
+            <Animated.View
+              style={[
+                styles.dashboardLogoContainer,
+                {
+                  transform: [{ scale: logoBreathingAnimation }],
+                },
+              ]}
+            >
+              <Image
+                source={require('../../assets/LogoSymbol.webp')}
+                style={styles.dashboardLogo}
+                resizeMode="contain"
+              />
+            </Animated.View>
             <Text variant="h3" style={styles.dashboardSloganText}>
               Tell me what you're wishing for
             </Text>
@@ -1927,10 +1962,21 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     marginBottom: 6,
   },
+  dashboardLogoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  dashboardLogo: {
+    width: 48,
+    height: 48,
+  },
   dashboardSloganText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 28,
+    color: '#FFFF68',
+    lineHeight: 24,
     textAlign: 'center',
+    fontWeight: '300',
+    fontSize: 18,
   },
   dashboardSloganSubtext: {
     marginTop: 6,
@@ -2016,7 +2062,7 @@ const styles = StyleSheet.create({
   greetingButtonContainer: {
     alignItems: 'center',
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 0,
   },
   greeting: {
     marginBottom: 0,
@@ -2033,7 +2079,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 0,
     gap: 16,
   },
   statCard: {
@@ -2086,7 +2132,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   scoreCardContainer: {
-    marginTop: 0,
+    marginTop: 16,
     marginBottom: 16,
     alignItems: 'stretch',
     paddingHorizontal: 20,

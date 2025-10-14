@@ -118,17 +118,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoSymbol: {
-    width: 140,
-    height: 140,
-    marginBottom: 30,
+    width: 100,
+    height: 100,
+    marginBottom: 20,
   },
   logoSymbolImage: {
     width: '100%',
     height: '100%',
   },
   logoType: {
-    width: 120,
-    height: 35,
+    width: 90,
+    height: 26,
   },
   logoTypeImage: {
     width: '100%',

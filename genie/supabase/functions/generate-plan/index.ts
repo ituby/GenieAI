@@ -289,10 +289,32 @@ const generateRewards = async (
 };
 
 // Helper function to compute run_at time from time-of-day labels
-function computeRunAt(dayNumber: number, timeLabel: string): string {
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+function computeRunAt(
+  dayNumber: number,
+  timeLabel: string,
+  currentTimeIso?: string,
+  timezone?: string
+): string {
+  // Use provided current time or fallback to now
+  const now = currentTimeIso ? new Date(currentTimeIso) : new Date();
+
+  // Convert to user's timezone if provided
+  let userTime = now;
+  if (timezone) {
+    try {
+      // Create a date in the user's timezone
+      const userDate = new Date(
+        now.toLocaleString('en-US', { timeZone: timezone })
+      );
+      userTime = userDate;
+    } catch (e) {
+      console.warn('Invalid timezone provided, using server time:', e);
+      userTime = now;
+    }
+  }
+
+  const currentHour = userTime.getHours();
+  const currentMinute = userTime.getMinutes();
 
   // Define time slots and their hours
   const timeSlots = {
@@ -307,32 +329,75 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
   let targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
   let startDay = 0; // Start from today
 
-  // For the first day (dayNumber === 1), calculate smart timing based on current time
+  // For the first day (dayNumber === 1), calculate smart timing based on user's current time
   if (dayNumber === 1) {
-    // If current time is after 20:00 (8 PM), start tomorrow
-    if (currentHour >= 20) {
-      startDay = 1; // Start tomorrow
-      targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
-    } else {
-      // If current time is before 20:00 (8 PM), start today
-      startDay = 0; // Start today
+    const standardHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
 
-      // Get the standard time for this task
-      const standardHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
-
-      // If the standard time has already passed today, make it available immediately
-      if (currentHour >= standardHour) {
-        // Task time has passed - make it available now (current time minus 1 minute to ensure it's available)
-        targetHour = currentHour;
-        const currentMinutes = new Date().getMinutes();
-        // Set to current time minus 1 minute to ensure task is available
-        const base = new Date();
-        base.setHours(targetHour, Math.max(0, currentMinutes - 1), 0, 0);
-        return base.toISOString();
+    // Smart scheduling logic based on time of day
+    if (currentHour >= 22) {
+      // After 22:00 - too late, start tomorrow
+      startDay = 1;
+      targetHour = standardHour;
+    } else if (currentHour >= 20) {
+      // 20:00-21:59 - only schedule evening tasks (20:00+)
+      if (standardHour >= 20) {
+        startDay = 0; // Start today
+        targetHour = standardHour;
       } else {
-        // Task time hasn't passed yet - schedule for the standard time
+        startDay = 1; // Move to tomorrow
         targetHour = standardHour;
       }
+    } else if (currentHour >= 17) {
+      // 17:00-19:59 - can fit afternoon + evening tasks
+      if (standardHour >= 17) {
+        startDay = 0; // Start today
+        targetHour = standardHour;
+      } else {
+        startDay = 1; // Move morning tasks to tomorrow
+        targetHour = standardHour;
+      }
+    } else if (currentHour >= 15) {
+      // 15:00-16:59 - can fit afternoon + evening tasks
+      if (standardHour >= 15) {
+        startDay = 0; // Start today
+        targetHour = standardHour;
+      } else {
+        startDay = 1; // Move morning tasks to tomorrow
+        targetHour = standardHour;
+      }
+    } else {
+      // Before 15:00 - full day available
+      startDay = 0; // Start today
+      targetHour = standardHour;
+    }
+
+    // If we're starting today and the time has passed, apply smart compression
+    if (startDay === 0 && currentHour >= targetHour) {
+      // Apply compression based on time of day
+      let compressionMinutes = 15; // Default
+
+      if (currentHour >= 20) {
+        compressionMinutes = 30; // Evening compression
+      } else if (currentHour >= 17) {
+        compressionMinutes = 20; // Late afternoon compression
+      } else if (currentHour >= 15) {
+        compressionMinutes = 15; // Afternoon compression
+      } else if (currentHour >= 12) {
+        compressionMinutes = 10; // Midday compression
+      } else {
+        compressionMinutes = 5; // Morning - minimal compression
+      }
+
+      // Schedule for current time + compression interval
+      const compressedTime = new Date(
+        userTime.getTime() + compressionMinutes * 60 * 1000
+      );
+      targetHour = compressedTime.getHours();
+      const targetMinutes = compressedTime.getMinutes();
+
+      const base = new Date(userTime);
+      base.setHours(targetHour, targetMinutes, 0, 0);
+      return base.toISOString();
     }
   } else {
     // For subsequent days (dayNumber > 1), always schedule for future days
@@ -343,7 +408,7 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
     targetHour = timeSlots[timeLabel as keyof typeof timeSlots] || 8;
   }
 
-  const base = new Date();
+  const base = new Date(userTime);
   base.setDate(base.getDate() + startDay);
   base.setHours(targetHour, 0, 0, 0);
 
@@ -354,9 +419,24 @@ function computeRunAt(dayNumber: number, timeLabel: string): string {
 function computeRunAtFromHHMM(
   dayNumber: number,
   hhmm: string,
-  currentTimeIso?: string
+  currentTimeIso?: string,
+  timezone?: string
 ): string {
   const now = currentTimeIso ? new Date(currentTimeIso) : new Date();
+
+  // Convert to user's timezone if provided
+  let userTime = now;
+  if (timezone) {
+    try {
+      const userDate = new Date(
+        now.toLocaleString('en-US', { timeZone: timezone })
+      );
+      userTime = userDate;
+    } catch (e) {
+      console.warn('Invalid timezone provided, using server time:', e);
+      userTime = now;
+    }
+  }
   const [hStr, mStr] = hhmm.split(':');
   let hours = parseInt(hStr, 10);
   let minutes = parseInt(mStr || '0', 10);
@@ -370,23 +450,131 @@ function computeRunAtFromHHMM(
     minutes = 0;
   }
 
-  const scheduled = new Date(now);
+  const scheduled = new Date(userTime);
   // dayNumber is 1-based; schedule for today + (dayNumber-1)
   scheduled.setDate(scheduled.getDate() + (dayNumber - 1));
   scheduled.setHours(hours, minutes, 0, 0);
 
-  // For day 1: ensure time is not in the past; if past, move to next available slot
+  // For day 1: smart scheduling based on current time
   if (dayNumber === 1) {
-    if (scheduled < now) {
+    const currentHour = userTime.getHours();
+    const currentMinute = userTime.getMinutes();
+    const currentTime = currentHour * 60 + currentMinute; // Convert to minutes for easier comparison
+
+    // Smart scheduling logic based on time of day
+    if (currentHour >= 22) {
+      // After 22:00 - too late, schedule for tomorrow
       console.log(
-        `⏰ Day 1 task scheduled for ${hhmm} is in the past, adjusting...`
+        `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, too late to start today. Scheduling for tomorrow.`
+      );
+      const tomorrow = new Date(userTime);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(hours, minutes, 0, 0);
+      return tomorrow.toISOString();
+    } else if (currentHour >= 20) {
+      // 20:00-21:59 - only schedule evening tasks (20:00-23:00)
+      if (hours >= 20) {
+        console.log(
+          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling evening tasks only.`
+        );
+        // Keep the original time if it's evening
+      } else {
+        // Move non-evening tasks to tomorrow
+        console.log(
+          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, moving non-evening task to tomorrow.`
+        );
+        const tomorrow = new Date(userTime);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(hours, minutes, 0, 0);
+        return tomorrow.toISOString();
+      }
+    } else if (currentHour >= 17) {
+      // 17:00-19:59 - can fit afternoon + evening tasks
+      if (hours >= 17) {
+        console.log(
+          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling afternoon/evening tasks.`
+        );
+        // Keep the original time if it's afternoon/evening
+      } else {
+        // Move morning tasks to tomorrow
+        console.log(
+          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, moving morning task to tomorrow.`
+        );
+        const tomorrow = new Date(userTime);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(hours, minutes, 0, 0);
+        return tomorrow.toISOString();
+      }
+    } else if (currentHour >= 15) {
+      // 15:00-16:59 - can fit afternoon + evening tasks, compress if needed
+      if (hours >= 15) {
+        console.log(
+          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling afternoon/evening tasks.`
+        );
+        // Keep the original time if it's afternoon/evening
+      } else {
+        // Move morning tasks to tomorrow
+        console.log(
+          `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, moving morning task to tomorrow.`
+        );
+        const tomorrow = new Date(userTime);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(hours, minutes, 0, 0);
+        return tomorrow.toISOString();
+      }
+    } else if (currentHour >= 12) {
+      // 12:00-14:59 - can fit most tasks, compress if needed
+      console.log(
+        `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, scheduling tasks with compression if needed.`
+      );
+      // Keep original time, but will be adjusted if in the past
+    } else {
+      // Before 12:00 - full day available
+      console.log(
+        `⏰ It's ${currentHour}:${currentMinute.toString().padStart(2, '0')}, full day available.`
+      );
+      // Keep original time, but will be adjusted if in the past
+    }
+
+    // If time is in the past, apply smart compression based on current time
+    if (scheduled < userTime) {
+      console.log(
+        `⏰ Day 1 task scheduled for ${hhmm} is in the past, applying smart compression...`
       );
 
-      // Try to schedule 15 minutes from now if within today's window
-      const candidate = new Date(now.getTime() + 15 * 60 * 1000);
-      const todayStart = new Date(now);
+      // Smart compression based on time of day
+      let compressionInterval = 15; // Default 15 minutes between tasks
+      let maxTasksToday = 0;
+
+      if (currentHour >= 20) {
+        // 20:00+ - only 1-2 evening tasks
+        compressionInterval = 30;
+        maxTasksToday = 2;
+      } else if (currentHour >= 17) {
+        // 17:00-19:59 - 3-4 tasks with 20-30 min intervals
+        compressionInterval = 20;
+        maxTasksToday = 4;
+      } else if (currentHour >= 15) {
+        // 15:00-16:59 - 5-6 tasks with 15-20 min intervals
+        compressionInterval = 15;
+        maxTasksToday = 6;
+      } else if (currentHour >= 12) {
+        // 12:00-14:59 - 7-8 tasks with 10-15 min intervals
+        compressionInterval = 10;
+        maxTasksToday = 8;
+      } else {
+        // Before 12:00 - full day available
+        compressionInterval = 5;
+        maxTasksToday = 12;
+      }
+
+      // Try to schedule with compression
+      const candidate = new Date(
+        userTime.getTime() + compressionInterval * 60 * 1000
+      );
+      const todayStart = new Date(userTime);
       todayStart.setHours(7, 0, 0, 0);
-      const todayEnd = new Date(now);
+      const todayEnd = new Date(userTime);
       todayEnd.setHours(23, 0, 0, 0);
 
       if (candidate <= todayEnd && candidate >= todayStart) {
@@ -394,12 +582,14 @@ function computeRunAtFromHHMM(
           Math.max(candidate.getTime(), todayStart.getTime())
         );
         clamped.setSeconds(0, 0);
-        console.log(`✅ Adjusted to: ${clamped.toISOString()}`);
+        console.log(
+          `✅ Compressed to: ${clamped.toISOString()} (${compressionInterval}min interval)`
+        );
         return clamped.toISOString();
       }
 
       // If no valid time today, schedule for tomorrow at 07:00
-      const tomorrow = new Date(now);
+      const tomorrow = new Date(userTime);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(7, 0, 0, 0);
       console.log(`📅 Scheduled for tomorrow: ${tomorrow.toISOString()}`);
@@ -1909,9 +2099,10 @@ serve(async (req) => {
         ? computeRunAtFromHHMM(
             dayNumber,
             template.custom_time,
-            new Date().toISOString()
+            currentTimeIso,
+            timezone
           )
-        : computeRunAt(dayNumber, timeLabel);
+        : computeRunAt(dayNumber, timeLabel, currentTimeIso, timezone);
 
       // Final validation: ensure run_at is within 07:00-23:00 window
       const scheduledTime = new Date(runAt);

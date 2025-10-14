@@ -8,6 +8,7 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 // i18n removed
@@ -48,6 +49,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [pointsEarned, setPointsEarned] = useState(0);
   const [currentGoal, setCurrentGoal] = useState<GoalWithProgress>(goal);
   const [visibleTaskCount, setVisibleTaskCount] = useState<number>(6);
+  const [refreshBreathingAnimation] = useState(new Animated.Value(1));
 
   const handleRefresh = async () => {
     setShowRefreshLoader(true);
@@ -151,6 +153,28 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     checkSubscription();
     fetchPointsEarned();
   }, [goal.id]);
+
+  // Breathing animation for refresh loader
+  useEffect(() => {
+    if (showRefreshLoader) {
+      const breathing = Animated.loop(
+        Animated.sequence([
+          Animated.timing(refreshBreathingAnimation, {
+            toValue: 1.3,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(refreshBreathingAnimation, {
+            toValue: 0.9,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      breathing.start();
+      return () => breathing.stop();
+    }
+  }, [showRefreshLoader, refreshBreathingAnimation]);
 
   const organizeTasksByDay = (tasks: TaskWithGoal[]): DailyTasks[] => {
     const tasksByDate = new Map<string, TaskWithGoal[]>();
@@ -500,11 +524,22 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
 
       {/* Custom Refresh Animation */}
       {showRefreshLoader && (
-        <CustomRefreshControl
-          refreshing={showRefreshLoader}
-          onRefresh={handleRefresh}
-          tintColor={theme.colors.yellow[500]}
-        />
+        <View style={styles.refreshLoaderContainer}>
+          <Animated.View
+            style={[
+              styles.refreshLoaderImage,
+              {
+                transform: [{ scale: refreshBreathingAnimation }],
+              },
+            ]}
+          >
+            <Image
+              source={require('../../assets/LogoSymbol.webp')}
+              style={styles.refreshLoaderLogo}
+              resizeMode="contain"
+            />
+          </Animated.View>
+        </View>
       )}
 
       <ScrollView
@@ -1106,5 +1141,26 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     textAlign: 'center',
+  },
+  refreshLoaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  refreshLoaderImage: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshLoaderLogo: {
+    width: 60,
+    height: 60,
   },
 });
