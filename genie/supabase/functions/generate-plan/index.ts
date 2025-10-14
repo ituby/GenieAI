@@ -300,6 +300,7 @@ function computeRunAtDeviceAware(
   deviceTimezone: string,
   startDate?: string
 ): { runAt: string; localRunAt: string; startDecision: 'today' | 'tomorrow' } {
+  // Parse the device time as local time (not UTC)
   const deviceNow = new Date(deviceNowIso);
   
   // Define standard time slots (device local time)
@@ -325,35 +326,35 @@ function computeRunAtDeviceAware(
   let startDecision: 'today' | 'tomorrow' = 'today';
   let finalLocalTime = targetDate;
 
-  // For day 1, apply deterministic start decision
+  // For day 1, apply smart scheduling logic
   if (dayNumber === 1) {
     const currentHour = deviceNow.getHours();
     const currentMinute = deviceNow.getMinutes();
     
-    // Check if there's any legal slot remaining today (07:00-23:00)
-    const hasLegalSlotToday = currentHour < 23 || (currentHour === 23 && currentMinute === 0);
+    // Smart decision: if it's after 20:00, recommend starting tomorrow
+    // If it's before 20:00, we can start today but only if there are valid slots
+    const isAfter8PM = currentHour >= 20;
     
-    if (!hasLegalSlotToday) {
-      // No legal slots today, start tomorrow at 07:00
+    if (isAfter8PM) {
+      // After 8 PM - recommend starting tomorrow at the target time slot
       startDecision = 'tomorrow';
       finalLocalTime = new Date(deviceNow);
       finalLocalTime.setDate(finalLocalTime.getDate() + 1);
-      finalLocalTime.setHours(7, 0, 0, 0);
+      finalLocalTime.setHours(targetHour, 0, 0, 0);
     } else {
-      // Has legal slots today
+      // Before 8 PM - can start today
       if (targetDate <= deviceNow) {
-        // Target time has passed, find next available slot
+        // Target time has passed, find next available slot today
         const nextSlot = new Date(deviceNow);
         nextSlot.setMinutes(nextSlot.getMinutes() + 15); // 15 minutes from now
         nextSlot.setSeconds(0, 0);
         
-        // Clamp to 23:00 maximum
+        // If next slot is after 23:00, move to tomorrow at the target time slot
         if (nextSlot.getHours() >= 23) {
-          // Move to tomorrow at 07:00
           startDecision = 'tomorrow';
           finalLocalTime = new Date(deviceNow);
           finalLocalTime.setDate(finalLocalTime.getDate() + 1);
-          finalLocalTime.setHours(7, 0, 0, 0);
+          finalLocalTime.setHours(targetHour, 0, 0, 0);
         } else {
           finalLocalTime = nextSlot;
         }
@@ -364,10 +365,18 @@ function computeRunAtDeviceAware(
     }
   } else {
     // For days 2+, always schedule in the future
-    finalLocalTime = targetDate;
+    // Ensure it's at least tomorrow if it's day 2
+    if (dayNumber === 2) {
+      const tomorrow = new Date(deviceNow);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(targetHour, 0, 0, 0);
+      finalLocalTime = tomorrow;
+    } else {
+      finalLocalTime = targetDate;
+    }
   }
 
-  // Clamp to 07:00-23:00 window (device local time)
+  // Ensure time is within 07:00-23:00 window (device local time)
   const clampedHour = Math.max(7, Math.min(23, finalLocalTime.getHours()));
   finalLocalTime.setHours(clampedHour, finalLocalTime.getMinutes(), 0, 0);
 
@@ -586,6 +595,17 @@ MARKETING DOMAIN (REQUIRED):
 Context for day 1 timing (use these EXACTLY to compute user's local time and apply the 20:00 cut-off):
 - current_time_iso: ${currentTimeIso || ''}
 - timezone: ${timezone || ''}
+
+⏰ SMART SCHEDULING RULES:
+1) If the user's local time is after 20:00 (8 PM), schedule ALL Day 1 tasks for TOMORROW starting at 07:00
+2) If the user's local time is before 20:00, you may schedule Day 1 tasks for TODAY but:
+   - No task should be scheduled in the past
+   - All tasks must be between 07:00-23:00 in the user's local timezone
+   - If a suggested time has passed, choose the next available future time today
+   - If no valid slots remain today (after 23:00), move to tomorrow at 07:00
+3) For days 2-21, always schedule in the future using standard time slots
+4) DISTRIBUTE TIMES: Spread tasks throughout the day to avoid clustering
+5) NO DUPLICATE TIMES: Each task on the same day must have a unique time slot
 
 🎯 FINAL OUTPUT REQUIREMENTS:
 
@@ -1644,46 +1664,61 @@ serve(async (req) => {
       start_date,
     });
 
-    // Implement idempotency: clean up existing data for this goal
-    console.log(`[${requestId}] Cleaning up existing data for goal ${goal_id}...`);
+    // Check if this is a regeneration (goal already has tasks) or new goal creation
+    const { data: existingTasks, error: checkTasksError } = await supabaseClient
+      .from('goal_tasks')
+      .select('id')
+      .eq('goal_id', goal_id)
+      .limit(1);
     
-    try {
-      // Delete existing tasks, rewards, and notifications for this goal
-      const { error: deleteTasksError } = await supabaseClient
-        .from('goal_tasks')
-        .delete()
-        .eq('goal_id', goal_id);
+    if (checkTasksError) {
+      console.error(`[${requestId}] Error checking existing tasks:`, checkTasksError);
+    }
+    
+    // Only clean up if this is a regeneration (goal already has tasks)
+    if (existingTasks && existingTasks.length > 0) {
+      console.log(`[${requestId}] Regenerating plan for existing goal - cleaning up previous data...`);
       
-      if (deleteTasksError) {
-        console.error(`[${requestId}] Error deleting existing tasks:`, deleteTasksError);
+      try {
+        // Delete existing tasks, rewards, and notifications for this goal
+        const { error: deleteTasksError } = await supabaseClient
+          .from('goal_tasks')
+          .delete()
+          .eq('goal_id', goal_id);
+        
+        if (deleteTasksError) {
+          console.error(`[${requestId}] Error deleting existing tasks:`, deleteTasksError);
+          // Continue anyway - this is not critical
+        }
+
+        const { error: deleteRewardsError } = await supabaseClient
+          .from('rewards')
+          .delete()
+          .eq('goal_id', goal_id);
+        
+        if (deleteRewardsError) {
+          console.error(`[${requestId}] Error deleting existing rewards:`, deleteRewardsError);
+          // Continue anyway - this is not critical
+        }
+
+        const { error: deleteNotificationsError } = await supabaseClient
+          .from('scheduled_notifications')
+          .delete()
+          .eq('user_id', user_id)
+          .in('type', ['task_reminder', 'milestone_reward', 'completion_reward']);
+        
+        if (deleteNotificationsError) {
+          console.error(`[${requestId}] Error deleting existing notifications:`, deleteNotificationsError);
+          // Continue anyway - this is not critical
+        }
+
+        console.log(`[${requestId}] Cleanup completed successfully`);
+      } catch (cleanupError) {
+        console.error(`[${requestId}] Error during cleanup:`, cleanupError);
         // Continue anyway - this is not critical
       }
-
-      const { error: deleteRewardsError } = await supabaseClient
-        .from('rewards')
-        .delete()
-        .eq('goal_id', goal_id);
-      
-      if (deleteRewardsError) {
-        console.error(`[${requestId}] Error deleting existing rewards:`, deleteRewardsError);
-        // Continue anyway - this is not critical
-      }
-
-      const { error: deleteNotificationsError } = await supabaseClient
-        .from('scheduled_notifications')
-        .delete()
-        .eq('user_id', user_id)
-        .in('type', ['task_reminder', 'milestone_reward', 'completion_reward']);
-      
-      if (deleteNotificationsError) {
-        console.error(`[${requestId}] Error deleting existing notifications:`, deleteNotificationsError);
-        // Continue anyway - this is not critical
-      }
-
-      console.log(`[${requestId}] Cleanup completed successfully`);
-    } catch (cleanupError) {
-      console.error(`[${requestId}] Error during cleanup:`, cleanupError);
-      // Continue anyway - this is not critical
+    } else {
+      console.log(`[${requestId}] Creating new plan for goal - no cleanup needed`);
     }
 
     // Deduct a token server-side (source of truth)
@@ -1760,8 +1795,8 @@ serve(async (req) => {
         description,
         intensity,
         detailed_plan,
-        new Date().toISOString(),
-        timezone
+        device_now_iso, // Pass the actual device time
+        device_timezone // Pass the actual device timezone
       );
 
       const aiLatency = Date.now() - aiStartTime;
@@ -1847,10 +1882,32 @@ serve(async (req) => {
         start_date
       );
 
-      // Capture start decision from first task
+      // Capture start decision from first task and apply it to all day 1 tasks
       if (!firstTaskScheduled) {
         startDecision = timingResult.startDecision;
         firstTaskScheduled = true;
+        console.log(`[${requestId}] Start decision: ${startDecision} (current time: ${new Date(device_now_iso).toLocaleTimeString()})`);
+      }
+
+      // If start decision is 'tomorrow' and this is day 1, adjust the timing
+      if (startDecision === 'tomorrow' && dayNumber === 1) {
+        // Force all day 1 tasks to start tomorrow at 07:00 or later
+        const tomorrow = new Date(device_now_iso);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(7, 0, 0, 0);
+        
+        // Adjust the time based on the time of day
+        const timeSlots = {
+          morning: 8,
+          mid_morning: 10,
+          afternoon: 14,
+          evening: 20,
+        };
+        const targetHour = timeSlots[timeOfDay] || 8;
+        tomorrow.setHours(targetHour, 0, 0, 0);
+        
+        timingResult.runAt = tomorrow.toISOString();
+        timingResult.localRunAt = tomorrow.toISOString();
       }
 
       let runAt = timingResult.runAt;
@@ -1893,6 +1950,11 @@ serve(async (req) => {
             }
           }
 
+          // Ensure we don't go below 07:00 (shouldn't happen with this logic, but safety check)
+          if (adjustedTime.getHours() < 7) {
+            adjustedTime.setHours(7, 0, 0, 0);
+          }
+
           const newTimeSlot = `${adjustedTime.getHours().toString().padStart(2, '0')}:${adjustedTime.getMinutes().toString().padStart(2, '0')}`;
           const newDayKey = adjustedTime.toDateString();
           const newDayTimeSlots = usedTimeSlots.get(newDayKey)!;
@@ -1918,6 +1980,22 @@ serve(async (req) => {
       const finalDayKey = new Date(runAt).toDateString();
       const finalDayTimeSlots = usedTimeSlots.get(finalDayKey)!;
       finalDayTimeSlots.add(finalTimeSlot);
+
+      // Final validation: ensure the task is within 07:00-23:00 window
+      const finalScheduledTime = new Date(runAt);
+      const finalHour = finalScheduledTime.getHours();
+      
+      if (finalHour < 7 || finalHour >= 23) {
+        console.warn(`[${requestId}] Task "${template.title}" scheduled outside 07:00-23:00 window (${finalHour}:00), adjusting...`);
+        // Adjust to nearest valid time
+        if (finalHour < 7) {
+          finalScheduledTime.setHours(7, 0, 0, 0);
+        } else {
+          finalScheduledTime.setHours(22, 0, 0, 0); // 22:00 is the latest valid time
+        }
+        runAt = finalScheduledTime.toISOString();
+        localRunAt = finalScheduledTime.toISOString();
+      }
 
       tasksToInsert.push({
         goal_id,

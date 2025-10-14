@@ -14,6 +14,7 @@ import {
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 import {
   Button,
   Text,
@@ -267,9 +268,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }, 1500);
       setLoadingInterval(interval);
 
-      // Get device timezone and current time
-      const deviceNow = new Date();
-      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Get device timezone and current time using expo-localization
+      const calendars = Localization.getCalendars();
+      const deviceTimezone = calendars[0]?.timeZone || 'UTC'; // e.g., "Asia/Jerusalem"
+      const deviceNow = new Date(); // Local device time
       const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
       
       const response = await supabase.functions.invoke('generate-plan', {
@@ -475,14 +477,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
       setLoadingInterval(interval);
 
+      // Get selected category config
+      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+      
       // First create the goal
       const goal = await createGoal({
         user_id: user.id,
         title: formData.title.trim(),
         description: formData.description.trim(),
-        category: 'custom',
+        category: formData.category,
         status: 'paused',
         start_date: new Date().toISOString().split('T')[0],
+        icon_name: selectedCategoryConfig?.icon || 'star',
+        color: selectedCategoryConfig?.color || '#FFFF68',
       });
 
       console.log('✅ Goal created:', goal.id);
@@ -499,9 +506,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
       // Then generate AI plan with detailed 21-day roadmap
       try {
-        // Get device timezone and current time
-        const deviceNow = new Date();
-        const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        // Get device timezone and current time using expo-localization
+        const calendars = Localization.getCalendars();
+        const deviceTimezone = calendars[0]?.timeZone || 'UTC'; // e.g., "Asia/Jerusalem"
+        const deviceNow = new Date(); // Local device time
         const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
         
         const response = await supabase.functions.invoke('generate-plan', {
@@ -852,23 +860,28 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   const handleApprovePlan = async () => {
     setShowPlanPreview(false);
+    // Get the selected category config for success modal
+    const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+    
     setSuccessData({
       taskCount: planData.milestones.reduce(
         (sum, milestone) => sum + milestone.tasks,
         0
       ),
       rewardCount: 5,
-      iconName: 'star',
-      color: 'yellow',
+      iconName: selectedCategoryConfig?.icon || 'star',
+      color: selectedCategoryConfig?.color || '#FFFF68',
     });
     // If user consented to share and a goal was created, insert shared submission row
     try {
-      // Apply final AI selections to goal and activate it
+      // Activate the goal with user's selected category and color
       if (createdGoalId) {
-        // Don't force custom if AI provided a category
-        const finalCategory = (planCategory as any) || planCategory || 'custom';
-        const finalIcon = planIconName || 'star';
-        const finalColor = planColor || mapCategoryToColor(finalCategory);
+        // Get the selected category config to preserve user's choice
+        const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+        const finalCategory = formData.category;
+        const finalIcon = selectedCategoryConfig?.icon || 'star';
+        const finalColor = selectedCategoryConfig?.color || '#FFFF68';
+        
         try {
           await supabase
             .from('goals')
@@ -880,7 +893,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             })
             .eq('id', createdGoalId);
         } catch (e) {
-          console.warn('Failed to activate goal with AI settings:', e);
+          console.warn('Failed to activate goal with user settings:', e);
         }
       }
 
