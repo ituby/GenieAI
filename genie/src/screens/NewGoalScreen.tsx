@@ -152,11 +152,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     checkSubscription();
   }, [user?.id]);
 
+  const [currentStep, setCurrentStep] = useState(1);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    intensity: 'easy' as 'easy' | 'medium' | 'hard',
     category: 'custom' as GoalCategory,
+    planDurationDays: 21,
+    tasksPerDayRange: { min: 3, max: 5 } as { min: number, max: number },
+    preferredTimeRanges: [
+      { start_hour: 8, end_hour: 12, label: 'Morning' },
+      { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+      { start_hour: 19, end_hour: 23, label: 'Evening' }
+    ] as Array<{start_hour: number, end_hour: number, label: string}>,
+    preferredDays: [1, 2, 3, 4, 5, 6] as number[], // All days except Sunday (0)
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
@@ -281,13 +290,16 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           category: savedForm.category,
           title: savedForm.title.trim(),
           description: savedForm.description.trim(),
-          intensity: savedForm.intensity,
+          intensity: 'medium', // Default intensity based on tasks per day range
           timezone: deviceTimezone, // Legacy field for backward compatibility
           device_now_iso: deviceNow.toISOString(),
           device_timezone: deviceTimezone,
           device_utc_offset_minutes: deviceUtcOffset,
           language: 'en',
           detailed_plan: true,
+          plan_duration_days: savedForm.planDurationDays,
+          preferred_time_ranges: savedForm.preferredTimeRanges,
+          preferred_days: savedForm.preferredDays.length > 0 ? savedForm.preferredDays : undefined,
         },
       });
 
@@ -519,13 +531,16 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             category: formData.category,
             title: formData.title.trim(),
             description: formData.description.trim(),
-            intensity: formData.intensity,
+            intensity: 'medium', // Default intensity based on tasks per day range
             timezone: deviceTimezone, // Legacy field for backward compatibility
             device_now_iso: deviceNow.toISOString(),
             device_timezone: deviceTimezone,
             device_utc_offset_minutes: deviceUtcOffset,
             language: 'en', // Default to English
             detailed_plan: true, // Request detailed 21-day roadmap
+            plan_duration_days: formData.planDurationDays,
+            preferred_time_ranges: formData.preferredTimeRanges,
+            preferred_days: formData.preferredDays.length > 0 ? formData.preferredDays : undefined,
           },
         });
 
@@ -754,35 +769,36 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     }
   };
 
-  const updateField = (field: string, value: string) => {
+  const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: '' }));
     }
   };
 
-  const handleIntensitySelect = (intensity: 'easy' | 'medium' | 'hard') => {
-    // Check if user can select medium/hard intensity
-    if ((intensity === 'medium' || intensity === 'hard') && !isSubscribed) {
-      Alert.alert(
-        'Premium Feature',
-        'Medium and High intensity levels are available for subscribed users only. Upgrade to Premium to unlock advanced goal planning!',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Upgrade',
-            onPress: () => {
-              // TODO: Navigate to subscription screen
-              console.log('Navigate to subscription');
-            },
-          },
-        ]
-      );
-      return;
+  const nextStep = () => {
+    if (currentStep < 2) {
+      setCurrentStep(currentStep + 1);
     }
-
-    setFormData((prev) => ({ ...prev, intensity }));
   };
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const canProceedToNextStep = () => {
+    switch (currentStep) {
+      case 1:
+        return formData.title.trim() && formData.description.trim() && formData.category;
+      case 2:
+        return true;
+      default:
+        return false;
+    }
+  };
+
 
   type Milestone = {
     week: number;
@@ -912,7 +928,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           goal_id: createdGoalId,
           request_title: formData.title.trim(),
           request_description: formData.description.trim(),
-          intensity: formData.intensity,
+          intensity: 'medium', // Default intensity
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           category: (planCategory as any) || 'custom',
           subcategory: planData.subcategory,
@@ -964,11 +980,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const handleTryAgain = () => {
     setShowPlanPreview(false);
     // Reset form and allow user to try again
+    setCurrentStep(1);
     setFormData({
       title: '',
       description: '',
-      intensity: 'easy',
       category: 'custom',
+      planDurationDays: 21,
+      tasksPerDayRange: { min: 3, max: 5 },
+      preferredTimeRanges: [
+        { start_hour: 8, end_hour: 12, label: 'Morning' },
+        { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+        { start_hour: 19, end_hour: 23, label: 'Evening' }
+      ],
+      preferredDays: [1, 2, 3, 4, 5, 6],
     });
     setErrors({});
     // Clear persisted progress on try again
@@ -990,13 +1014,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     >
       {/* Fixed Header */}
       <View style={styles.absoluteHeader}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Icon
-            name="arrow-left"
-            size={24}
-            color={theme.colors.text.secondary}
-          />
-        </TouchableOpacity>
+        <View style={styles.spacer} />
         <Text variant="h4" style={styles.largeTitle} numberOfLines={1}>
           Genie
         </Text>
@@ -1012,231 +1030,492 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Form */}
+          {/* Multi-Step Form */}
           <View style={styles.form}>
-            {/* Category Selection - Dropdown */}
-            <View style={styles.categorySection}>
-              <Dropdown
-                options={CATEGORY_CONFIG}
-                value={formData.category}
-                onValueChange={(value) => updateField('category', value)}
-                placeholder="Select a category"
-                style={styles.categoryDropdown}
-                label="Category"
-              />
-            </View>
 
-            <TextField
-              label="What's your goal?"
-              value={formData.title}
-              onChangeText={(value) => updateField('title', value)}
-              error={errors.title}
-              placeholder="What do you want to achieve or learn?"
-              maxLength={100}
-              inputStyle={styles.rightAlignedInput}
-              placeholderTextColor="rgba(255, 255, 255, 0.3)"
-              containerStyle={styles.darkInputContainer}
-            />
+            {/* Step Content */}
+            {currentStep === 1 && (
+              <View style={styles.stepContent}>
+                <Card style={styles.stepCard}>
+                  <View style={styles.stepNumberCircle}>
+                    <Text variant="body" color="primary" style={styles.stepNumberText}>
+                      1
+                    </Text>
+                  </View>
+                  <View style={styles.stepCardContent}>
+                    <Text variant="h3" color="primary" style={styles.stepTitle}>
+                      What's your goal?
+                    </Text>
+                    <Text variant="caption" color="secondary" style={styles.stepDescription}>
+                      Tell me what you want to achieve and I'll create a personalized plan for you.
+                    </Text>
+                  </View>
+                </Card>
 
-            <TextField
-              label="Describe your goal in detail"
-              value={formData.description}
-              onChangeText={(value) => updateField('description', value)}
-              error={errors.description}
-              placeholder="Describe your goal and context. You can add details, constraints, examples, or the outcome you expect."
-              multiline
-              numberOfLines={6}
-              maxLength={500}
-              containerStyle={[
-                styles.descriptionContainer,
-                styles.darkInputContainer,
-              ]}
-              inputStyle={styles.rightAlignedInput}
-              placeholderTextColor="rgba(255, 255, 255, 0.3)"
-            />
+                {/* Category Selection */}
+                <View style={[styles.categorySection, styles.fieldSpacing]}>
+                  <Dropdown
+                    options={CATEGORY_CONFIG}
+                    value={formData.category}
+                    onValueChange={(value) => updateField('category', value)}
+                    placeholder="Select a category"
+                    style={styles.categoryDropdown}
+                    label="What area of your life?"
+                  />
+                </View>
 
-            {/* Publish preference */}
-            <Card variant="default" padding="md" style={{ marginTop: 8 }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Text variant="h4">Share with developers</Text>
-                <Switch
-                  value={publishWithDevelopers}
-                  onValueChange={setPublishWithDevelopers}
-                />
+                {/* Title */}
+                <View style={styles.fieldSpacing}>
+                  <TextField
+                    label="What exactly do you want to achieve?"
+                    value={formData.title}
+                    onChangeText={(value) => updateField('title', value)}
+                    error={errors.title}
+                    placeholder="e.g., 'Learn Spanish fluently', 'Run a marathon', 'Start my own business'"
+                    maxLength={100}
+                    inputStyle={styles.rightAlignedInput}
+                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                    containerStyle={styles.darkInputContainer}
+                  />
+                </View>
+
+                {/* Description */}
+                <View style={styles.fieldSpacing}>
+                  <TextField
+                    label="Tell me more about your journey"
+                    value={formData.description}
+                    onChangeText={(value) => updateField('description', value)}
+                    error={errors.description}
+                    placeholder="Why is this important to you? What's your current situation? What challenges do you face? How will success look and feel?"
+                    multiline
+                    numberOfLines={6}
+                    maxLength={500}
+                    containerStyle={[styles.darkInputContainer, styles.descriptionContainer]}
+                    inputStyle={styles.rightAlignedInput}
+                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                  />
+                </View>
+
+                {/* Advanced Settings Button */}
+                <View style={styles.advancedSettingsContainer}>
+                  <TouchableOpacity
+                    style={styles.advancedSettingsButton}
+                    onPress={() => setShowAdvancedSettings(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Icon name="sliders" size={20} color="#FFFF68" weight="bold" />
+                    <Text variant="body" color="primary" style={styles.advancedSettingsText}>
+                      Advanced Settings
+                    </Text>
+                    <Icon name="chevron-right" size={16} color="#FFFF68" weight="bold" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={{ marginTop: 8 }}>
-                <Text variant="caption" color="secondary">
-                  Help us improve and promote Genie. Published goals earn points
-                  and unlock rewards & perks. Private goals do not participate
-                  in points and rewards.
+            )}
+
+            {currentStep === 2 && (
+              <View style={styles.stepContent}>
+                <Card style={styles.stepCard}>
+                  <View style={styles.stepNumberCircle}>
+                    <Text variant="body" color="primary" style={styles.stepNumberText}>
+                      2
+                    </Text>
+                  </View>
+                  <View style={styles.stepCardContent}>
+                    <Text variant="h3" color="primary" style={styles.stepTitle}>
+                      Share with developers
+                    </Text>
+                    <Text variant="caption" color="secondary" style={styles.stepDescription}>
+                      Help improve Genie by sharing your goal (anonymously) with the development team.
+                    </Text>
+                  </View>
+                </Card>
+
+                {/* Publish preference */}
+                <Card style={styles.publishCard}>
+                  <View style={styles.publishContent}>
+                    <View style={styles.publishHeader}>
+                      <Icon
+                        name="users"
+                        size={20}
+                        color="#FFFF68"
+                        weight="fill"
+                      />
+                      <Text variant="h4" color="primary" style={styles.publishTitle}>
+                        Share with developers
+                      </Text>
+                    </View>
+                    <Text variant="body" color="secondary" style={styles.publishDescription}>
+                      Help improve Genie by sharing your goal (anonymously) with our development team. 
+                      You'll earn bonus points and rewards for contributing to the community!
+                    </Text>
+                    <Switch
+                      value={publishWithDevelopers}
+                      onValueChange={setPublishWithDevelopers}
+                      trackColor={{ false: 'rgba(255, 255, 255, 0.2)', true: '#FFFF68' }}
+                      thumbColor={publishWithDevelopers ? '#000000' : '#FFFFFF'}
+                    />
+                    <Text variant="caption" color="secondary" style={styles.publishNote}>
+                      Your personal information stays private. Only the goal content is shared with developers.
+                    </Text>
+                  </View>
+                </Card>
+              </View>
+            )}
+
+            {/* Advanced Settings Modal */}
+            {showAdvancedSettings && (
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContainer}>
+                  <View style={styles.modalHeader}>
+                    <Text variant="h3" color="primary" style={styles.modalTitle}>
+                      Advanced Settings
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.modalCloseButton}
+                      onPress={() => setShowAdvancedSettings(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Icon name="x" size={24} color="#FFFF68" weight="bold" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                    {/* Plan Duration */}
+                    <View style={styles.section}>
+                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                        Plan duration
+                      </Text>
+                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                        How long should your plan last?
+                      </Text>
+                      <Dropdown
+                        options={[
+                          { label: '1 week', value: '7' },
+                          { label: '2 weeks', value: '14' },
+                          { label: '3 weeks', value: '21' },
+                          { label: '1 month', value: '30' },
+                          { label: '6 weeks', value: '42' },
+                          { label: '2 months', value: '60' },
+                          { label: '3 months', value: '90' },
+                          { label: '6 months', value: '180' },
+                          { label: '1 year', value: '365' },
+                        ]}
+                        value={formData.planDurationDays.toString()}
+                        onValueChange={(value) => updateField('planDurationDays', parseInt(value))}
+                        placeholder="Select duration"
+                        style={styles.durationDropdown}
+                        label="Duration"
+                      />
+                    </View>
+
+                    {/* Preferred Days */}
+                    <View style={styles.section}>
+                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                        Preferred days
+                      </Text>
+                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                        Select your available days (or leave blank for every day)
+                      </Text>
+                      <View style={styles.daysGrid}>
+                        {[
+                          { value: 0, label: 'S' },
+                          { value: 1, label: 'M' },
+                          { value: 2, label: 'T' },
+                          { value: 3, label: 'W' },
+                          { value: 4, label: 'T' },
+                          { value: 5, label: 'F' },
+                          { value: 6, label: 'S' },
+                        ].map((day) => (
+                          <TouchableOpacity
+                            key={day.value}
+                            style={[
+                              styles.dayOption,
+                              formData.preferredDays.includes(day.value) && styles.dayOptionActive,
+                            ]}
+                            onPress={() => {
+                              const newDays = formData.preferredDays.includes(day.value)
+                                ? formData.preferredDays.filter(d => d !== day.value)
+                                : [...formData.preferredDays, day.value];
+                              updateField('preferredDays', newDays);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              variant="body"
+                              color={formData.preferredDays.includes(day.value) ? 'primary' : 'secondary'}
+                              style={[
+                                styles.dayOptionText,
+                                formData.preferredDays.includes(day.value) && styles.dayOptionTextActive
+                              ]}
+                            >
+                              {day.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Preferred Time Ranges */}
+                    <View style={styles.section}>
+                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                        Preferred times
+                      </Text>
+                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                        Choose up to 3 time ranges that work for you
+                      </Text>
+                      {formData.preferredTimeRanges.map((range, index) => (
+                        <View key={index} style={styles.timeRangeCard}>
+                          <View style={styles.timeRangeHeader}>
+                            <Text variant="caption" color="secondary" style={styles.timeRangeLabel}>
+                              {index === 0 ? "Morning" : index === 1 ? "Afternoon" : "Evening"}
+                            </Text>
+                            <Icon 
+                              name={index === 0 ? "sun" : index === 1 ? "sun-horizon" : "moon"} 
+                              size={20} 
+                              color="#FFFF68" 
+                              weight="fill" 
+                            />
+                          </View>
+                          <View style={styles.timeInputs}>
+                            <View style={styles.timeInput}>
+                              <Text variant="caption" color="secondary" style={styles.timeLabel}>From:</Text>
+                              <View style={styles.timePickerContainer}>
+                                <TouchableOpacity
+                                  style={styles.timePickerButton}
+                                  onPress={() => {
+                                    if (range.start_hour > 0) {
+                                      const newRanges = [...formData.preferredTimeRanges];
+                                      newRanges[index].start_hour = range.start_hour - 1;
+                                      updateField('preferredTimeRanges', newRanges);
+                                    }
+                                  }}
+                                >
+                                  <Icon name="minus" size={14} color="#FFFF68" weight="bold" />
+                                </TouchableOpacity>
+                                <View style={styles.timeDisplay}>
+                                  <Text variant="h4" color="primary" style={styles.timeText}>
+                                    {range.start_hour.toString().padStart(2, '0')}:00
+                                  </Text>
+                                </View>
+                                <TouchableOpacity
+                                  style={styles.timePickerButton}
+                                  onPress={() => {
+                                    if (range.start_hour < range.end_hour - 1) {
+                                      const newRanges = [...formData.preferredTimeRanges];
+                                      newRanges[index].start_hour = range.start_hour + 1;
+                                      updateField('preferredTimeRanges', newRanges);
+                                    }
+                                  }}
+                                >
+                                  <Icon name="plus" size={14} color="#FFFF68" weight="bold" />
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                            <View style={styles.timeInput}>
+                              <Text variant="caption" color="secondary" style={styles.timeLabel}>To:</Text>
+                              <View style={styles.timePickerContainer}>
+                                <TouchableOpacity
+                                  style={styles.timePickerButton}
+                                  onPress={() => {
+                                    if (range.end_hour > range.start_hour + 1) {
+                                      const newRanges = [...formData.preferredTimeRanges];
+                                      newRanges[index].end_hour = range.end_hour - 1;
+                                      updateField('preferredTimeRanges', newRanges);
+                                    }
+                                  }}
+                                >
+                                  <Icon name="minus" size={14} color="#FFFF68" weight="bold" />
+                                </TouchableOpacity>
+                                <View style={styles.timeDisplay}>
+                                  <Text variant="h4" color="primary" style={styles.timeText}>
+                                    {range.end_hour.toString().padStart(2, '0')}:00
+                                  </Text>
+                                </View>
+                                <TouchableOpacity
+                                  style={styles.timePickerButton}
+                                  onPress={() => {
+                                    if (range.end_hour < 23) {
+                                      const newRanges = [...formData.preferredTimeRanges];
+                                      newRanges[index].end_hour = range.end_hour + 1;
+                                      updateField('preferredTimeRanges', newRanges);
+                                    }
+                                  }}
+                                >
+                                  <Icon name="plus" size={14} color="#FFFF68" weight="bold" />
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                      {formData.preferredTimeRanges.length < 3 && (
+                        <TouchableOpacity
+                          style={styles.addTimeRangeButton}
+                          onPress={() => {
+                            const newRanges = [...formData.preferredTimeRanges];
+                            newRanges.push({
+                              start_hour: 9,
+                              end_hour: 17,
+                              label: `Range ${newRanges.length + 1}`
+                            });
+                            updateField('preferredTimeRanges', newRanges);
+                          }}
+                        >
+                          <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
+                          <Text variant="body" color="primary" style={styles.addTimeRangeText}>
+                            Add Time Range
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Tasks Per Day Range */}
+                    <View style={styles.section}>
+                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                        Tasks per day
+                      </Text>
+                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                        Choose your daily task range
+                      </Text>
+                      <View style={styles.tasksRangeCard}>
+                        <View style={styles.tasksRangeContainer}>
+                          <View style={styles.tasksRangeInput}>
+                            <Text variant="caption" color="secondary" style={styles.rangeLabel}>From:</Text>
+                            <View style={styles.numberPickerContainer}>
+                              <TouchableOpacity
+                                style={styles.numberPickerButton}
+                                onPress={() => {
+                                  if (formData.tasksPerDayRange.min > 1) {
+                                    updateField('tasksPerDayRange', {
+                                      ...formData.tasksPerDayRange,
+                                      min: formData.tasksPerDayRange.min - 1
+                                    });
+                                  }
+                                }}
+                              >
+                                <Icon name="minus" size={16} color="#FFFF68" weight="bold" />
+                              </TouchableOpacity>
+                              <View style={styles.numberDisplay}>
+                                <Text variant="h4" color="primary" style={styles.numberText}>
+                                  {formData.tasksPerDayRange.min}
+                                </Text>
+                              </View>
+                              <TouchableOpacity
+                                style={styles.numberPickerButton}
+                                onPress={() => {
+                                  if (formData.tasksPerDayRange.min < formData.tasksPerDayRange.max - 1) {
+                                    updateField('tasksPerDayRange', {
+                                      ...formData.tasksPerDayRange,
+                                      min: formData.tasksPerDayRange.min + 1
+                                    });
+                                  }
+                                }}
+                              >
+                                <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                          <View style={styles.tasksRangeInput}>
+                            <Text variant="caption" color="secondary" style={styles.rangeLabel}>To:</Text>
+                            <View style={styles.numberPickerContainer}>
+                              <TouchableOpacity
+                                style={styles.numberPickerButton}
+                                onPress={() => {
+                                  if (formData.tasksPerDayRange.max > formData.tasksPerDayRange.min + 1) {
+                                    updateField('tasksPerDayRange', {
+                                      ...formData.tasksPerDayRange,
+                                      max: formData.tasksPerDayRange.max - 1
+                                    });
+                                  }
+                                }}
+                              >
+                                <Icon name="minus" size={16} color="#FFFF68" weight="bold" />
+                              </TouchableOpacity>
+                              <View style={styles.numberDisplay}>
+                                <Text variant="h4" color="primary" style={styles.numberText}>
+                                  {formData.tasksPerDayRange.max}
+                                </Text>
+                              </View>
+                              <TouchableOpacity
+                                style={styles.numberPickerButton}
+                                onPress={() => {
+                                  if (formData.tasksPerDayRange.max < 10) {
+                                    updateField('tasksPerDayRange', {
+                                      ...formData.tasksPerDayRange,
+                                      max: formData.tasksPerDayRange.max + 1
+                                    });
+                                  }
+                                }}
+                              >
+                                <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </ScrollView>
+
+                  {/* Modal Buttons */}
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={styles.modalCancelButton}
+                      onPress={() => setShowAdvancedSettings(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text variant="body" color="primary" style={styles.modalCancelButtonText}>
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.modalSaveButton}
+                      onPress={() => setShowAdvancedSettings(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text variant="body" color="primary" style={styles.modalSaveButtonText}>
+                        Save
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Navigation Buttons */}
+            <View style={styles.navigationButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  styles.navButtonPrimary,
+                  !canProceedToNextStep() && styles.navButtonDisabled,
+                  styles.centeredButton,
+                ]}
+                onPress={currentStep < 2 ? nextStep : handleSubmit}
+                disabled={!canProceedToNextStep() || (currentStep === 2 && loading)}
+                activeOpacity={0.8}
+              >
+                <Text variant="body" color="primary" style={[styles.navButtonText, styles.navButtonTextBlack, { textAlign: 'center' }]}>
+                  {currentStep < 2 ? 'Continue' : 'Send to Genie'}
                 </Text>
-              </View>
-            </Card>
-
-            {/* Intensity Level Selection */}
-            <View style={styles.intensitySection}>
-              <Text variant="h4" style={styles.intensityLabel}>
-                Choose Intensity Level
-              </Text>
-              <Text
-                variant="caption"
-                color="secondary"
-                style={styles.intensityDescription}
-              >
-                {formData.intensity === 'easy' &&
-                  '3 tasks per day • Perfect for beginners'}
-                {formData.intensity === 'medium' &&
-                  '6 tasks per day • Balanced approach'}
-                {formData.intensity === 'hard' &&
-                  '12 tasks per day • Maximum challenge'}
-              </Text>
-
-              <View style={styles.intensityButtons}>
+                <Icon name={currentStep < 2 ? "arrow-right" : "rocket"} size={20} color="#000000" weight="bold" />
+              </TouchableOpacity>
+              
+              {currentStep > 1 && (
                 <TouchableOpacity
-                  style={[
-                    styles.intensityButton,
-                    formData.intensity === 'easy' &&
-                      styles.intensityButtonSelected,
-                  ]}
-                  onPress={() => handleIntensitySelect('easy')}
+                  style={styles.stepBackButton}
+                  onPress={prevStep}
                   activeOpacity={0.8}
                 >
-                  <Icon
-                    name="leaf"
-                    size={20}
-                    color={
-                      formData.intensity === 'easy' ? '#000000' : '#FFFF68'
-                    }
-                    weight="fill"
-                  />
-                  <Text
-                    style={[
-                      styles.intensityButtonText,
-                      formData.intensity === 'easy' &&
-                        styles.intensityButtonTextSelected,
-                    ]}
-                  >
-                    Easy
-                  </Text>
-                  <Text
-                    style={[
-                      styles.intensityButtonSubtext,
-                      formData.intensity === 'easy' &&
-                        styles.intensityButtonSubtextSelected,
-                    ]}
-                  >
-                    3/day
+                  <Icon name="arrow-left" size={20} color="#FFFF68" weight="bold" />
+                  <Text variant="body" color="primary" style={styles.stepBackButtonText}>
+                    Back
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.intensityButton,
-                    formData.intensity === 'medium' &&
-                      styles.intensityButtonSelected,
-                    !isSubscribed &&
-                      !(formData.intensity === 'medium') &&
-                      styles.intensityButtonLocked,
-                  ]}
-                  onPress={() => handleIntensitySelect('medium')}
-                  activeOpacity={0.8}
-                >
-                  <Icon
-                    name="fire"
-                    size={20}
-                    color={
-                      formData.intensity === 'medium' ? '#000000' : '#FFFF68'
-                    }
-                    weight="fill"
-                  />
-                  <Text
-                    style={[
-                      styles.intensityButtonText,
-                      formData.intensity === 'medium' &&
-                        styles.intensityButtonTextSelected,
-                    ]}
-                  >
-                    Medium
-                  </Text>
-                  <Text
-                    style={[
-                      styles.intensityButtonSubtext,
-                      formData.intensity === 'medium' &&
-                        styles.intensityButtonSubtextSelected,
-                    ]}
-                  >
-                    6/day
-                  </Text>
-                  {!isSubscribed && (
-                    <View style={styles.premiumBadge}>
-                      <Icon
-                        name="crown"
-                        size={12}
-                        color="#FFFF68"
-                        weight="fill"
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.intensityButton,
-                    formData.intensity === 'hard' &&
-                      styles.intensityButtonSelected,
-                    !isSubscribed &&
-                      !(formData.intensity === 'hard') &&
-                      styles.intensityButtonLocked,
-                  ]}
-                  onPress={() => handleIntensitySelect('hard')}
-                  activeOpacity={0.8}
-                >
-                  <Icon
-                    name="lightning"
-                    size={20}
-                    color={
-                      formData.intensity === 'hard' ? '#000000' : '#FFFF68'
-                    }
-                    weight="fill"
-                  />
-                  <Text
-                    style={[
-                      styles.intensityButtonText,
-                      formData.intensity === 'hard' &&
-                        styles.intensityButtonTextSelected,
-                    ]}
-                  >
-                    Hard
-                  </Text>
-                  <Text
-                    style={[
-                      styles.intensityButtonSubtext,
-                      formData.intensity === 'hard' &&
-                        styles.intensityButtonSubtextSelected,
-                    ]}
-                  >
-                    12/day
-                  </Text>
-                  {!isSubscribed && (
-                    <View style={styles.premiumBadge}>
-                      <Icon
-                        name="crown"
-                        size={12}
-                        color="#FFFF68"
-                        weight="fill"
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
+              )}
             </View>
           </View>
+
 
           {/* AI Loading Modal */}
           <AILoadingModal
@@ -1265,65 +1544,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             onStartJourney={handleStartJourney}
           />
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Animated.View
-              style={[
-                styles.createButton,
-                {
-                  transform: [
-                    {
-                      scale: gradientAnimation.interpolate({
-                        inputRange: [0, 0.5, 1],
-                        outputRange: [1, 1.02, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <TouchableOpacity
-                disabled={loading || isCreatingPlan}
-                onPress={handleSubmit}
-                activeOpacity={0.8}
-                style={styles.createButtonTouchable}
-              >
-                <AnimatedLinearGradient
-                  colors={[
-                    gradientAnimation.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: ['#FFFF68', '#FFFFFF', '#FFFF68'],
-                    }),
-                    gradientAnimation.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: ['#FFFFFF', '#FFFF68', '#FFFFFF'],
-                    }),
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.createButtonGradient}
-                >
-                  <View style={styles.createButtonContent}>
-                    <Text style={styles.createButtonText}>
-                      {isCreatingPlan
-                        ? 'Genie is Creating Your Plan...'
-                        : 'Send to Genie'}
-                    </Text>
-                    {loading || isCreatingPlan ? (
-                      <ActivityIndicator size="small" color="#000000" />
-                    ) : (
-                      <Icon
-                        name="sparkle"
-                        size={20}
-                        color="#000000"
-                        weight="fill"
-                      />
-                    )}
-                  </View>
-                </AnimatedLinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -1390,7 +1610,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   descriptionContainer: {
-    minHeight: 120,
+    minHeight: 140,
   },
   rightAlignedInput: {
     textAlign: 'left',
@@ -1400,33 +1620,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   actions: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  createButton: {
-    borderRadius: 12,
+  centeredButton: {
+    alignSelf: 'center',
     width: '100%',
-    overflow: 'hidden',
-  },
-  createButtonTouchable: {
-    width: '100%',
-  },
-  createButtonGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createButtonContent: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
-  },
-  createButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
   },
   // Intensity Level Styles
   intensitySection: {
@@ -1488,5 +1691,443 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 104, 0.2)',
     borderRadius: 8,
     padding: 4,
+  },
+  // New styles for plan customization
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    marginBottom: 12,
+  },
+  fieldSpacing: {
+    marginBottom: 20,
+  },
+  durationDropdown: {
+    marginTop: 12,
+  },
+  timeRangeCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 16,
+  },
+  timeRangeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  timeRangeLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeRangeLabel: {
+    fontWeight: '600',
+  },
+  timeInputs: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  timeInput: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timeLabel: {
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  timePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  timePickerButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 104, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeDisplay: {
+    minWidth: 50,
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  timeText: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  removeTimeRangeButton: {
+    backgroundColor: 'rgba(255, 107, 107, 0.3)',
+    borderRadius: 6,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+  },
+  addTimeRangeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+    borderStyle: 'dashed',
+    gap: 8,
+  },
+  addTimeRangeText: {
+    fontWeight: '600',
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  dayOption: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    flex: 1,
+    marginHorizontal: 2,
+    alignItems: 'center',
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  dayOptionActive: {
+    backgroundColor: '#FFFF68',
+    borderColor: '#FFFF68',
+  },
+  dayOptionText: {
+    fontWeight: '600',
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  dayOptionTextActive: {
+    color: '#000000',
+  },
+  // Step indicator styles
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingHorizontal: 20,
+  },
+  stepContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepCircleActive: {
+    backgroundColor: '#FFFF68',
+    borderColor: '#FFFF68',
+  },
+  stepNumber: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  stepLine: {
+    width: 60,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 8,
+  },
+  stepLineActive: {
+    backgroundColor: '#FFFF68',
+  },
+  // Step content styles
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  stepDescription: {
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  // Navigation buttons styles
+  navigationButtons: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 0,
+    gap: 12,
+  },
+  navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    gap: 8,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  navButtonPrimary: {
+    backgroundColor: '#FFFF68',
+    borderColor: '#FFFF68',
+  },
+  navButtonDisabled: {
+    opacity: 0.5,
+  },
+  navButtonText: {
+    fontWeight: '600',
+  },
+  navButtonTextBlack: {
+    color: '#000000',
+  },
+  navButtonSpacer: {
+    flex: 1,
+  },
+  stepBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    gap: 8,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  stepBackButtonText: {
+    fontWeight: '600',
+  },
+  // Tasks range styles
+  tasksRangeCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 12,
+  },
+  tasksRangeContainer: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  tasksRangeInput: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rangeLabel: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  numberPickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  numberPickerButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 104, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  numberDisplay: {
+    minWidth: 40,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  numberText: {
+    fontWeight: '700',
+  },
+  // Back button styles
+  backButtonContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 20,
+  },
+  // Step card styles
+  stepCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 24,
+    position: 'relative',
+  },
+  stepNumberCircle: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFF68',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  stepNumberText: {
+    color: '#000000',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  stepCardContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 20,
+  },
+  // Publish card styles
+  publishCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginTop: 8,
+  },
+  publishContent: {
+    gap: 12,
+  },
+  publishHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  publishTitle: {
+    fontWeight: '600',
+  },
+  publishDescription: {
+    lineHeight: 20,
+  },
+  publishNote: {
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
+  // Advanced Settings Button
+  advancedSettingsContainer: {
+    marginTop: 0,
+  },
+  advancedSettingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  advancedSettingsText: {
+    flex: 1,
+    fontWeight: '600',
+  },
+  // Modal styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalTitle: {
+    fontWeight: '700',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modalCancelButtonText: {
+    fontWeight: '600',
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: '#FFFF68',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFF68',
+  },
+  modalSaveButtonText: {
+    fontWeight: '600',
+    color: '#000000',
   },
 });

@@ -23,6 +23,14 @@ interface GeneratePlanRequest {
   device_now_iso: string; // Current device time in ISO format with offset
   device_timezone: string; // IANA timezone (e.g., Asia/Jerusalem)
   device_utc_offset_minutes?: number; // UTC offset in minutes (optional for debugging)
+  // New customizable plan parameters
+  plan_duration_days?: number; // How many days the plan should last (default: 21)
+  preferred_time_ranges?: Array<{
+    start_hour: number; // 0-23
+    end_hour: number; // 0-23
+    label: string; // e.g., "בוקר", "צהריים", "ערב"
+  }>; // Up to 3 time ranges
+  preferred_days?: number[]; // Days of week (0=Sunday, 1=Monday, etc.) - if empty, all days
 }
 
 interface TaskTemplate {
@@ -292,26 +300,43 @@ const generateRewards = async (
   return insertedRewards;
 };
 
-// Device timezone-aware timing function with strict 07:00-23:00 window
+// Device timezone-aware timing function with strict 07:00-23:00 window and user preferences
 function computeRunAtDeviceAware(
   dayNumber: number,
   timeOfDay: 'morning' | 'mid_morning' | 'afternoon' | 'evening',
   deviceNowIso: string,
   deviceTimezone: string,
-  startDate?: string
+  startDate?: string,
+  preferredTimeRanges?: Array<{start_hour: number, end_hour: number, label: string}>,
+  preferredDays?: number[]
 ): { runAt: string; localRunAt: string; startDecision: 'today' | 'tomorrow' } {
   // Parse the device time as local time (not UTC)
   const deviceNow = new Date(deviceNowIso);
   
-  // Define standard time slots (device local time)
-  const timeSlots = {
-    morning: 8,
-    mid_morning: 10,
-    afternoon: 14,
-    evening: 20,
-  };
-
-  const targetHour = timeSlots[timeOfDay] || 8;
+  // Use user's preferred time ranges if available, otherwise use standard slots
+  let targetHour = 8; // Default fallback
+  
+  if (preferredTimeRanges && preferredTimeRanges.length > 0) {
+    // Map timeOfDay to user's preferred ranges
+    const timeRangeIndex = timeOfDay === 'morning' ? 0 : 
+                          timeOfDay === 'mid_morning' ? 0 : // Use first range for mid_morning
+                          timeOfDay === 'afternoon' ? 1 : 2;
+    
+    if (preferredTimeRanges[timeRangeIndex]) {
+      const range = preferredTimeRanges[timeRangeIndex];
+      // Use the start hour of the preferred range
+      targetHour = range.start_hour;
+    }
+  } else {
+    // Fallback to standard time slots
+    const timeSlots = {
+      morning: 8,
+      mid_morning: 10,
+      afternoon: 14,
+      evening: 20,
+    };
+    targetHour = timeSlots[timeOfDay] || 8;
+  }
   
   // Calculate target date in device timezone
   const targetDate = new Date(deviceNow);
@@ -322,6 +347,27 @@ function computeRunAtDeviceAware(
   }
   targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
   targetDate.setHours(targetHour, 0, 0, 0);
+
+  // Check if the target day is in user's preferred days
+  if (preferredDays && preferredDays.length > 0) {
+    const targetDayOfWeek = targetDate.getDay(); // 0=Sunday, 1=Monday, etc.
+    if (!preferredDays.includes(targetDayOfWeek)) {
+      // Find the next preferred day
+      let daysToAdd = 1;
+      let maxDaysToCheck = 7; // Prevent infinite loop
+      while (daysToAdd <= maxDaysToCheck) {
+        const nextDate = new Date(targetDate);
+        nextDate.setDate(nextDate.getDate() + daysToAdd);
+        const nextDayOfWeek = nextDate.getDay();
+        
+        if (preferredDays.includes(nextDayOfWeek)) {
+          targetDate.setDate(targetDate.getDate() + daysToAdd);
+          break;
+        }
+        daysToAdd++;
+      }
+    }
+  }
 
   let startDecision: 'today' | 'tomorrow' = 'today';
   let finalLocalTime = targetDate;
@@ -443,32 +489,35 @@ function buildTailoredOutline(
 }
 
 // Build tailored milestones when AI doesn't provide them
-function buildTailoredMilestones(totalTasks: number, title: string) {
-  const perWeek = Math.max(1, Math.ceil((totalTasks || 63) / 3));
+function buildTailoredMilestones(totalTasks: number, title: string, planDurationDays: number = 21) {
+  const totalWeeks = Math.ceil(planDurationDays / 7);
+  const perWeek = Math.max(1, Math.ceil((totalTasks || (planDurationDays * 3)) / totalWeeks));
   const t = (title || 'Your Goal').trim().slice(0, 60);
-  return [
-    {
-      week: 1,
-      title: `Kickoff • ${t} Foundations`,
-      description:
-        'Establish core systems, momentum, and measurement to start strong.',
+  
+  const milestones: any[] = [];
+  for (let week = 1; week <= totalWeeks; week++) {
+    let weekTitle, weekDescription;
+    
+    if (week === 1) {
+      weekTitle = `Kickoff • ${t} Foundations`;
+      weekDescription = 'Establish core systems, momentum, and measurement to start strong.';
+    } else if (week === totalWeeks) {
+      weekTitle = `Elevate • ${t} Mastery`;
+      weekDescription = 'Integrate, optimize, and prepare for sustainable long-term success.';
+    } else {
+      weekTitle = `Build • ${t} Skills & Outputs`;
+      weekDescription = 'Advance skills with deliberate practice and concrete mid-journey outputs.';
+    }
+    
+    milestones.push({
+      week: week,
+      title: weekTitle,
+      description: weekDescription,
       tasks: perWeek,
-    },
-    {
-      week: 2,
-      title: `Build • ${t} Skills & Outputs`,
-      description:
-        'Advance skills with deliberate practice and concrete mid-journey outputs.',
-      tasks: perWeek,
-    },
-    {
-      week: 3,
-      title: `Elevate • ${t} Mastery`,
-      description:
-        'Integrate, optimize, and prepare for sustainable long-term success.',
-      tasks: perWeek,
-    },
-  ];
+    });
+  }
+  
+  return milestones;
 }
 
 // AI-powered plan generation with Google Gemini
@@ -479,7 +528,10 @@ const generateTasksWithAI = async (
   intensity: 'easy' | 'medium' | 'hard' = 'easy',
   detailedPlan: boolean = false,
   currentTimeIso?: string,
-  timezone?: string
+  timezone?: string,
+  planDurationDays: number = 21,
+  preferredTimeRanges?: Array<{start_hour: number, end_hour: number, label: string}>,
+  preferredDays?: number[]
 ): Promise<{
   tasks: TaskTemplate[];
   iconName: string;
@@ -504,11 +556,12 @@ You are Genie, the world's most sophisticated AI personal mentor and success coa
 🎯 YOUR MISSION: Create the most precise, professional, and transformative 21-day plan that will make users say "This is exactly what I needed!"
 
 INTENSITY LEVELS:
-- Easy: 3 tasks per day (Morning, Afternoon, Evening) - 63 total tasks
-- Medium: 6 tasks per day (Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night) - 126 total tasks
-- Hard: 10-12 tasks per day (distributed throughout 07:00-23:00) - 210-252 total tasks
+- Easy: 3 tasks per day (Morning, Afternoon, Evening) - ${planDurationDays * 3} total tasks
+- Medium: 6 tasks per day (Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night) - ${planDurationDays * 6} total tasks
+- Hard: 10-12 tasks per day (distributed throughout 07:00-23:00) - ${planDurationDays * 10}-${planDurationDays * 12} total tasks
 
 Current intensity level: ${intensity.toUpperCase()}
+Plan duration: ${planDurationDays} days
 
 ⏰ TIME RULES (STRICT):
 1) Use 24-hour clock times in HH:MM format only
@@ -596,16 +649,36 @@ Context for day 1 timing (use these EXACTLY to compute user's local time and app
 - current_time_iso: ${currentTimeIso || ''}
 - timezone: ${timezone || ''}
 
-⏰ SMART SCHEDULING RULES:
+⏰ USER'S PREFERRED TIME RANGES (CRITICAL - USE THESE EXACTLY):
+${preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+  preferredTimeRanges.map((range, index) => {
+    const timeLabel = index === 0 ? "Morning" : index === 1 ? "Afternoon" : "Evening";
+    return `- ${timeLabel}: ${range.start_hour}:00-${range.end_hour}:00 (User's preference)`;
+  }).join('\n') : 
+  '- Default: Morning (08:00-12:00), Afternoon (14:00-18:00), Evening (19:00-23:00)'}
+
+📅 USER'S PREFERRED DAYS (CRITICAL - RESPECT THESE):
+${preferredDays && preferredDays.length > 0 ? 
+  `- User prefers: ${preferredDays.map(day => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day]).join(', ')}` : 
+  '- All days of the week (user has no restrictions)'}
+
+⏰ SMART SCHEDULING RULES (MANDATORY):
 1) If the user's local time is after 20:00 (8 PM), schedule ALL Day 1 tasks for TOMORROW starting at 07:00
 2) If the user's local time is before 20:00, you may schedule Day 1 tasks for TODAY but:
    - No task should be scheduled in the past
    - All tasks must be between 07:00-23:00 in the user's local timezone
    - If a suggested time has passed, choose the next available future time today
    - If no valid slots remain today (after 23:00), move to tomorrow at 07:00
-3) For days 2-21, always schedule in the future using standard time slots
-4) DISTRIBUTE TIMES: Spread tasks throughout the day to avoid clustering
-5) NO DUPLICATE TIMES: Each task on the same day must have a unique time slot
+3) For days 2-${planDurationDays}, always schedule in the future using preferred time ranges
+4) PREFERRED TIME RANGES (CRITICAL): ${preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+   'MUST schedule tasks ONLY within the user\'s preferred time ranges listed above. Do NOT use standard time slots.' : 
+   'Use standard time slots (morning, afternoon, evening) since user has no preferences'}
+5) PREFERRED DAYS (CRITICAL): ${preferredDays && preferredDays.length > 0 ? 
+   'MUST schedule tasks ONLY on the user\'s preferred days listed above. Skip days not in the list.' : 
+   'Schedule tasks on all days of the week since user has no restrictions'}
+6) DISTRIBUTE TIMES: Spread tasks throughout the day to avoid clustering
+7) NO DUPLICATE TIMES: Each task on the same day must have a unique time slot
+8) RESPECT USER PREFERENCES: The user has customized their plan - honor their choices exactly
 
 🎯 FINAL OUTPUT REQUIREMENTS:
 
@@ -949,7 +1022,7 @@ DELIVERABLES MUST EXIST:
 
       // If no milestones provided, generate fallback milestones
       if (!milestones || milestones.length === 0) {
-        milestones = buildTailoredMilestones(tasks.length, title);
+        milestones = buildTailoredMilestones(tasks.length, title, planDurationDays);
       }
 
       // Extract deliverables if present and minimally validate shape
@@ -1160,7 +1233,8 @@ const generateTasksForCategory = (
   category: string,
   title: string,
   description: string,
-  intensity: 'easy' | 'medium' | 'hard' = 'easy'
+  intensity: 'easy' | 'medium' | 'hard' = 'easy',
+  planDurationDays: number = 21
 ): TaskTemplate[] => {
   const tasks: TaskTemplate[] = [];
 
@@ -1168,8 +1242,8 @@ const generateTasksForCategory = (
   const tasksPerDay =
     intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
 
-  // Generate tasks per day for 21 days
-  for (let day = 0; day < 21; day++) {
+  // Generate tasks per day for the specified duration
+  for (let day = 0; day < planDurationDays; day++) {
     const dayNumber = day + 1;
     const weekNumber = Math.ceil(dayNumber / 7);
 
@@ -1491,6 +1565,9 @@ serve(async (req) => {
       start_date,
       language = 'en',
       detailed_plan = false,
+      plan_duration_days = 21,
+      preferred_time_ranges,
+      preferred_days,
     } = requestData;
 
     // Validate required fields
@@ -1796,7 +1873,10 @@ serve(async (req) => {
         intensity,
         detailed_plan,
         device_now_iso, // Pass the actual device time
-        device_timezone // Pass the actual device timezone
+        device_timezone, // Pass the actual device timezone
+        plan_duration_days,
+        preferred_time_ranges,
+        preferred_days
       );
 
       const aiLatency = Date.now() - aiStartTime;
@@ -1839,9 +1919,9 @@ serve(async (req) => {
 
       // Fallback to template generation
       console.log(`[${requestId}] Falling back to template generation...`);
-      const fallbackResult = generateTasksForCategory(category, title, description, intensity);
+      const fallbackResult = generateTasksForCategory(category, title, description, intensity, plan_duration_days);
       taskTemplates = fallbackResult;
-      milestones = buildTailoredMilestones(fallbackResult.length, title);
+      milestones = buildTailoredMilestones(fallbackResult.length, title, plan_duration_days);
       planOutline = buildTailoredOutline(title, description, category);
       
       // Use default values for fallback
@@ -1879,7 +1959,9 @@ serve(async (req) => {
         timeOfDay, 
         device_now_iso, 
         device_timezone, 
-        start_date
+        start_date,
+        preferred_time_ranges,
+        preferred_days
       );
 
       // Capture start decision from first task and apply it to all day 1 tasks
@@ -1896,15 +1978,49 @@ serve(async (req) => {
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(7, 0, 0, 0);
         
-        // Adjust the time based on the time of day
-        const timeSlots = {
-          morning: 8,
-          mid_morning: 10,
-          afternoon: 14,
-          evening: 20,
-        };
-        const targetHour = timeSlots[timeOfDay] || 8;
+        // Use user's preferred time ranges if available
+        let targetHour = 8; // Default fallback
+        
+        if (preferred_time_ranges && preferred_time_ranges.length > 0) {
+          const timeRangeIndex = timeOfDay === 'morning' ? 0 : 
+                                timeOfDay === 'mid_morning' ? 0 : 
+                                timeOfDay === 'afternoon' ? 1 : 2;
+          
+          if (preferred_time_ranges[timeRangeIndex]) {
+            targetHour = preferred_time_ranges[timeRangeIndex].start_hour;
+          }
+        } else {
+          // Fallback to standard time slots
+          const timeSlots = {
+            morning: 8,
+            mid_morning: 10,
+            afternoon: 14,
+            evening: 20,
+          };
+          targetHour = timeSlots[timeOfDay] || 8;
+        }
+        
         tomorrow.setHours(targetHour, 0, 0, 0);
+        
+        // Check if tomorrow is in user's preferred days
+        if (preferred_days && preferred_days.length > 0) {
+          const tomorrowDayOfWeek = tomorrow.getDay();
+          if (!preferred_days.includes(tomorrowDayOfWeek)) {
+            // Find the next preferred day
+            let daysToAdd = 1;
+            while (daysToAdd <= 7) {
+              const nextDate = new Date(tomorrow);
+              nextDate.setDate(nextDate.getDate() + daysToAdd);
+              const nextDayOfWeek = nextDate.getDay();
+              
+              if (preferred_days.includes(nextDayOfWeek)) {
+                tomorrow.setDate(tomorrow.getDate() + daysToAdd);
+                break;
+              }
+              daysToAdd++;
+            }
+          }
+        }
         
         timingResult.runAt = tomorrow.toISOString();
         timingResult.localRunAt = tomorrow.toISOString();
