@@ -383,16 +383,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const progressPercentage =
     totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Function to limit first line to 3 words
+  // Function to format title into up to 3 lines, limiting line 1 and 2 to 3 words
   const formatTitle = (title: string) => {
-    const words = title.split(' ');
-    if (words.length <= 3) {
-      return title;
-    }
-
-    const firstLine = words.slice(0, 3).join(' ');
-    const secondLine = words.slice(3).join(' ');
-    return `${firstLine}\n${secondLine}`;
+    const words = title.trim().split(/\s+/);
+    const line1 = words.slice(0, 3).join(' ');
+    const line2 = words.slice(3, 6).join(' ');
+    const line3 = words.slice(6).join(' ');
+    return [line1, line2, line3].filter(Boolean).join('\n');
   };
 
   // Function to format date for display
@@ -474,13 +471,6 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     >
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
-        {/* Blur overlay */}
-        <View style={styles.blurOverlay} />
-        {/* Additional blur effect */}
-        <View style={styles.blurEffect} />
-        {/* Extra blur layers */}
-        <View style={styles.blurEffect2} />
-        <View style={styles.blurEffect3} />
         <Button
           variant="ghost"
           onPress={onBack}
@@ -554,7 +544,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                   />
                 </View>
                 <View>
-                  <Text variant="h4" style={styles.goalTitle}>
+                  <Text variant="h4" style={styles.goalTitle} numberOfLines={3}>
                     {formatTitle(currentGoal.title)}
                   </Text>
                   <Text
@@ -912,54 +902,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
     paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 8,
-  },
-  blurOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    zIndex: -1,
-  },
-  blurEffect: {
-    position: 'absolute',
-    top: -20,
-    left: -20,
-    right: -20,
-    bottom: -20,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 30,
-    zIndex: -2,
-  },
-  blurEffect2: {
-    position: 'absolute',
-    top: -30,
-    left: -30,
-    right: -30,
-    bottom: -30,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderRadius: 40,
-    zIndex: -3,
-  },
-  blurEffect3: {
-    position: 'absolute',
-    top: -40,
-    left: -40,
-    right: -40,
-    bottom: -40,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 50,
-    zIndex: -4,
+    backgroundColor: 'transparent',
   },
   headerSpacer: {
     flex: 1,
