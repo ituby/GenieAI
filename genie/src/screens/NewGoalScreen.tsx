@@ -517,7 +517,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               value={formData.title}
               onChangeText={(value) => updateField('title', value)}
               error={errors.title}
-              placeholder="Learn Spanish"
+              placeholder="What do you want to achieve or learn?"
               maxLength={100}
               inputStyle={styles.rightAlignedInput}
               placeholderTextColor="rgba(255, 255, 255, 0.3)"
@@ -529,7 +529,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               value={formData.description}
               onChangeText={(value) => updateField('description', value)}
               error={errors.description}
-              placeholder="Why is this important to you? How will you know you've succeeded?"
+              placeholder="Describe your goal and context. You can add details, constraints, examples, or the outcome you expect."
               multiline
               numberOfLines={6}
               maxLength={500}

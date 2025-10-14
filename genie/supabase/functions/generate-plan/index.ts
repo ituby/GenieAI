@@ -617,7 +617,9 @@ Category: ${category}
 
 🚀 CREATE A TRANSFORMATIVE 21-DAY MASTERY PLAN
 
-Your task is to create the most professional, comprehensive, and life-changing 21-day plan that will:
+Your task is to create the most professional, comprehensive, and life-changing 21-day plan tailored EXACTLY to the user's request above. If the user asked for concrete deliverables (e.g., "write scripts", "list characters", "create scenes", "filming plan"), you MUST generate tasks that explicitly produce these deliverables in a realistic sequence.
+
+Your plan must:
 - Transform the user's current situation into their desired outcome
 - Build genuine expertise and mastery
 - Create sustainable habits and systems
@@ -626,7 +628,7 @@ Your task is to create the most professional, comprehensive, and life-changing 2
 
 📋 PLAN STRUCTURE REQUIREMENTS:
 
-WEEK 1 (Days 1-7): FOUNDATION & MASTERY SETUP
+WEEK 1 (Days 1-7): FOUNDATION & MASTERY SETUP (CONCRETE DELIVERABLES)
 - Establish unshakeable foundations and core systems
 - Build essential competencies and knowledge base
 - Create momentum through strategic quick wins
@@ -634,7 +636,7 @@ WEEK 1 (Days 1-7): FOUNDATION & MASTERY SETUP
 - Address mindset and motivation barriers
 - Build confidence through early successes
 
-WEEK 2 (Days 8-14): SKILL DEVELOPMENT & PRACTICE
+WEEK 2 (Days 8-14): SKILL DEVELOPMENT & PRACTICE (PARTIAL OUTPUTS)
 - Advanced skill building and refinement
 - Real-world application and practical testing
 - Problem-solving and adaptive learning
@@ -642,7 +644,7 @@ WEEK 2 (Days 8-14): SKILL DEVELOPMENT & PRACTICE
 - Overcoming challenges and obstacles
 - Creating sustainable daily practices
 
-WEEK 3 (Days 15-21): MASTERY & TRANSFORMATION
+WEEK 3 (Days 15-21): MASTERY & TRANSFORMATION (FINAL OUTPUTS)
 - Advanced mastery and optimization techniques
 - Leadership and knowledge sharing
 - Innovation and creative application
@@ -652,7 +654,7 @@ WEEK 3 (Days 15-21): MASTERY & TRANSFORMATION
 
 🎯 TASK CREATION EXCELLENCE:
 
-Each task must be:
+Each task must be (MANDATORY):
 ✅ SPECIFIC: "Research 3 proven strategies for [specific aspect]" not "Learn about the topic"
 ✅ ACTIONABLE: "Complete a 30-minute practice session using [specific technique]" not "Practice"
 ✅ PROGRESSIVE: Each task builds upon previous achievements and knowledge
@@ -660,6 +662,11 @@ Each task must be:
 ✅ RELEVANT: Directly connected to the goal's success with measurable outcomes
 ✅ MOTIVATING: Inspiring and confidence-building with clear benefits
 ✅ PROFESSIONAL: Industry-standard quality, tools, and methodologies
+
+DELIVERABLE ALIGNMENT (CRITICAL):
+- If the user asked for scripts: include tasks like "Outline 3-act structure", "Write character list", "Draft scene list", "Write 2 scenes (first draft)", "Polish dialogue".
+- If the user asked for character list: include tasks like "Define 6-8 characters with roles and arcs", "Create bios", "Map relationships".
+- If the user asked for scene ideas/filming: include tasks like "Brainstorm 10 visual scenes", "Create mood board", "Draft shooting schedule", "Location scouting list".
 
 EXPERT-LEVEL REQUIREMENTS:
 - Include specific tools, resources, apps, or platforms to use
@@ -847,7 +854,7 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
       }
 
       // Extract category, icon name, and color from AI response
-      // Validate category from AI or fallback to input category
+      // Validate category from AI or fallback with heuristic classifier (then input category)
       const validCategories = [
         'lifestyle',
         'career',
@@ -855,10 +862,86 @@ Remember: This plan will be the user's roadmap to transformation. Make it so goo
         'character',
         'custom',
       ] as const;
-      let aiCategory: (typeof validCategories)[number] =
-        validCategories.includes((planData.category || '').toLowerCase())
-          ? (planData.category as (typeof validCategories)[number])
-          : (category as (typeof validCategories)[number]);
+      const toLower = (v: any) =>
+        typeof v === 'string' ? v.toLowerCase() : '';
+      const combined = `${toLower(title)} ${toLower(description)}`;
+      const classifyHeuristic = (): (typeof validCategories)[number] => {
+        const hasAny = (arr: string[]) => arr.some((k) => combined.includes(k));
+        if (
+          hasAny([
+            'sleep',
+            'diet',
+            'nutrition',
+            'health',
+            'fitness',
+            'workout',
+            'run',
+            'exercise',
+            'habit',
+            'morning routine',
+            'read',
+          ])
+        )
+          return 'lifestyle';
+        if (
+          hasAny([
+            'career',
+            'job',
+            'promotion',
+            'interview',
+            'cv',
+            'portfolio',
+            'money',
+            'finance',
+            'budget',
+            'business',
+            'startup',
+            'study',
+            'course',
+            'learn ',
+            'skill',
+          ])
+        )
+          return 'career';
+        if (
+          hasAny([
+            'mindset',
+            'meditat',
+            'focus',
+            'confidence',
+            'anxiety',
+            'stress',
+            'gratitude',
+            'journal',
+          ])
+        )
+          return 'mindset';
+        if (
+          hasAny([
+            'character',
+            'discipline',
+            'volunteer',
+            'kindness',
+            'patience',
+            'consistency',
+            'integrity',
+          ])
+        )
+          return 'character';
+        return 'custom';
+      };
+
+      let aiCategory: (typeof validCategories)[number];
+      const aiRaw = toLower(planData.category);
+      if (validCategories.includes(aiRaw as any)) {
+        aiCategory = aiRaw as (typeof validCategories)[number];
+      } else {
+        const guessed = classifyHeuristic();
+        aiCategory =
+          guessed !== 'custom'
+            ? guessed
+            : (category as (typeof validCategories)[number]) || 'custom';
+      }
 
       // Map color strictly by category per mapping
       const categoryColorMap: Record<(typeof validCategories)[number], string> =
