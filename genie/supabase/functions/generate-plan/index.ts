@@ -1348,6 +1348,16 @@ DELIVERABLES MUST EXIST:
         iconName = defaultIconForCategory[aiCategory];
       }
 
+      // If category is still custom, try inferring from icon choice
+      if (aiCategory === 'custom') {
+        for (const [cat, icons] of Object.entries(validCategoryIcons)) {
+          if (icons.includes(iconName)) {
+            aiCategory = cat as (typeof validCategories)[number];
+            break;
+          }
+        }
+      }
+
       // Choose color based on category mapping; ignore AI-provided color if any
       const color = categoryColorMap[aiCategory] || 'yellow';
 

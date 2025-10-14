@@ -770,7 +770,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     try {
       // Apply final AI selections to goal and activate it
       if (createdGoalId) {
-        const finalCategory = (planCategory as any) || 'custom';
+        // Don't force custom if AI provided a category
+        const finalCategory = (planCategory as any) || planCategory || 'custom';
         const finalIcon = planIconName || 'star';
         const finalColor = planColor || mapCategoryToColor(finalCategory);
         try {
