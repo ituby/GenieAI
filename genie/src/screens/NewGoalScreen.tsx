@@ -232,6 +232,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             goalTitle: savedForm.title.trim(),
             subcategory: null,
             marketingDomain: null,
+            planOutline: fallbackMilestones.map((m) => ({
+              title: m.title,
+              description: m.description,
+            })),
           };
           setPlanData(data);
           setIsCreatingPlan(false);
@@ -443,6 +447,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               goalTitle: formData.title.trim(),
               subcategory: null,
               marketingDomain: null,
+              planOutline: fallbackMilestones.map((m) => ({
+                title: m.title,
+                description: m.description,
+              })),
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
@@ -455,6 +463,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 goalTitle: formData.title.trim(),
                 subcategory: null,
                 marketingDomain: null,
+                planOutline: fallbackMilestones.map((m) => ({
+                  title: m.title,
+                  description: m.description,
+                })),
               },
               createdGoalId: goal.id,
               formData,
@@ -558,6 +570,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             goalTitle: formData.title.trim(),
             subcategory: null,
             marketingDomain: null,
+            planOutline: fallbackMilestones.map((m) => ({
+              title: m.title,
+              description: m.description,
+            })),
           });
           setIsCreatingPlan(false);
           setShowPlanPreview(true);
@@ -570,6 +586,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               goalTitle: formData.title.trim(),
               subcategory: null,
               marketingDomain: null,
+              planOutline: fallbackMilestones.map((m) => ({
+                title: m.title,
+                description: m.description,
+              })),
             },
             createdGoalId: goal.id,
             formData,

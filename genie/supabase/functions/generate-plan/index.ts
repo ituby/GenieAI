@@ -436,6 +436,7 @@ const generateTasksWithAI = async (
   iconName: string;
   color: string;
   milestones: any[];
+  planOutline?: Array<{ title: string; description: string }>;
   category: string;
   subcategory?: string | null;
   marketingDomain?: string | null;

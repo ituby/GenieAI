@@ -287,6 +287,17 @@ export const DashboardScreen: React.FC = () => {
     if (!user?.id) return;
 
     try {
+      // If user has no goals, clear tasks immediately
+      const { data: userGoals } = await supabase
+        .from('goals')
+        .select('id, status')
+        .eq('user_id', user.id);
+      if (!userGoals || userGoals.length === 0) {
+        setTodaysTasksCount(0);
+        setTodaysTasks([]);
+        return;
+      }
+
       const today = new Date();
       const startOfDay = new Date(
         today.getFullYear(),
@@ -318,11 +329,13 @@ export const DashboardScreen: React.FC = () => {
             title,
             category,
             user_id,
-            color
+            color,
+            status
           )
         `
         )
         .eq('goals.user_id', user.id)
+        .eq('goals.status', 'active')
         .gte('run_at', startOfDay.toISOString())
         .lt('run_at', endOfDay.toISOString())
         .order('run_at', { ascending: true });
