@@ -24,6 +24,7 @@ interface PlanPreviewModalProps {
   visible: boolean;
   milestones: Milestone[];
   goalTitle: string;
+  planOutline?: Array<{ title: string; description: string }>;
   onApprove: () => void;
   onTryAgain: () => void;
 }
@@ -32,6 +33,7 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
   visible,
   milestones,
   goalTitle,
+  planOutline,
   onApprove,
   onTryAgain,
 }) => {
@@ -86,35 +88,27 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
               </Text>
             </View>
 
-            {/* Milestones */}
+            {/* Outline or Milestones */}
             <ScrollView
               style={styles.milestonesContainer}
               showsVerticalScrollIndicator={false}
             >
-              {milestones.map((milestone, index) => (
-                <View key={milestone.week} style={styles.milestoneCard}>
-                  <View style={styles.milestoneHeader}>
-                    <View style={styles.weekBadge}>
-                      <Text style={styles.weekText}>Week {milestone.week}</Text>
-                    </View>
-                    <View style={styles.taskCount}>
-                      <Icon
-                        name="check-circle"
-                        size={16}
-                        color="#FFFF68"
-                        weight="fill"
-                      />
-                      <Text style={styles.taskCountText}>
-                        {milestone.tasks} tasks
-                      </Text>
-                    </View>
-                  </View>
-
+              {(planOutline && planOutline.length > 0
+                ? planOutline
+                : milestones.map((m) => ({
+                    title: m.title,
+                    description: m.description,
+                  }))
+              ).map((section, index) => (
+                <View
+                  key={`${section.title}-${index}`}
+                  style={styles.milestoneCard}
+                >
                   <Text
                     variant="h4"
                     style={[styles.milestoneTitle, { color: '#FFFFFF' }]}
                   >
-                    {milestone.title}
+                    {section.title}
                   </Text>
 
                   <Text
@@ -124,7 +118,7 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
                       { color: '#FFFFFF', opacity: 0.8 },
                     ]}
                   >
-                    {milestone.description}
+                    {section.description}
                   </Text>
                 </View>
               ))}

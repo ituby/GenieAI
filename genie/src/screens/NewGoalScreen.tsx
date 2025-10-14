@@ -100,6 +100,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     goalTitle: '',
     subcategory: null as string | null,
     marketingDomain: null as string | null,
+    planOutline: [] as Array<{ title: string; description: string }>,
   });
   const [createdGoalId, setCreatedGoalId] = useState<string | null>(null);
   const [planCategory, setPlanCategory] = useState<string | null>(null);
@@ -263,6 +264,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         const milestones =
           response.data?.milestones ||
           generateMilestonesFromPlan(response.data);
+        const planOutline =
+          response.data?.plan_outline ||
+          milestones.map((m: any) => ({
+            title: m.title,
+            description: m.description,
+          }));
 
         setTimeout(() => {
           const data = {
@@ -270,6 +277,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             goalTitle: savedForm.title.trim(),
             subcategory,
             marketingDomain,
+            planOutline,
           };
           setPlanData(data);
           setIsCreatingPlan(false);
@@ -486,6 +494,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               goalTitle: formData.title.trim(),
               subcategory,
               marketingDomain,
+              planOutline:
+                response.data?.plan_outline ||
+                milestones.map((m: any) => ({
+                  title: m.title,
+                  description: m.description,
+                })),
             });
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
@@ -745,6 +759,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           subcategory: planData.subcategory,
           marketing_domain: planData.marketingDomain,
           plan_milestones: planData.milestones,
+          plan_outline: planData.planOutline,
           tasks_generated: planData.milestones.reduce(
             (sum, m) => sum + (m.tasks || 0),
             0

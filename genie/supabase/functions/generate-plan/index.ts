@@ -574,6 +574,10 @@ Return ONLY valid JSON in this exact format:
       "tasks": 21
     }
   ],
+  "plan_outline": [
+    { "title": "Section title tailored to this plan", "description": "What this section covers and why" },
+    { "title": "Section title", "description": "Details" }
+  ],
   "days": [
     {
       "day": 1,
@@ -873,6 +877,25 @@ DELIVERABLES MUST EXIST:
 
       // Extract milestones from AI response
       let milestones = planData.milestones || [];
+      const planOutline = Array.isArray(planData.plan_outline)
+        ? planData.plan_outline
+        : [
+            {
+              title: 'Foundation & Setup',
+              description:
+                'Establishing the core foundation and systems tailored to this goal.',
+            },
+            {
+              title: 'Skill Development',
+              description:
+                'Developing skills and producing partial outputs aligned with the request.',
+            },
+            {
+              title: 'Mastery & Transformation',
+              description:
+                'Finalizing deliverables and preparing for long-term success.',
+            },
+          ];
 
       // If no milestones provided, generate fallback milestones
       if (!milestones || milestones.length === 0) {
@@ -1285,6 +1308,7 @@ DELIVERABLES MUST EXIST:
         iconName,
         color,
         milestones,
+        planOutline,
         category: aiCategory,
         subcategory,
         marketingDomain,
@@ -1953,6 +1977,7 @@ serve(async (req) => {
         color: color,
         category: aiCategory,
         milestones: milestones,
+        plan_outline: planOutline,
         deliverables: deliverables,
         message: `Generated ${insertedTasks.length} tasks and ${rewards.length} rewards for your goal`,
       }),

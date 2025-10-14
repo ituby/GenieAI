@@ -522,14 +522,21 @@ export const DashboardScreen: React.FC = () => {
           .single();
 
         if (existingTokens) {
-          // Update existing record
+          // Update existing record atomically; do not decrement for subscribed users
+          const updateData: any = {
+            tokens_used: existingTokens.tokens_used + 1,
+            updated_at: new Date().toISOString(),
+          };
+          if (!existingTokens.is_subscribed) {
+            updateData.tokens_remaining = Math.max(
+              0,
+              (existingTokens.tokens_remaining || 0) - 1
+            );
+          }
+
           await supabase
             .from('user_tokens')
-            .update({
-              tokens_used: existingTokens.tokens_used + 1,
-              tokens_remaining: existingTokens.tokens_remaining - 1,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq('user_id', user.id);
         } else {
           // Create new record
@@ -542,12 +549,8 @@ export const DashboardScreen: React.FC = () => {
           });
         }
 
-        // Update local state
-        setUserTokens((prev) => ({
-          ...prev,
-          used: prev.used + 1,
-          remaining: prev.remaining - 1,
-        }));
+        // Refresh tokens from server to avoid stale UI
+        await fetchUserTokens();
 
         fetchGoals(user.id);
         fetchTodaysTasks();
@@ -839,9 +842,12 @@ export const DashboardScreen: React.FC = () => {
                 <View style={styles.usageRateDivider} />
                 <View style={styles.usageRateStat}>
                   <Text variant="h2" style={styles.usageRateNumber}>
-                    {userTokens.isSubscribed
-                      ? userTokens.monthlyTokens - userTokens.used
-                      : userTokens.remaining}
+                    {Math.max(
+                      userTokens.remaining,
+                      userTokens.isSubscribed
+                        ? userTokens.monthlyTokens - userTokens.used
+                        : userTokens.remaining
+                    )}
                   </Text>
                   <Text
                     variant="caption"
@@ -897,10 +903,45 @@ export const DashboardScreen: React.FC = () => {
           </Card>
 
           <View style={styles.greetingButtonContainer}>
-            <TalkWithGenieButton
-              onPress={checkTokensAndCreateGoal}
-              size="medium"
-            />
+            <AnimatedLinearGradient
+              colors={
+                userTokens.remaining <= 0
+                  ? ['#FF6B6B', '#FF8E8E', '#FF6B6B']
+                  : ['#FFFF68', '#FFFFFF', '#FFFF68']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.addGoalButtonGradient}
+            >
+              <TouchableOpacity
+                onPress={
+                  userTokens.remaining <= 0
+                    ? () => setShowSubscriptionModal(true)
+                    : checkTokensAndCreateGoal
+                }
+                activeOpacity={0.8}
+                style={styles.addGoalButton}
+              >
+                <View style={styles.addGoalButtonContent}>
+                  <Icon
+                    name={userTokens.remaining <= 0 ? 'crown' : 'sparkle'}
+                    size={16}
+                    color={userTokens.remaining <= 0 ? '#FFFFFF' : '#FFFF68'}
+                    weight="fill"
+                  />
+                  <Text
+                    style={[
+                      styles.addGoalButtonText,
+                      userTokens.remaining <= 0 && { color: '#FFFFFF' },
+                    ]}
+                  >
+                    {userTokens.remaining <= 0
+                      ? 'Subscribe now to talk with Genie'
+                      : 'Talk with Genie'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </AnimatedLinearGradient>
           </View>
         </View>
 
