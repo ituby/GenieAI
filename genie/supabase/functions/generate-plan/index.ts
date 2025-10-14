@@ -1943,6 +1943,18 @@ serve(async (req) => {
     const usedTimeSlots = new Map<string, Set<string>>(); // day -> Set of time slots
     let startDecision: 'today' | 'tomorrow' = 'today';
     let firstTaskScheduled = false;
+    
+    // Pre-allocate time slots to avoid conflicts
+    const preAllocatedSlots = new Map<string, string[]>(); // day -> array of available slots
+    const generateTimeSlots = (day: Date) => {
+      const slots: string[] = [];
+      for (let hour = 7; hour < 23; hour++) {
+        for (let minute = 0; minute < 60; minute += 15) {
+          slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+        }
+      }
+      return slots;
+    };
 
     for (const template of taskTemplates) {
       const dayNumber = template.day_offset + 1; // Convert back to 1-based
@@ -1963,6 +1975,23 @@ serve(async (req) => {
         preferred_time_ranges,
         preferred_days
       );
+
+      // Add some randomization to avoid conflicts
+      const baseTime = new Date(timingResult.runAt);
+      const randomOffset = Math.floor(Math.random() * 15); // 0-14 minutes
+      baseTime.setMinutes(baseTime.getMinutes() + randomOffset);
+      
+      // Ensure we stay within 07:00-23:00 window
+      if (baseTime.getHours() >= 23) {
+        baseTime.setDate(baseTime.getDate() + 1);
+        baseTime.setHours(7, 0, 0, 0);
+      }
+      if (baseTime.getHours() < 7) {
+        baseTime.setHours(7, 0, 0, 0);
+      }
+      
+      timingResult.runAt = baseTime.toISOString();
+      timingResult.localRunAt = baseTime.toISOString();
 
       // Capture start decision from first task and apply it to all day 1 tasks
       if (!firstTaskScheduled) {
@@ -2046,11 +2075,12 @@ serve(async (req) => {
           `[${requestId}] Time conflict detected for "${template.title}" at ${timeSlot} on ${dayKey}, finding alternative...`
         );
 
+        // Try to find a better time slot within the same day first
         let adjustedTime = new Date(scheduledTime);
         let attempts = 0;
-        const maxAttempts = 20; // Increased for day folding
+        const maxAttempts = 50;
 
-        while (dayTimeSlots.has(timeSlot) && attempts < maxAttempts) {
+        while (attempts < maxAttempts) {
           // Try adding 15 minutes
           adjustedTime.setMinutes(adjustedTime.getMinutes() + 15);
 
@@ -2058,26 +2088,26 @@ serve(async (req) => {
           if (adjustedTime.getHours() >= 23) {
             adjustedTime.setDate(adjustedTime.getDate() + 1);
             adjustedTime.setHours(7, 0, 0, 0);
-            
-            // Update day key for next day
-            const newDayKey = adjustedTime.toDateString();
-            if (!usedTimeSlots.has(newDayKey)) {
-              usedTimeSlots.set(newDayKey, new Set());
-            }
           }
 
-          // Ensure we don't go below 07:00 (shouldn't happen with this logic, but safety check)
+          // Ensure we don't go below 07:00
           if (adjustedTime.getHours() < 7) {
             adjustedTime.setHours(7, 0, 0, 0);
           }
 
           const newTimeSlot = `${adjustedTime.getHours().toString().padStart(2, '0')}:${adjustedTime.getMinutes().toString().padStart(2, '0')}`;
           const newDayKey = adjustedTime.toDateString();
+          
+          if (!usedTimeSlots.has(newDayKey)) {
+            usedTimeSlots.set(newDayKey, new Set());
+          }
+          
           const newDayTimeSlots = usedTimeSlots.get(newDayKey)!;
           
           if (!newDayTimeSlots.has(newTimeSlot)) {
             runAt = adjustedTime.toISOString();
             localRunAt = adjustedTime.toISOString();
+            console.log(`[${requestId}] Resolved time conflict for "${template.title}" - moved to ${newTimeSlot} on ${newDayKey}`);
             break;
           }
           attempts++;
