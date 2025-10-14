@@ -18,6 +18,7 @@ import { supabase } from '../services/supabase/client';
 
 interface SubscriptionScreenProps {
   onBack: () => void;
+  onAddTokens?: () => void;
 }
 
 interface SubscriptionData {
@@ -36,6 +37,7 @@ interface SubscriptionData {
 
 export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
   onBack,
+  onAddTokens,
 }) => {
   const theme = useTheme();
   const { user } = useAuthStore();
@@ -288,9 +290,15 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
           <Card variant="gradient" padding="md" style={styles.statusCard}>
             <View style={styles.statusHeader}>
               <View style={styles.statusInfo}>
-                <Text variant="h4" style={styles.planName}>
-                  {subscriptionData.plan}
-                </Text>
+                <View style={styles.planTitleRow}>
+                  <Icon name="crown" size={20} color="#FFFF68" />
+                  <Text
+                    variant="h4"
+                    style={[styles.planName, { marginLeft: 8 }]}
+                  >
+                    {subscriptionData.plan}
+                  </Text>
+                </View>
                 <View style={styles.statusBadge}>
                   <View
                     style={[
@@ -307,7 +315,6 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
                   </Text>
                 </View>
               </View>
-              <Icon name="crown" size={24} color="#FFFF68" />
             </View>
 
             <View style={styles.statusDetails}>
@@ -344,40 +351,12 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
                 </Text>
               </View>
               <TouchableOpacity
-                style={[
-                  styles.purchaseTokensButton,
-                  subscriptionData.status !== 'active' &&
-                    styles.purchaseTokensButtonDisabled,
-                ]}
-                disabled={subscriptionData.status !== 'active'}
-                activeOpacity={subscriptionData.status === 'active' ? 0.8 : 1}
-                onPress={() => {
-                  // TODO: Implement token purchase functionality
-                  Alert.alert(
-                    'Coming Soon',
-                    'Token purchase feature will be available soon!'
-                  );
-                }}
+                style={styles.purchaseTokensButton}
+                activeOpacity={0.8}
+                onPress={() => onAddTokens?.()}
               >
-                <Icon
-                  name="crown"
-                  size={16}
-                  color={
-                    subscriptionData.status === 'active'
-                      ? '#FFFF68'
-                      : 'rgba(255, 255, 104, 0.4)'
-                  }
-                  weight="fill"
-                />
-                <Text
-                  style={[
-                    styles.purchaseTokensText,
-                    subscriptionData.status !== 'active' &&
-                      styles.purchaseTokensTextDisabled,
-                  ]}
-                >
-                  Add Tokens
-                </Text>
+                <Icon name="coins" size={16} color="#FFFF68" weight="fill" />
+                <Text style={styles.purchaseTokensText}>Add Tokens</Text>
               </TouchableOpacity>
             </View>
 
@@ -569,10 +548,14 @@ const styles = StyleSheet.create({
   statusInfo: {
     flex: 1,
   },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   planName: {
     color: '#FFFFFF',
     fontWeight: '600',
-    marginBottom: 8,
   },
   statusBadge: {
     flexDirection: 'row',

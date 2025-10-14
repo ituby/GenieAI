@@ -194,7 +194,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             title: formData.title.trim(),
             description: formData.description.trim(),
             intensity: formData.intensity,
-            timezone: 'Asia/Jerusalem',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            current_time_iso: new Date().toISOString(),
             language: 'en', // Default to English
             detailed_plan: true, // Request detailed 21-day roadmap
           },

@@ -10,6 +10,7 @@ import {
   Animated,
   Dimensions,
   TextInput,
+  Modal,
 } from 'react-native';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
@@ -751,8 +752,13 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.contentHeader}>
           {/* Dashboard Slogan */}
           <View style={styles.dashboardSloganContainer}>
-            <Text variant="body" style={styles.dashboardSloganText}>
+            <Text variant="h3" style={styles.dashboardSloganText}>
               Tell me what you're wishing for
+            </Text>
+            <Text variant="body" style={styles.dashboardSloganSubtext}>
+              Genie creates a focused 21-day plan with daily tasks, rewards, and
+              smart notifications. Ask to learn, achieve, fulfill, change, build
+              habits, improve mindset, and more.
             </Text>
           </View>
 
@@ -781,7 +787,7 @@ export const DashboardScreen: React.FC = () => {
                 onPress={() => setShowTokenPurchaseModal(true)}
               >
                 <Icon
-                  name="crown"
+                  name="coins"
                   size={16}
                   color={
                     userTokens.isSubscribed
@@ -1487,210 +1493,228 @@ export const DashboardScreen: React.FC = () => {
 
       {/* Subscription Screen */}
       {showSubscription && (
-        <SubscriptionScreen onBack={() => setShowSubscription(false)} />
+        <SubscriptionScreen
+          onBack={() => setShowSubscription(false)}
+          onAddTokens={() => {
+            // Ensure token modal is on top: close subscription, then open
+            setShowSubscription(false);
+            requestAnimationFrame(() => setShowTokenPurchaseModal(true));
+          }}
+        />
       )}
 
-      {/* Token Purchase Modal */}
+      {/* Token Purchase Modal (native) */}
       {showTokenPurchaseModal && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Icon name="coins" size={24} color="#FFFF68" weight="fill" />
-              <Text variant="h3" style={styles.modalTitle}>
-                Purchase Tokens
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowTokenPurchaseModal(false);
-                  setCustomTokenAmount('');
-                  setCustomTokenPrice(0);
-                  setSelectedPackage(null);
-                }}
-                style={styles.modalCloseButton}
-              >
-                <Icon name="x" size={20} color={theme.colors.text.secondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.modalScrollView}
-              contentContainerStyle={styles.modalScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.modalContent}>
-                <Text variant="h4" style={styles.predefinedOptionsTitle}>
-                  Predefined Packages
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          presentationStyle="overFullScreen"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Icon name="coins" size={24} color="#FFFF68" weight="fill" />
+                <Text variant="h3" style={styles.modalTitle}>
+                  Purchase Tokens
                 </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowTokenPurchaseModal(false);
+                    setCustomTokenAmount('');
+                    setCustomTokenPrice(0);
+                    setSelectedPackage(null);
+                  }}
+                  style={styles.modalCloseButton}
+                >
+                  <Icon
+                    name="x"
+                    size={20}
+                    color={theme.colors.text.secondary}
+                  />
+                </TouchableOpacity>
+              </View>
 
-                <View style={styles.tokenOptions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.tokenOption,
-                      selectedPackage === 5 && styles.tokenOptionSelected,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setSelectedPackage(5);
-                      setCustomTokenAmount('5');
-                      setCustomTokenPrice(5.0);
-                    }}
-                  >
-                    <View style={styles.tokenOptionHeader}>
-                      <Text variant="h4" style={styles.tokenAmount}>
-                        5 Tokens
-                      </Text>
-                      <Text variant="h3" style={styles.tokenPrice}>
-                        $5.00
-                      </Text>
-                    </View>
-                    <Text
-                      variant="caption"
-                      color="secondary"
-                      style={styles.tokenDescription}
-                    >
-                      Perfect for trying out premium features
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.tokenOption,
-                      selectedPackage === 10 && styles.tokenOptionSelected,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setSelectedPackage(10);
-                      setCustomTokenAmount('10');
-                      setCustomTokenPrice(8.5);
-                    }}
-                  >
-                    <View style={styles.popularBadge}>
-                      <Text variant="caption" style={styles.popularText}>
-                        POPULAR
-                      </Text>
-                    </View>
-                    <View style={styles.tokenOptionHeader}>
-                      <Text variant="h4" style={styles.tokenAmount}>
-                        10 Tokens
-                      </Text>
-                      <Text variant="h3" style={styles.tokenPrice}>
-                        $8.50
-                      </Text>
-                    </View>
-                    <Text
-                      variant="caption"
-                      color="secondary"
-                      style={styles.tokenDescription}
-                    >
-                      Best value for regular users
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.tokenOption,
-                      selectedPackage === 25 && styles.tokenOptionSelected,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setSelectedPackage(25);
-                      setCustomTokenAmount('25');
-                      setCustomTokenPrice(20.0);
-                    }}
-                  >
-                    <View style={styles.tokenOptionHeader}>
-                      <Text variant="h4" style={styles.tokenAmount}>
-                        25 Tokens
-                      </Text>
-                      <Text variant="h3" style={styles.tokenPrice}>
-                        $20.00
-                      </Text>
-                    </View>
-                    <Text
-                      variant="caption"
-                      color="secondary"
-                      style={styles.tokenDescription}
-                    >
-                      Great for power users
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Custom Token Amount Input */}
-                <View style={styles.customTokenSection}>
-                  <Text variant="h4" style={styles.customTokenTitle}>
-                    Custom Amount
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalContent}>
+                  <Text variant="h4" style={styles.predefinedOptionsTitle}>
+                    Predefined Packages
                   </Text>
-                  <View style={styles.customTokenInputContainer}>
-                    <TextInput
-                      style={styles.customTokenInput}
-                      value={customTokenAmount}
-                      onChangeText={handleCustomTokenChange}
-                      placeholder="Enter amount (1-100)"
-                      placeholderTextColor={theme.colors.text.secondary}
-                      keyboardType="numeric"
-                      maxLength={3}
-                    />
-                    <Text
-                      variant="caption"
-                      color="secondary"
-                      style={styles.customTokenLabel}
+
+                  <View style={styles.tokenOptions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.tokenOption,
+                        selectedPackage === 5 && styles.tokenOptionSelected,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSelectedPackage(5);
+                        setCustomTokenAmount('5');
+                        setCustomTokenPrice(5.0);
+                      }}
                     >
-                      tokens
-                    </Text>
-                  </View>
-                  {customTokenPrice > 0 && (
-                    <View style={styles.customTokenPriceContainer}>
-                      <Text variant="h3" style={styles.customTokenPrice}>
-                        ${customTokenPrice.toFixed(2)}
-                      </Text>
+                      <View style={styles.tokenOptionHeader}>
+                        <Text variant="h4" style={styles.tokenAmount}>
+                          5 Tokens
+                        </Text>
+                        <Text variant="h3" style={styles.tokenPrice}>
+                          $5.00
+                        </Text>
+                      </View>
                       <Text
                         variant="caption"
                         color="secondary"
-                        style={styles.customTokenPriceLabel}
+                        style={styles.tokenDescription}
                       >
-                        Total Price
+                        Perfect for trying out premium features
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.tokenOption,
+                        selectedPackage === 10 && styles.tokenOptionSelected,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSelectedPackage(10);
+                        setCustomTokenAmount('10');
+                        setCustomTokenPrice(8.5);
+                      }}
+                    >
+                      <View style={styles.popularBadge}>
+                        <Text variant="caption" style={styles.popularText}>
+                          POPULAR
+                        </Text>
+                      </View>
+                      <View style={styles.tokenOptionHeader}>
+                        <Text variant="h4" style={styles.tokenAmount}>
+                          10 Tokens
+                        </Text>
+                        <Text variant="h3" style={styles.tokenPrice}>
+                          $8.50
+                        </Text>
+                      </View>
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.tokenDescription}
+                      >
+                        Best value for regular users
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.tokenOption,
+                        selectedPackage === 25 && styles.tokenOptionSelected,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSelectedPackage(25);
+                        setCustomTokenAmount('25');
+                        setCustomTokenPrice(20.0);
+                      }}
+                    >
+                      <View style={styles.tokenOptionHeader}>
+                        <Text variant="h4" style={styles.tokenAmount}>
+                          25 Tokens
+                        </Text>
+                        <Text variant="h3" style={styles.tokenPrice}>
+                          $20.00
+                        </Text>
+                      </View>
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.tokenDescription}
+                      >
+                        Great for power users
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Custom Token Amount Input */}
+                  <View style={styles.customTokenSection}>
+                    <Text variant="h4" style={styles.customTokenTitle}>
+                      Custom Amount
+                    </Text>
+                    <View style={styles.customTokenInputContainer}>
+                      <TextInput
+                        style={styles.customTokenInput}
+                        value={customTokenAmount}
+                        onChangeText={handleCustomTokenChange}
+                        placeholder="Enter amount (1-100)"
+                        placeholderTextColor={theme.colors.text.secondary}
+                        keyboardType="numeric"
+                        maxLength={3}
+                      />
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.customTokenLabel}
+                      >
+                        tokens
                       </Text>
                     </View>
-                  )}
-                </View>
+                    {customTokenPrice > 0 && (
+                      <View style={styles.customTokenPriceContainer}>
+                        <Text variant="h3" style={styles.customTokenPrice}>
+                          ${customTokenPrice.toFixed(2)}
+                        </Text>
+                        <Text
+                          variant="caption"
+                          color="secondary"
+                          style={styles.customTokenPriceLabel}
+                        >
+                          Total Price
+                        </Text>
+                      </View>
+                    )}
+                  </View>
 
-                {/* Purchase Button */}
-                <View style={styles.purchaseButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.purchaseButton}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      // TODO: Implement purchase logic
-                      setShowTokenPurchaseModal(false);
-                      alert('Purchase feature coming soon!');
-                    }}
+                  {/* Purchase Button */}
+                  <View style={styles.purchaseButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.purchaseButton}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        // TODO: Implement purchase logic
+                        setShowTokenPurchaseModal(false);
+                        alert('Purchase feature coming soon!');
+                      }}
+                    >
+                      <Icon
+                        name="credit-card"
+                        size={20}
+                        color="#000000"
+                        weight="fill"
+                      />
+                      <Text variant="h4" style={styles.purchaseButtonText}>
+                        Complete Purchase
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Description */}
+                  <Text
+                    variant="body"
+                    color="secondary"
+                    style={styles.modalDescription}
                   >
-                    <Icon
-                      name="credit-card"
-                      size={20}
-                      color="#000000"
-                      weight="fill"
-                    />
-                    <Text variant="h4" style={styles.purchaseButtonText}>
-                      Complete Purchase
-                    </Text>
-                  </TouchableOpacity>
+                    Each token allows you to create one goal. Tokens are
+                    consumed when you create a new goal and cannot be refunded.
+                  </Text>
                 </View>
-
-                {/* Description */}
-                <Text
-                  variant="body"
-                  color="secondary"
-                  style={styles.modalDescription}
-                >
-                  Each token allows you to create one goal. Tokens are consumed
-                  when you create a new goal and cannot be refunded.
-                </Text>
-              </View>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </Modal>
       )}
 
       {/* Subscription Modal */}
@@ -1868,15 +1892,22 @@ const styles = StyleSheet.create({
   },
   dashboardSloganContainer: {
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingBottom: 16, // Added padding below slogan
-    marginBottom: 8,
+    paddingVertical: 6,
+    paddingBottom: 10,
+    marginBottom: 6,
   },
   dashboardSloganText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 16,
-    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 28,
     textAlign: 'center',
+  },
+  dashboardSloganSubtext: {
+    marginTop: 6,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    paddingHorizontal: 12,
   },
   refreshLoaderContainer: {
     position: 'absolute',
