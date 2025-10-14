@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
     paddingBottom: 16,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
   headerSpacer: {
     flex: 1,
