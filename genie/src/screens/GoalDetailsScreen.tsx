@@ -47,6 +47,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
   const [currentGoal, setCurrentGoal] = useState<GoalWithProgress>(goal);
+  const [visibleTaskCount, setVisibleTaskCount] = useState<number>(6);
 
   const handleRefresh = async () => {
     setShowRefreshLoader(true);
@@ -201,6 +202,17 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
       const tasksData = data || [];
       setTasks(tasksData);
       setDailyTasks(organizeTasksByDay(tasksData));
+
+      // Initialize how many tasks to show: at least 6, or up to current + 2
+      const ordered = [...tasksData].sort(
+        (a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime()
+      );
+      const firstIncompleteIndex = ordered.findIndex((t) => !t.completed);
+      const targetCount =
+        firstIncompleteIndex === -1
+          ? ordered.length
+          : Math.max(6, Math.min(ordered.length, firstIncompleteIndex + 2));
+      setVisibleTaskCount(targetCount);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       Alert.alert('Error', 'Unable to load tasks');
@@ -345,6 +357,29 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
 
   const completedTasks = tasks.filter((task) => task.completed).length;
   const totalTasks = tasks.length;
+  // Compute visible tasks (flattened -> grouped by day)
+  const getVisibleDailyTasks = (): DailyTasks[] => {
+    const ordered = [...tasks].sort(
+      (a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime()
+    );
+    const limited = ordered.slice(0, visibleTaskCount);
+    return organizeTasksByDay(limited);
+  };
+
+  // As the user progresses (completes tasks), automatically extend to current + 2
+  useEffect(() => {
+    if (tasks.length === 0) return;
+    const ordered = [...tasks].sort(
+      (a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime()
+    );
+    const firstIncompleteIndex = ordered.findIndex((t) => !t.completed);
+    const desired =
+      firstIncompleteIndex === -1
+        ? ordered.length
+        : Math.max(6, Math.min(ordered.length, firstIncompleteIndex + 2));
+    if (desired > visibleTaskCount) setVisibleTaskCount(desired);
+  }, [tasks]);
+
   const progressPercentage =
     totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
@@ -671,7 +706,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
             </Card>
           ) : (
             <View style={styles.dailyTasksContainer}>
-              {dailyTasks.map((dayTasks) => (
+              {getVisibleDailyTasks().map((dayTasks) => (
                 <View key={dayTasks.date} style={styles.daySection}>
                   <View style={styles.dayHeader}>
                     <View style={styles.dayHeaderLeft}>
@@ -719,6 +754,34 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                   </View>
                 </View>
               ))}
+              {visibleTaskCount < totalTasks && (
+                <TouchableOpacity
+                  onPress={() =>
+                    setVisibleTaskCount((c) => Math.min(totalTasks, c + 6))
+                  }
+                  style={{
+                    alignSelf: 'center',
+                    marginTop: 6,
+                    marginBottom: 6,
+                    paddingVertical: 4,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ alignItems: 'center' }}>
+                    <Text
+                      style={{ color: '#FFFFFF', fontSize: 13, opacity: 0.95 }}
+                    >
+                      Show more
+                    </Text>
+                    <Icon
+                      name="caret-down"
+                      size={18}
+                      color="#FFFFFF"
+                      style={{ marginTop: 2, opacity: 0.9 }}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -924,8 +987,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 60, // Increased padding above content
-    marginBottom: 24,
+    paddingTop: 32, // Reduced spacing above sections
+    marginBottom: 16, // Tighter spacing below cards
   },
   goalInfoCard: {
     marginBottom: 0,

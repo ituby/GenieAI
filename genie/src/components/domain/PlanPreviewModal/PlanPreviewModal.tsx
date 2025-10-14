@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: width * 0.95,
     maxWidth: 500,
-    maxHeight: height * 0.95,
+    maxHeight: height * 0.9,
     borderRadius: 24,
     borderWidth: 2,
     borderColor: '#FFFF68',
@@ -194,9 +194,10 @@ const styles = StyleSheet.create({
   },
   modal: {
     width: '100%',
+    maxHeight: '100%',
     borderRadius: 22,
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: 16,
     paddingHorizontal: 24,
     shadowColor: '#000',
     shadowOffset: {
@@ -228,8 +229,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   milestonesContainer: {
-    maxHeight: height * 0.9,
-    marginBottom: 16,
+    flexGrow: 1,
+    flexShrink: 1,
+    marginBottom: 12,
   },
   milestoneCard: {
     backgroundColor: 'rgba(255, 255, 104, 0.1)',
@@ -289,7 +291,7 @@ const styles = StyleSheet.create({
   approveButton: {
     backgroundColor: '#FFFF68',
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 24,
     shadowColor: '#FFFF68',
     shadowOffset: {
