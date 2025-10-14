@@ -162,15 +162,16 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 40,
+    paddingBottom: 40,
+    paddingTop: 60,
   },
   modalContainer: {
     width: width * 0.9,
     maxWidth: 400,
-    height: height * 0.85,
+    height: height * 0.75,
     borderRadius: 20,
     borderWidth: 2,
     borderColor: '#FFFF68',
@@ -188,8 +189,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 18,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: {
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     backgroundColor: 'transparent',
   },
   logo: {
@@ -222,13 +223,13 @@ const styles = StyleSheet.create({
   },
   milestonesContainer: {
     flex: 1,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   milestoneCard: {
     backgroundColor: 'rgba(255, 255, 104, 0.1)',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 104, 0.2)',
   },

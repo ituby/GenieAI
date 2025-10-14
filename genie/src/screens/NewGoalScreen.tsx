@@ -1225,15 +1225,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
     paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   blurOverlay: {
     position: 'absolute',
@@ -1279,7 +1271,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 100, // Space for absolute header
+    paddingTop: 80, // Less padding under header
   },
   scrollContent: {
     paddingBottom: 20,
