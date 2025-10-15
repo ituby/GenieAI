@@ -555,13 +555,18 @@ You are Genie, the world's most sophisticated AI personal mentor and success coa
 
 🎯 YOUR MISSION: Create the most precise, professional, and transformative 21-day plan that will make users say "This is exactly what I needed!"
 
-INTENSITY LEVELS:
-- Easy: 3 tasks per day (Morning, Afternoon, Evening) - ${planDurationDays * 3} total tasks
-- Medium: 6 tasks per day (Morning, Mid-Morning, Afternoon, Mid-Afternoon, Evening, Night) - ${planDurationDays * 6} total tasks
-- Hard: 10-12 tasks per day (distributed throughout 07:00-23:00) - ${planDurationDays * 10}-${planDurationDays * 12} total tasks
+USER'S TASK PREFERENCES:
+- Tasks per day: ${preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+  `${preferredTimeRanges.length} tasks per day (based on ${preferredTimeRanges.length} preferred time ranges)` : 
+  '3-6 tasks per day (default)'}
+- Plan duration: ${planDurationDays} days
+- Total tasks: ${preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+  `${planDurationDays * preferredTimeRanges.length}` : 
+  `${planDurationDays * 3}-${planDurationDays * 6}`} tasks
 
-Current intensity level: ${intensity.toUpperCase()}
-Plan duration: ${planDurationDays} days
+CRITICAL: Generate EXACTLY ${preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+  `${preferredTimeRanges.length}` : 
+  '3-6'} tasks per day, no more, no less!
 
 ⏰ TIME RULES (STRICT):
 1) Use 24-hour clock times in HH:MM format only
@@ -739,9 +744,11 @@ Before finalizing your response, ensure each task meets these standards:
 ✅ PROFESSIONALISM: Industry-standard quality
 
 📊 QUANTITY REQUIREMENTS:
-- Easy: 3 tasks per day (63 total)
-- Medium: 6 tasks per day (126 total) 
-- Hard: 10-12 tasks per day (210-252 total)
+- User wants: ${preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+  `${preferredTimeRanges.length} tasks per day (${planDurationDays * preferredTimeRanges.length} total)` : 
+  '3-6 tasks per day (default)'}
+- Plan duration: ${planDurationDays} days
+- CRITICAL: Generate EXACTLY the number of tasks the user requested!
 
 ⏰ TIME VALIDATION:
 - All times must be between 07:00 and 23:00
@@ -943,7 +950,13 @@ DELIVERABLES MUST EXIST:
       if (planData.days && Array.isArray(planData.days)) {
         for (const day of planData.days) {
           if (day.tasks && Array.isArray(day.tasks)) {
-            for (const task of day.tasks) {
+            // Limit tasks per day based on user's preferences
+            const maxTasksPerDay = preferredTimeRanges && preferredTimeRanges.length > 0 ? 
+              preferredTimeRanges.length : 3;
+            
+            const limitedTasks = day.tasks.slice(0, maxTasksPerDay);
+            
+            for (const task of limitedTasks) {
               // Detect HH:MM and derive a time bucket for greetings; attach custom_time
               const isHHMM =
                 typeof task.time === 'string' &&
@@ -1228,19 +1241,27 @@ DELIVERABLES MUST EXIST:
   }
 };
 
-// Template-based plan generation (fallback) - generates detailed daily plan based on intensity
+// Template-based plan generation (fallback) - generates detailed daily plan based on user preferences
 const generateTasksForCategory = (
   category: string,
   title: string,
   description: string,
   intensity: 'easy' | 'medium' | 'hard' = 'easy',
-  planDurationDays: number = 21
+  planDurationDays: number = 21,
+  tasksPerDayRange?: { min: number, max: number }
 ): TaskTemplate[] => {
   const tasks: TaskTemplate[] = [];
 
-  // Determine number of tasks per day based on intensity
-  const tasksPerDay =
-    intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+  // Use user's preferred task range if provided, otherwise fallback to intensity
+  let tasksPerDay = 3; // Default fallback
+  
+  if (tasksPerDayRange) {
+    // Use the average of min and max, rounded to nearest integer
+    tasksPerDay = Math.round((tasksPerDayRange.min + tasksPerDayRange.max) / 2);
+  } else {
+    // Fallback to old intensity logic
+    tasksPerDay = intensity === 'easy' ? 3 : intensity === 'medium' ? 6 : 12;
+  }
 
   // Generate tasks per day for the specified duration
   for (let day = 0; day < planDurationDays; day++) {
@@ -1919,7 +1940,14 @@ serve(async (req) => {
 
       // Fallback to template generation
       console.log(`[${requestId}] Falling back to template generation...`);
-      const fallbackResult = generateTasksForCategory(category, title, description, intensity, plan_duration_days);
+      const fallbackResult = generateTasksForCategory(
+        category, 
+        title, 
+        description, 
+        intensity, 
+        plan_duration_days,
+        { min: 3, max: 5 } // Default fallback range
+      );
       taskTemplates = fallbackResult;
       milestones = buildTailoredMilestones(fallbackResult.length, title, plan_duration_days);
       planOutline = buildTailoredOutline(title, description, category);
