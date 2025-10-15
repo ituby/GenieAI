@@ -208,7 +208,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <View style={styles.absoluteHeader}>
           <View style={styles.headerLeft}>
             <TouchableOpacity onPress={onBack} style={styles.backButton}>
-              <Icon name="arrow-left" size={20} color={theme.colors.text.secondary} />
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
           
@@ -238,7 +238,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <View style={styles.absoluteHeader}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-left" size={20} color={theme.colors.text.secondary} />
+            <Icon name="arrow-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
         

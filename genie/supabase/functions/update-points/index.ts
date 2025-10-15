@@ -104,26 +104,25 @@ serve(async (req) => {
     const intensity = taskData?.intensity || 'easy';
     console.log('Task intensity:', intensity, 'for task:', task_id);
 
-    // Calculate points based on action and intensity
+    // Calculate points based on action - all tasks are worth 10 points
     let pointsChange = 0;
     let reason = '';
 
-    // Correct points system: Easy = 10, Medium = 20, Hard = 40
-    const basePoints =
-      intensity === 'easy' ? 10 : intensity === 'medium' ? 20 : 40;
+    // All tasks are worth 10 points regardless of intensity
+    const basePoints = 10;
 
     switch (action) {
       case 'complete':
-        pointsChange = basePoints; // Easy = 10, Medium = 20, Hard = 40
-        reason = `Task completed (${intensity} intensity)`;
+        pointsChange = basePoints; // All tasks = 10 points
+        reason = `Task completed (10 points)`;
         break;
       case 'incomplete':
-        pointsChange = -Math.floor(basePoints / 2); // Half the base points as penalty
-        reason = `Task marked as incomplete (${intensity} intensity)`;
+        pointsChange = -Math.floor(basePoints / 2); // Half the base points as penalty (5 points)
+        reason = `Task marked as incomplete (5 point penalty)`;
         break;
       case 'expire':
-        pointsChange = -basePoints; // Full base points as penalty
-        reason = `Task expired without response (${intensity} intensity)`;
+        pointsChange = -basePoints; // Full base points as penalty (10 points)
+        reason = `Task expired without response (10 point penalty)`;
         break;
     }
 

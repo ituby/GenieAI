@@ -2,6 +2,12 @@ import { TASK_TIMES } from '../config/constants';
 
 export type TaskTime = typeof TASK_TIMES[number];
 
+export interface Subtask {
+  title: string;
+  estimated_minutes: number;
+  completed?: boolean;
+}
+
 export interface Task {
   id: string;
   goal_id: string;
@@ -13,6 +19,11 @@ export interface Task {
   created_at: string;
   updated_at?: string;
   intensity?: string;
+  // New subtasks structure
+  subtasks?: Subtask[];
+  time_allocation_minutes?: number;
+  total_subtasks?: number;
+  subtasks_completed?: number;
 }
 
 export interface TaskWithGoal extends Task {

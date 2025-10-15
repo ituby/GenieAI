@@ -60,6 +60,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const getGoalColor = (goalColor?: string) => {
     if (goalColor) {
+      // If it's already a hex color, return it directly
+      if (goalColor.startsWith('#')) {
+        return goalColor;
+      }
+      
+      // Otherwise, map color names to hex values
       const colorMap = {
         yellow: '#FFFF68',
         green: '#00FF88',
@@ -188,7 +194,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <View style={styles.taskHeader}>
               <Text
                 variant="h4"
-                color="primary-color"
                 numberOfLines={1}
                 style={[
                   styles.taskTitle,

@@ -89,6 +89,12 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
   const getGoalColor = (goalColor?: string) => {
     if (goalColor) {
+      // If it's already a hex color, return it directly
+      if (goalColor.startsWith('#')) {
+        return goalColor;
+      }
+      
+      // Otherwise, map color names to hex values
       const colorMap = {
         yellow: '#FFFF68',
         green: '#00FF88',
@@ -114,6 +120,27 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
   const canCompleteTask = isTaskTimeReached(taskData.run_at);
 
+  const fetchTaskDetails = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('goal_tasks')
+        .select('*')
+        .eq('id', taskData.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setTaskData(prev => ({
+          ...prev,
+          ...data,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching task details:', error);
+    }
+  };
+
   const fetchPointsEarned = async () => {
     if (user?.id) {
       try {
@@ -133,6 +160,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   };
 
   useEffect(() => {
+    fetchTaskDetails();
     fetchPointsEarned();
   }, [user?.id, taskData.goal_id]);
 
@@ -193,6 +221,47 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     }
   };
 
+  const handleSubtaskToggle = async (subtaskIndex: number) => {
+    try {
+      if (!taskData.subtasks) return;
+      
+      const updatedSubtasks = [...taskData.subtasks];
+      updatedSubtasks[subtaskIndex] = {
+        ...updatedSubtasks[subtaskIndex],
+        completed: !updatedSubtasks[subtaskIndex].completed
+      };
+      
+      const completedCount = updatedSubtasks.filter(subtask => subtask.completed).length;
+      
+      const { error } = await supabase
+        .from('goal_tasks')
+        .update({
+          subtasks: updatedSubtasks,
+          subtasks_completed: completedCount,
+        })
+        .eq('id', taskData.id);
+
+      if (error) throw error;
+
+      setTaskData(prev => ({
+        ...prev,
+        subtasks: updatedSubtasks,
+        subtasks_completed: completedCount,
+      }));
+
+      // If all subtasks are completed, show completion option
+      if (completedCount === updatedSubtasks.length && !taskData.completed) {
+        // Auto-complete the main task
+        await handleToggleTask(true);
+      }
+      
+      onTaskUpdate?.();
+    } catch (error) {
+      console.error('Error updating subtask:', error);
+      Alert.alert('Error', 'Failed to update subtask');
+    }
+  };
+
   const onRefresh = async () => {
     // Refresh task data if needed
   };
@@ -218,7 +287,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
             <Ionicons
               name="arrow-back"
               size={24}
-              color={theme.colors.text.secondary}
+              color="#FFFFFF"
             />
           </TouchableOpacity>
           <View style={styles.headerSpacer} />
@@ -387,6 +456,91 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
               {taskData.description}
             </Text>
           </Card>
+
+          {/* Subtasks Card */}
+          {taskData.subtasks && taskData.subtasks.length > 0 && (
+            <Card variant="gradient" padding="lg" style={styles.subtasksCard}>
+              <View style={styles.subtasksHeader}>
+                <Text
+                  variant="h4"
+                  color="primary-color"
+                  style={styles.sectionTitle}
+                >
+                  Subtasks
+                </Text>
+                <View style={styles.timeAllocation}>
+                  <Icon name="clock" size={16} color="#FFFFFF" />
+                  <Text variant="caption" color="secondary" style={styles.timeText}>
+                    {taskData.time_allocation_minutes || 30} minutes
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Time restriction message */}
+              {!canCompleteTask && (
+                <View style={styles.timeRestrictionMessage}>
+                  <Icon name="clock" size={16} color="#FFFF68" />
+                  <Text variant="caption" color="secondary" style={styles.timeRestrictionText}>
+                    Task will be available at {formatTime(taskData.run_at)}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.subtasksList}>
+                {taskData.subtasks.map((subtask, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.subtaskItem,
+                      subtask.completed && styles.subtaskCompleted,
+                      !canCompleteTask && styles.subtaskDisabled
+                    ]}
+                    onPress={() => canCompleteTask && handleSubtaskToggle(index)}
+                    disabled={!canCompleteTask}
+                  >
+                    <View style={styles.subtaskContent}>
+                      <View style={[
+                        styles.checkbox,
+                        subtask.completed && [styles.checkboxChecked, { backgroundColor: '#FFFF68' }]
+                      ]}>
+                        {subtask.completed && (
+                          <Icon name="check" size={12} color="#000000" />
+                        )}
+                      </View>
+                      <Text style={[
+                        styles.subtaskTitle,
+                        { color: theme.colors.text.primary },
+                        subtask.completed && styles.subtaskTitleCompleted
+                      ]}>
+                        {subtask.title}
+                      </Text>
+                      <Text style={[styles.subtaskTime, { color: theme.colors.text.secondary }]}>
+                        {subtask.estimated_minutes}min
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              {/* Progress indicator */}
+              <View style={styles.progressContainer}>
+                <Text variant="caption" color="secondary" style={styles.progressText}>
+                  {taskData.subtasks_completed || 0} of {taskData.total_subtasks || taskData.subtasks.length} completed
+                </Text>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { 
+                        width: `${((taskData.subtasks_completed || 0) / (taskData.total_subtasks || taskData.subtasks.length)) * 100}%`,
+                        backgroundColor: '#FFFF68'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
+            </Card>
+          )}
 
           {/* Goal Info Card */}
           <Card variant="gradient" padding="lg" style={styles.goalCard}>
@@ -642,5 +796,107 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Subtasks styles
+  subtasksCard: {
+    marginBottom: 16,
+  },
+  subtasksHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timeAllocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  subtasksList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  subtaskItem: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  subtaskCompleted: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  subtaskContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    borderColor: 'transparent',
+  },
+  subtaskTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  subtaskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    opacity: 0.7,
+  },
+  subtaskTime: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  progressContainer: {
+    marginTop: 8,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  // Time restriction styles
+  timeRestrictionMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+  },
+  timeRestrictionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFF68',
+  },
+  subtaskDisabled: {
+    opacity: 0.5,
   },
 });

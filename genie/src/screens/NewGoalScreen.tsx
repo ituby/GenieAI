@@ -252,10 +252,33 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (saved.planCategory) setPlanCategory(saved.planCategory);
       if (saved.planIconName) setPlanIconName(saved.planIconName);
       if (saved.planColor) setPlanColor(saved.planColor);
+      
+      // Restore success data if available
+      if (saved.successData) {
+        setSuccessData(saved.successData);
+      } else if (saved.planData) {
+        // Generate success data from plan data if not saved
+        const taskCount = saved.planData.milestones?.reduce(
+          (sum: number, milestone: any) => sum + (milestone.tasks || 0),
+          0
+        ) || 21;
+        const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === saved.formData?.category);
+        setSuccessData({
+          taskCount,
+          rewardCount: 5,
+          iconName: saved.planIconName || selectedCategoryConfig?.icon || 'star',
+          color: saved.planColor || selectedCategoryConfig?.color || '#FFFF68',
+        });
+      }
 
       // If we were in the middle of creation, re-trigger plan generation
       if (saved.state === 'creating' && saved.createdGoalId && saved.formData) {
         resumePlanGeneration(saved.createdGoalId, saved.formData);
+      }
+      
+      // If we were in success state, show the success modal
+      if (saved.state === 'success' && saved.successData) {
+        setShowSuccessModal(true);
       }
     } catch {}
   };
@@ -876,17 +899,35 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   const handleApprovePlan = async () => {
     setShowPlanPreview(false);
+    
+    // Calculate task count from plan data or use fallback
+    const taskCount = planData.milestones?.reduce(
+      (sum, milestone) => sum + (milestone.tasks || 0),
+      0
+    ) || 0;
+    
     // Get the selected category config for success modal
     const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
     
-    setSuccessData({
-      taskCount: planData.milestones.reduce(
-        (sum, milestone) => sum + milestone.tasks,
-        0
-      ),
+    // Use plan data if available, otherwise fallback to category config
+    const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
+    const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
+    
+    const newSuccessData = {
+      taskCount: taskCount > 0 ? taskCount : 21, // Fallback to 21 if no tasks calculated
       rewardCount: 5,
-      iconName: selectedCategoryConfig?.icon || 'star',
-      color: selectedCategoryConfig?.color || '#FFFF68',
+      iconName,
+      color,
+    };
+    
+    setSuccessData(newSuccessData);
+    
+    // Persist success data for recovery
+    persistProgress({
+      state: 'success',
+      successData: newSuccessData,
+      createdGoalId,
+      formData,
     });
     // If user consented to share and a goal was created, insert shared submission row
     try {
@@ -1014,7 +1055,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     >
       {/* Fixed Header */}
       <View style={styles.absoluteHeader}>
-        <View style={styles.spacer} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onBack}
+          activeOpacity={0.8}
+        >
+          <Icon name="arrow-left" size={24} color="#FFFFFF" weight="bold" />
+        </TouchableOpacity>
         <Text variant="h4" style={styles.largeTitle} numberOfLines={1}>
           Genie
         </Text>
@@ -1557,7 +1604,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   onPress={prevStep}
                   activeOpacity={0.8}
                 >
-                  <Icon name="arrow-left" size={20} color="#FFFF68" weight="bold" />
+                  <Icon name="arrow-left" size={20} color="#FFFFFF" weight="bold" />
                   <Text variant="body" color="primary" style={styles.stepBackButtonText}>
                     Back
                   </Text>
@@ -1587,10 +1634,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           {/* Goal Success Modal */}
           <GoalSuccessModal
             visible={showSuccessModal}
-            taskCount={successData.taskCount}
-            rewardCount={successData.rewardCount}
-            iconName={successData.iconName}
-            color={successData.color}
+            taskCount={successData.taskCount || 21} // Fallback to 21 if no data
+            rewardCount={successData.rewardCount || 5} // Fallback to 5 if no data
+            iconName={successData.iconName || 'star'} // Fallback to star if no data
+            color={successData.color || '#FFFF68'} // Fallback to yellow if no data
             onStartJourney={handleStartJourney}
           />
 

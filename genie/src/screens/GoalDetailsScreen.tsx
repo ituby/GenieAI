@@ -504,7 +504,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
             <Ionicons
               name="arrow-back"
               size={18}
-              color={theme.colors.text.secondary}
+              color="#FFFFFF"
             />
           }
         >
@@ -646,7 +646,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         <View style={styles.content}>
           <View style={styles.sectionHeader}>
             <Text variant="h3">Tasks ({totalTasks})</Text>
-            {goal.progress_percentage >= 70 && (
+            {goal.completion_percentage >= 70 && (
               <LinearGradient
                 colors={['#FFFF68', '#FFFFFF']}
                 style={styles.updatePlanGradientBorder}
@@ -800,12 +800,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                     >
                       Show more
                     </Text>
-                    <Icon
-                      name="caret-down"
-                      size={18}
-                      color="#FFFFFF"
-                      style={{ marginTop: 2, opacity: 0.9 }}
-                    />
+                    <View style={{ marginTop: 2, opacity: 0.9 }}>
+                      <Icon
+                        name="caret-down"
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    </View>
                   </View>
                 </TouchableOpacity>
               )}

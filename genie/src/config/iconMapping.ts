@@ -121,9 +121,14 @@ export const ICON_SUGGESTIONS: Record<GoalCategory, string[]> = {
   ],
 };
 
-// Function to get icon suggestions for AI
+// Function to get icon suggestions for AI - now returns all icons for all categories
 export function getIconSuggestions(category: GoalCategory): string[] {
-  return ICON_SUGGESTIONS[category] || ICON_SUGGESTIONS.custom;
+  // Combine all icons from all categories since all icons are now available for all categories
+  const allIcons = new Set<string>();
+  Object.values(ICON_SUGGESTIONS).forEach(icons => {
+    icons.forEach(icon => allIcons.add(icon));
+  });
+  return Array.from(allIcons);
 }
 
 // Function to get default icon for category

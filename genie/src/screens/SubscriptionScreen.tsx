@@ -211,7 +211,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
         >
           <View style={styles.header}>
             <Button variant="ghost" onPress={onBack}>
-              <Icon name="arrow-left" size={20} color="#FFFF68" />
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
             </Button>
             <Text variant="h4" style={styles.headerTitle}>
               My Subscription
@@ -244,7 +244,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
         >
           <View style={styles.header}>
             <Button variant="ghost" onPress={onBack}>
-              <Icon name="arrow-left" size={20} color="#FFFF68" />
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
             </Button>
             <Text variant="h4" style={styles.headerTitle}>
               My Subscription
@@ -282,7 +282,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
       >
         <View style={styles.header}>
           <Button variant="ghost" onPress={onBack}>
-            <Icon name="arrow-left" size={20} color="#FFFF68" />
+            <Icon name="arrow-left" size={20} color="#FFFFFF" />
           </Button>
           <Text variant="h4" style={styles.headerTitle}>
             My Subscription
