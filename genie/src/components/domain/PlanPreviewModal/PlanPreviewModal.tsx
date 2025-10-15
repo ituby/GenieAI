@@ -84,7 +84,7 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
             {/* Header */}
             <View style={styles.header}>
               <Text variant="h4" style={[styles.title, { color: '#FFFFFF' }]}>
-                Plan Confirmation
+                Plan Approval
               </Text>
             </View>
 
@@ -93,35 +93,53 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
               style={styles.milestonesContainer}
               showsVerticalScrollIndicator={false}
             >
-              {(planOutline && planOutline.length > 0
-                ? planOutline
-                : milestones.map((m) => ({
-                    title: m.title,
-                    description: m.description,
-                  }))
-              ).map((section, index) => (
-                <View
-                  key={`${section.title}-${index}`}
-                  style={styles.milestoneCard}
-                >
-                  <Text
-                    variant="h4"
-                    style={[styles.milestoneTitle, { color: '#FFFFFF' }]}
-                  >
-                    {section.title}
-                  </Text>
+              {planOutline && planOutline.length > 0
+                ? planOutline.map((section, index) => (
+                    <View
+                      key={`${section.title}-${index}`}
+                      style={styles.milestoneCard}
+                    >
+                      <Text
+                        variant="h4"
+                        style={[styles.milestoneTitle, { color: '#FFFFFF' }]}
+                      >
+                        {section.title}
+                      </Text>
 
-                  <Text
-                    variant="body"
-                    style={[
-                      styles.milestoneDescription,
-                      { color: '#FFFFFF', opacity: 0.8 },
-                    ]}
-                  >
-                    {section.description}
-                  </Text>
-                </View>
-              ))}
+                      <Text
+                        variant="body"
+                        style={[
+                          styles.milestoneDescription,
+                          { color: '#FFFFFF', opacity: 0.8 },
+                        ]}
+                      >
+                        {section.description}
+                      </Text>
+                    </View>
+                  ))
+                : milestones.map((m, index) => (
+                    <View
+                      key={`${m.title}-${index}`}
+                      style={styles.milestoneCard}
+                    >
+                      <Text
+                        variant="h4"
+                        style={[styles.milestoneTitle, { color: '#FFFFFF' }]}
+                      >
+                        {m.title}
+                      </Text>
+
+                      <Text
+                        variant="body"
+                        style={[
+                          styles.milestoneDescription,
+                          { color: '#FFFFFF', opacity: 0.8 },
+                        ]}
+                      >
+                        {m.description}
+                      </Text>
+                    </View>
+                  ))}
             </ScrollView>
 
             {/* Approve Button */}

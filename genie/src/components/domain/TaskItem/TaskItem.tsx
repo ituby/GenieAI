@@ -11,8 +11,6 @@ import { he } from 'date-fns/locale';
 
 export interface TaskItemProps {
   task: TaskWithGoal;
-  onComplete?: () => void;
-  onIncomplete?: () => void;
   onExpire?: () => void;
   onPress?: () => void;
   allTasks?: TaskWithGoal[];
@@ -20,8 +18,6 @@ export interface TaskItemProps {
 
 export const TaskItem: React.FC<TaskItemProps> = ({
   task,
-  onComplete,
-  onIncomplete,
   onExpire,
   onPress,
   allTasks = [],
@@ -84,14 +80,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   };
 
   const getTaskPoints = (intensity?: string) => {
-    // Default to 'easy' if intensity is undefined or null
-    const actualIntensity = intensity || 'easy';
-    // Correct points: Easy = 10, Medium = 20, Hard = 40
-    return actualIntensity === 'easy'
-      ? 10
-      : actualIntensity === 'medium'
-        ? 20
-        : 40;
+    // All tasks are worth 10 points regardless of intensity
+    return 10;
   };
 
   const isTaskTimeReached = (runAt: string) => {
@@ -125,6 +115,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const canCompleteTask = isTaskTimeReached(task.run_at);
   const isTaskAvailableForReadingValue = isTaskAvailableForReading();
+  
+  // Check if task time has been reached for yellow highlighting
+  const isTaskTimeReachedForHighlight = isTaskTimeReached(task.run_at);
 
   // Timer logic for tasks that have passed
   useEffect(() => {
@@ -185,6 +178,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           styles.container,
           task.completed && styles.completedContainer,
           !isTaskAvailableForReadingValue && styles.disabledContainer,
+          isTaskTimeReachedForHighlight && !task.completed && styles.timeReachedContainer,
         ]}
       >
         <View style={styles.content}>
@@ -329,34 +323,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         </View>
       </Card>
 
-      {/* Completion Status - Below Card */}
-      {!task.completed && canCompleteTask && !isExpired && (
-        <View style={styles.completionButtonsBelow}>
-          <TouchableOpacity
-            onPress={onComplete}
-            style={styles.completionButton}
-          >
-            <LinearGradient
-              colors={['#FFFF68', '#FFFF68']}
-              style={styles.completionButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Icon name="check" size={14} color="#000000" weight="fill" />
-              <Text style={styles.completedButtonText}>Completed</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onIncomplete}
-            style={styles.incompleteButton}
-          >
-            <View style={styles.incompleteButtonContent}>
-              <Icon name="x" size={14} color="#FFFFFF" weight="fill" />
-              <Text style={styles.incompleteButtonText}>Not Completed</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Expired Task Message */}
       {!task.completed && isExpired && (
@@ -406,68 +372,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '500',
-  },
-  completionButtons: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 8,
-  },
-  completionButtonsBelow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  completionButton: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  completionButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-    minHeight: 36,
-    borderRadius: 16,
-  },
-  completedButtonText: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  incompleteButton: {
-    flex: 1,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  incompleteButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-    minHeight: 36,
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-  },
-  incompleteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
   },
   taskContent: {
     flex: 1,
@@ -579,5 +483,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  timeReachedContainer: {
+    borderColor: '#FFFF68',
+    borderWidth: 2,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
   },
 });

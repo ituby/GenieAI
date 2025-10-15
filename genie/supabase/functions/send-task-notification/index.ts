@@ -35,11 +35,24 @@ serve(async (req) => {
       goal_title
     });
 
+    // Get goal_id from task
+    const { data: taskData, error: taskError } = await supabaseClient
+      .from('goal_tasks')
+      .select('goal_id')
+      .eq('id', task_id)
+      .single();
+
+    if (taskError) {
+      console.error('❌ Error fetching task:', taskError);
+      throw taskError;
+    }
+
     // Create notification for in-app display
     const { error: notificationError } = await supabaseClient
       .from('notifications')
       .insert({
         user_id,
+        goal_id: taskData.goal_id,
         type: 'task_reminder',
         title: `🎯 New Task: ${task_title}`,
         body: `A new task has been added to your "${goal_title}" goal!\n\n${task_description}\n\nTap to start working on it!`,

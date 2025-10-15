@@ -772,8 +772,6 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                         key={task.id}
                         task={task}
                         allTasks={tasks}
-                        onComplete={() => handleToggleTask(task.id, true)}
-                        onIncomplete={() => handleToggleTask(task.id, false)}
                         onExpire={() => handleTaskExpire(task.id)}
                         onPress={() => setSelectedTask(task)}
                       />

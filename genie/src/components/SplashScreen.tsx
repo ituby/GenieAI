@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Image, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Animated, Image, Dimensions, Text, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '../store/useAuthStore';
+import { dataLoadingService } from '../services/dataLoadingService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -10,10 +12,46 @@ interface SplashScreenProps {
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onAnimationFinish,
 }) => {
+  const { user, isAuthenticated } = useAuthStore();
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataLoadingError, setDataLoadingError] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Load user data if authenticated
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (isAuthenticated && user?.id) {
+        setIsLoadingData(true);
+        setDataLoadingError(null);
+        
+        try {
+          console.log('🔄 Loading user data during splash screen...');
+          await dataLoadingService.preloadUserData(user.id);
+          setDataLoaded(true);
+          console.log('✅ User data loaded successfully during splash');
+        } catch (error) {
+          console.error('❌ Failed to load user data during splash:', error);
+          setDataLoadingError(error instanceof Error ? error.message : 'Failed to load data');
+          // Still continue to dashboard even if data loading fails
+          setDataLoaded(true);
+        } finally {
+          setIsLoadingData(false);
+        }
+      } else {
+        // If not authenticated, mark as loaded (no data to load)
+        setDataLoaded(true);
+      }
+    };
+
+    loadUserData();
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
+    // Only start animations after data loading is complete
+    if (!dataLoaded) return;
+
     // Logo symbol animation (scale up with subtle bounce)
     Animated.sequence([
       Animated.timing(scaleAnim, {
@@ -54,10 +92,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     ]).start(() => {
       // Call onAnimationFinish after animations complete
       if (onAnimationFinish) {
-        setTimeout(onAnimationFinish, 4000); // Wait 4 seconds before finishing (2 seconds + 2 additional)
+        setTimeout(onAnimationFinish, 2000); // Reduced wait time since data is already loaded
       }
     });
-  }, [scaleAnim, fadeAnim, onAnimationFinish]);
+  }, [scaleAnim, fadeAnim, onAnimationFinish, dataLoaded]);
 
   return (
     <View style={styles.container}>
@@ -106,6 +144,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           resizeMode="contain"
         />
       </Animated.View>
+
+      {/* Loading indicator for data loading */}
+      {isLoadingData && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#FFFF68" />
+          <Text style={styles.loadingText}>Loading your data...</Text>
+        </View>
+      )}
+
+      {/* Error message if data loading fails */}
+      {dataLoadingError && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Data loading failed, but you can continue</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -133,5 +186,33 @@ const styles = StyleSheet.create({
   logoTypeImage: {
     width: '100%',
     height: '100%',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: '#FFFF68',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    textAlign: 'center',
+    opacity: 0.8,
   },
 });

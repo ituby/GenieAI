@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,14 +23,14 @@ interface SubscriptionScreenProps {
 
 interface SubscriptionData {
   plan: string;
-  status: 'active' | 'cancelled' | 'past_due' | 'incomplete';
+  status: 'active' | 'cancelled' | 'past_due' | 'incomplete' | 'inactive';
   currentPeriodEnd: string;
   tokensUsed: number;
   tokensRemaining: number;
   monthlyTokens: number;
   nextBillingDate: string;
   lastPaymentDate: string;
-  lastPaymentStatus: 'succeeded' | 'failed' | 'pending';
+  lastPaymentStatus: 'succeeded' | 'failed' | 'pending' | 'none';
   totalCharges: number;
   currency: string;
 }
@@ -52,11 +51,9 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
   }, []);
 
   // Refresh when screen gains focus (e.g., returning from plan generation)
-  useFocusEffect(
-    useCallback(() => {
-      fetchSubscriptionData();
-    }, [user?.id])
-  );
+  useEffect(() => {
+    fetchSubscriptionData();
+  }, [user?.id]);
 
   const fetchSubscriptionData = async () => {
     try {

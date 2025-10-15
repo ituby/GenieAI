@@ -19,7 +19,7 @@ export const TalkWithGenieButton: React.FC<TalkWithGenieButtonProps> = ({
 }) => {
   return (
     <LinearGradient
-      colors={['#FFFF68', '#FFFFFF']}
+      colors={['#FFFF68', '#FFFF68']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.gradientBorder}
@@ -35,7 +35,7 @@ export const TalkWithGenieButton: React.FC<TalkWithGenieButtonProps> = ({
           <Icon
             name="sparkle"
             size={size === 'small' ? 14 : size === 'large' ? 18 : 16}
-            color="#FFFFFF"
+            color="#FFFF68"
             weight="fill"
           />
         </View>
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },

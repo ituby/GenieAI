@@ -10,6 +10,7 @@ interface ScheduledNotification {
   id: string;
   user_id: string;
   task_id?: string;
+  goal_id?: string;
   type: 'task_reminder' | 'goal_milestone' | 'daily_summary' | 'motivation' | 'milestone_reward' | 'completion_reward';
   title: string;
   body: string;
@@ -120,6 +121,7 @@ serve(async (req) => {
             .from('notifications')
             .insert({
               user_id: notification.user_id,
+              goal_id: notification.goal_id,
               type: notification.type,
               title: notification.title,
               body: notification.body,

@@ -64,7 +64,7 @@ export const useGoalStore = create<GoalState>((set, get) => ({
       });
 
       const activeGoals = goalsWithProgress.filter(
-        (goal) => goal.status === 'active'
+        (goal) => goal.status === 'active' && goal.completion_percentage < 100
       );
 
       set({
@@ -172,6 +172,12 @@ export const useGoalStore = create<GoalState>((set, get) => ({
     try {
       // Delete goal tasks explicitly to avoid orphaned tasks in dashboards
       await supabase.from('goal_tasks').delete().eq('goal_id', id);
+
+      // Delete scheduled notifications for this goal (both task-level and goal-level)
+      await supabase.from('scheduled_notifications').delete().eq('goal_id', id);
+
+      // Delete in-app notifications for this goal
+      await supabase.from('notifications').delete().eq('goal_id', id);
 
       // Then delete the goal
       const { error } = await supabase.from('goals').delete().eq('id', id);

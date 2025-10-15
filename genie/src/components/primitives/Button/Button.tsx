@@ -126,7 +126,7 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const renderContent = () => (
-    <View style={styles.content}>
+    <View style={[styles.content, rightIcon && styles.contentWithRightIcon]}>
       {loading ? (
         <ActivityIndicator
           size="small"
@@ -162,6 +162,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  contentWithRightIcon: {
+    justifyContent: 'space-between',
+    width: '100%',
   },
   leftIcon: {
     marginRight: 8,

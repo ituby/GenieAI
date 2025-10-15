@@ -1046,11 +1046,34 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     clearProgress();
   };
 
+  const [slideAnimation] = useState(new Animated.Value(300));
+  const [fadeAnimation] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    // Slide up animation on mount
+    Animated.parallel([
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnimation, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [slideAnimation, fadeAnimation]);
+
   return (
-    <View
+    <Animated.View
       style={[
         styles.container,
-        { backgroundColor: theme.colors.background.primary },
+        { 
+          backgroundColor: theme.colors.background.primary,
+          opacity: fadeAnimation,
+          transform: [{ translateY: slideAnimation }],
+        },
       ]}
     >
       {/* Fixed Header */}
@@ -1154,7 +1177,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     <Text variant="body" color="primary" style={styles.advancedSettingsText}>
                       Advanced Settings
                     </Text>
-                    <Icon name="chevron-right" size={16} color="#FFFF68" weight="bold" />
+                    <Icon name="caret-right" size={16} color="#FFFF68" weight="bold" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1643,7 +1666,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </Animated.View>
   );
 };
 

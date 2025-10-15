@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase/client';
 import Constants from 'expo-constants';
+import { dataLoadingService } from '../services/dataLoadingService';
 
 interface AuthState {
   user: User | null;
@@ -117,6 +118,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             loading: false,
           });
+
+          // Clear pre-loaded data cache
+          dataLoadingService.clearCache();
 
           console.log('✅ Sign out successful');
         } catch (error) {

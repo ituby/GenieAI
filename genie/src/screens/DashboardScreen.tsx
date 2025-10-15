@@ -14,16 +14,18 @@ import {
 } from 'react-native';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import Svg from 'react-native-svg';
 import { Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
-import { Text, Card, Icon, Badge } from '../components';
+import { Text, Card, Icon, Badge, FloatingBottomNav } from '../components';
+import { dataLoadingService } from '../services/dataLoadingService';
 import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Button } from '../components/primitives/Button';
 import { TalkWithGenieButton } from '../components/primitives/TalkWithGenieButton';
 import { Ionicons } from '@expo/vector-icons';
-import { GoalCard } from '../components/domain/GoalCard';
+import { GoalCard, GoalCardProps } from '../components/domain/GoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { TaskItem } from '../components/domain/TaskItem';
@@ -46,6 +48,8 @@ import { ProfileScreen } from './ProfileScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { HelpSupportScreen } from './HelpSupportScreen';
 import { SubscriptionScreen } from './SubscriptionScreen';
+import { MyPlansScreen } from './MyPlansScreen';
+import { DailyGoalsScreen } from './DailyGoalsScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 import { useNotificationCount } from '../hooks/useNotificationCount';
@@ -81,10 +85,51 @@ export const DashboardScreen: React.FC = () => {
   const [showSettings, setShowSettings] = React.useState(false);
   const [showHelpSupport, setShowHelpSupport] = React.useState(false);
   const [showSubscription, setShowSubscription] = React.useState(false);
+  const [showMyPlans, setShowMyPlans] = React.useState(false);
+  const [showDailyGoals, setShowDailyGoals] = React.useState(false);
   const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
   const [totalPoints, setTotalPoints] = React.useState(0);
   const [showSideMenu, setShowSideMenu] = React.useState(false);
+  const sideMenuAnimation = useRef(new Animated.Value(0)).current;
+  const overlayAnimation = useRef(new Animated.Value(0)).current;
+
+  // Side menu animation functions
+  const openSideMenu = () => {
+    setShowSideMenu(true);
+    Animated.parallel([
+      Animated.timing(overlayAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sideMenuAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeSideMenu = () => {
+    Animated.parallel([
+      Animated.timing(overlayAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sideMenuAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowSideMenu(false);
+    });
+  };
   const [showGoalMenu, setShowGoalMenu] = React.useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = React.useState('');
+  const [goalToDelete, setGoalToDelete] = React.useState<string | null>(null);
   const [todaysTasksCount, setTodaysTasksCount] = React.useState<number>(0);
   const [todaysTasks, setTodaysTasks] = React.useState<TaskWithGoal[]>([]);
   const [showSubscriptionModal, setShowSubscriptionModal] =
@@ -105,7 +150,7 @@ export const DashboardScreen: React.FC = () => {
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
   const [refreshBreathingAnimation] = useState(new Animated.Value(1));
-  const [logoBreathingAnimation] = useState(new Animated.Value(1));
+  const [headerLogoBreathingAnimation] = useState(new Animated.Value(1));
   const PROGRESS_KEY = 'genie:new-goal-progress';
 
   // Animation for button border
@@ -116,29 +161,84 @@ export const DashboardScreen: React.FC = () => {
   const gradientAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (user?.id) {
-      fetchGoals(user.id);
-      fetchRecentRewards();
-      fetchTodaysTasks();
-      fetchTotalPoints();
-      fetchUserTokens();
+    const initializeDashboard = async () => {
+      if (user?.id) {
+        // First try to use pre-loaded data from splash screen
+        const preloadedData = dataLoadingService.getCachedData();
+        
+        if (preloadedData) {
+          console.log('📊 Using pre-loaded data from splash screen');
+          
+          // Update all stores with pre-loaded data
+          const { 
+            goals, 
+            activeGoals, 
+            todaysTasks, 
+            todaysTasksCount, 
+            totalPoints, 
+            recentRewards, 
+            userTokens 
+          }: {
+            goals: any[];
+            activeGoals: any[];
+            todaysTasks: TaskWithGoal[];
+            todaysTasksCount: number;
+            totalPoints: number;
+            recentRewards: Reward[];
+            userTokens: {
+              used: number;
+              remaining: number;
+              total: number;
+              isSubscribed: boolean;
+              monthlyTokens: number;
+            };
+          } = preloadedData;
+          
+          // Update goal store
+          useGoalStore.setState({
+            goals,
+            activeGoals,
+            loading: false,
+            error: null
+          });
+          
+          // Update local state
+          setTodaysTasks(todaysTasks);
+          setTodaysTasksCount(todaysTasksCount);
+          setTotalPoints(totalPoints);
+          setRecentRewards(recentRewards);
+          setUserTokens(userTokens);
+          
+          console.log('✅ Dashboard initialized with pre-loaded data');
+        } else {
+          console.log('📊 No pre-loaded data found, loading fresh data');
+          // Fallback to loading data if not pre-loaded
+          fetchGoals(user.id);
+          fetchRecentRewards();
+          fetchTodaysTasks();
+          fetchTotalPoints();
+          fetchUserTokens();
+        }
 
-      // Setup push notifications
-      PushTokenService.setupPushNotifications(user.id);
+        // Setup push notifications
+        PushTokenService.setupPushNotifications(user.id);
 
-      // Check if there is in-progress new goal state to resume
-      (async () => {
-        try {
-          const raw = await AsyncStorage.getItem(PROGRESS_KEY);
-          if (!raw) return;
-          const saved = JSON.parse(raw);
-          if (saved && saved.userId === user.id) {
-            // Auto-open NewGoalScreen to restore UX
-            setShowNewGoal(true);
-          }
-        } catch {}
-      })();
-    }
+        // Check if there is in-progress new goal state to resume
+        (async () => {
+          try {
+            const raw = await AsyncStorage.getItem(PROGRESS_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            if (saved && saved.userId === user.id) {
+              // Auto-open NewGoalScreen to restore UX
+              setShowNewGoal(true);
+            }
+          } catch {}
+        })();
+      }
+    };
+
+    initializeDashboard();
   }, [user?.id]);
 
   // Breathing animation for refresh loader
@@ -163,25 +263,25 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [showRefreshLoader, refreshBreathingAnimation]);
 
-  // Breathing animation for dashboard logo
+  // Breathing animation for header logo
   useEffect(() => {
-    const logoBreathing = Animated.loop(
+    const headerLogoBreathing = Animated.loop(
       Animated.sequence([
-        Animated.timing(logoBreathingAnimation, {
+        Animated.timing(headerLogoBreathingAnimation, {
           toValue: 1.1,
           duration: 2000,
           useNativeDriver: true,
         }),
-        Animated.timing(logoBreathingAnimation, {
+        Animated.timing(headerLogoBreathingAnimation, {
           toValue: 0.95,
           duration: 2000,
           useNativeDriver: true,
         }),
       ])
     );
-    logoBreathing.start();
-    return () => logoBreathing.stop();
-  }, [logoBreathingAnimation]);
+    headerLogoBreathing.start();
+    return () => headerLogoBreathing.stop();
+  }, [headerLogoBreathingAnimation]);
 
   // Start Add Goal button animation
   useEffect(() => {
@@ -352,6 +452,7 @@ export const DashboardScreen: React.FC = () => {
         )
         .eq('goals.user_id', user.id)
         .eq('goals.status', 'active')
+        .eq('completed', false) // Only show incomplete tasks
         .gte('run_at', startOfDay.toISOString())
         .lt('run_at', endOfDay.toISOString())
         .order('run_at', { ascending: true });
@@ -378,14 +479,49 @@ export const DashboardScreen: React.FC = () => {
         },
       }));
 
-      setTodaysTasksCount(transformedTasks.length);
-      setTodaysTasks(transformedTasks);
+      // Sort tasks by time - closest time first
+      const now = new Date();
+      const sortedTasks = transformedTasks.sort((a, b) => {
+        const timeA = new Date(a.run_at).getTime();
+        const timeB = new Date(b.run_at).getTime();
+        const nowTime = now.getTime();
+        
+        // If both tasks are in the past, sort by time (closest first)
+        if (timeA <= nowTime && timeB <= nowTime) {
+          return timeB - timeA; // Closest past time first
+        }
+        
+        // If both tasks are in the future, sort by time (closest first)
+        if (timeA > nowTime && timeB > nowTime) {
+          return timeA - timeB; // Closest future time first
+        }
+        
+        // If one is past and one is future, past tasks come first
+        if (timeA <= nowTime) return -1;
+        if (timeB <= nowTime) return 1;
+        
+        return 0;
+      });
+
+      setTodaysTasksCount(sortedTasks.length);
+      setTodaysTasks(sortedTasks);
       console.log("📅 Today's tasks:", data?.length || 0);
     } catch (error) {
       console.error("Error fetching today's tasks:", error);
       setTodaysTasksCount(0);
       setTodaysTasks([]);
     }
+  };
+
+  // Function to check if a goal has any tasks that have reached their time
+  const hasGoalTasksTimeReached = (goalId: string) => {
+    return todaysTasks.some(task => {
+      const now = new Date();
+      const taskTime = new Date(task.run_at);
+      return task.goal_id === goalId && 
+             now >= taskTime && 
+             !task.completed;
+    });
   };
 
   const testAIConnection = async () => {
@@ -447,36 +583,39 @@ export const DashboardScreen: React.FC = () => {
     console.log('Edit goal:', goalId);
   };
 
-  const handleDeleteGoal = async (goalId: string) => {
+  const handleDeleteGoal = (goalId: string) => {
     setShowGoalMenu(null);
+    setGoalToDelete(goalId);
+    setShowDeleteModal(true);
+    setDeleteConfirmationText('');
+  };
 
-    Alert.alert(
-      'Delete Goal',
-      'Are you sure you want to delete this goal? This action cannot be undone. Note: You will not get your token back.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteGoal(goalId);
-              if (user?.id) {
-                fetchGoals(user.id);
-                fetchTodaysTasks();
-                // Refresh total points immediately after deleting goal
-                fetchTotalPoints();
-                // Note: We intentionally do NOT restore tokens when deleting goals
-                // This prevents users from gaming the system by creating/deleting goals
-              }
-            } catch (error) {
-              console.error('Error deleting goal:', error);
-              Alert.alert('Error', 'Failed to delete goal');
-            }
-          },
-        },
-      ]
-    );
+  const confirmDeleteGoal = async () => {
+    const trimmedText = deleteConfirmationText.toLowerCase().trim();
+    
+    if (trimmedText !== "delete it") {
+      return;
+    }
+    
+    if (!goalToDelete) {
+      return;
+    }
+    
+    setShowDeleteModal(false);
+    setDeleteConfirmationText('');
+    
+    try {
+      await deleteGoal(goalToDelete);
+      if (user?.id) {
+        fetchGoals(user.id);
+        fetchTodaysTasks();
+        fetchTotalPoints();
+      }
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    } finally {
+      setGoalToDelete(null);
+    }
   };
 
   const handleTestDatabase = async () => {
@@ -703,15 +842,24 @@ export const DashboardScreen: React.FC = () => {
         </View>
 
         <View style={styles.headerCenter}>
-          <Image
-            source={require('../../assets/LogoType.webp')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
+          <Animated.View
+            style={[
+              styles.headerLogoContainer,
+              {
+                transform: [{ scale: headerLogoBreathingAnimation }],
+              },
+            ]}
+          >
+            <Image
+              source={require('../../assets/LogoSymbol.webp')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+          </Animated.View>
         </View>
 
         <View style={styles.headerRight}>
-          <Button variant="ghost" onPress={() => setShowSideMenu(true)}>
+          <Button variant="ghost" onPress={openSideMenu}>
             <Ionicons
               name="menu"
               size={20}
@@ -761,20 +909,6 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.contentHeader}>
           {/* Dashboard Slogan */}
           <View style={styles.dashboardSloganContainer}>
-            <Animated.View
-              style={[
-                styles.dashboardLogoContainer,
-                {
-                  transform: [{ scale: logoBreathingAnimation }],
-                },
-              ]}
-            >
-              <Image
-                source={require('../../assets/LogoSymbol.webp')}
-                style={styles.dashboardLogo}
-                resizeMode="contain"
-              />
-            </Animated.View>
             <Text variant="h3" style={styles.dashboardSloganText}>
               Tell me what you're wishing for
             </Text>
@@ -809,6 +943,15 @@ export const DashboardScreen: React.FC = () => {
                 activeOpacity={userTokens.isSubscribed ? 0.8 : 1}
                 onPress={() => setShowTokenPurchaseModal(true)}
               >
+                <Text
+                  style={[
+                    styles.purchaseTokensText,
+                    !userTokens.isSubscribed &&
+                      styles.purchaseTokensTextDisabled,
+                  ]}
+                >
+                  Add Tokens
+                </Text>
                 <Icon
                   name="coins"
                   size={16}
@@ -819,15 +962,6 @@ export const DashboardScreen: React.FC = () => {
                   }
                   weight="fill"
                 />
-                <Text
-                  style={[
-                    styles.purchaseTokensText,
-                    !userTokens.isSubscribed &&
-                      styles.purchaseTokensTextDisabled,
-                  ]}
-                >
-                  Add Tokens
-                </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.usageRateContent}>
@@ -847,12 +981,7 @@ export const DashboardScreen: React.FC = () => {
                 <View style={styles.usageRateDivider} />
                 <View style={styles.usageRateStat}>
                   <Text variant="h2" style={styles.usageRateNumber}>
-                    {Math.max(
-                      userTokens.remaining,
-                      userTokens.isSubscribed
-                        ? userTokens.monthlyTokens - userTokens.used
-                        : userTokens.remaining
-                    )}
+                    {userTokens.remaining}
                   </Text>
                   <Text
                     variant="caption"
@@ -869,7 +998,7 @@ export const DashboardScreen: React.FC = () => {
                     style={[
                       styles.usageRateProgressFill,
                       {
-                        width: `${(userTokens.used / (userTokens.isSubscribed ? userTokens.monthlyTokens : userTokens.total)) * 100}%`,
+                        width: `${(userTokens.used / (userTokens.used + userTokens.remaining)) * 100}%`,
                       },
                     ]}
                   />
@@ -879,9 +1008,7 @@ export const DashboardScreen: React.FC = () => {
                   color="tertiary"
                   style={styles.usageRateProgressText}
                 >
-                  {userTokens.isSubscribed
-                    ? `Used ${userTokens.used} / ${userTokens.monthlyTokens} monthly tokens`
-                    : `${userTokens.used} of ${userTokens.total} free plans used`}
+                  {userTokens.used} of {userTokens.used + userTokens.remaining} total tokens used
                 </Text>
               </View>
               {!userTokens.isSubscribed && (
@@ -912,7 +1039,7 @@ export const DashboardScreen: React.FC = () => {
               colors={
                 userTokens.remaining <= 0
                   ? ['#FF6B6B', '#FF8E8E', '#FF6B6B']
-                  : ['#FFFF68', '#FFFFFF', '#FFFF68']
+                  : ['#FFFF68', '#FFFF68', '#FFFF68']
               }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -928,12 +1055,6 @@ export const DashboardScreen: React.FC = () => {
                 style={styles.addGoalButton}
               >
                 <View style={styles.addGoalButtonContent}>
-                  <Icon
-                    name={userTokens.remaining <= 0 ? 'crown' : 'sparkle'}
-                    size={16}
-                    color={userTokens.remaining <= 0 ? '#FFFFFF' : '#FFFF68'}
-                    weight="fill"
-                  />
                   <Text
                     style={[
                       styles.addGoalButtonText,
@@ -944,6 +1065,12 @@ export const DashboardScreen: React.FC = () => {
                       ? 'Subscribe now to talk with Genie'
                       : 'Talk with Genie'}
                   </Text>
+                  <Icon
+                    name={userTokens.remaining <= 0 ? 'crown' : 'sparkle'}
+                    size={16}
+                    color={userTokens.remaining <= 0 ? '#FFFFFF' : '#FFFF68'}
+                    weight="fill"
+                  />
                 </View>
               </TouchableOpacity>
             </AnimatedLinearGradient>
@@ -981,7 +1108,7 @@ export const DashboardScreen: React.FC = () => {
               </ProgressRing>
             </View>
             <Text variant="caption" color="secondary" style={styles.statLabel}>
-              Active Goals
+              Active Plans
             </Text>
           </Card>
 
@@ -1072,26 +1199,12 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.section}>
             <Card variant="default" padding="lg" style={styles.createGoalCard}>
               <View style={styles.createGoalContent}>
-                <View
-                  style={[
-                    styles.createGoalIcon,
-                    { backgroundColor: theme.colors.yellow[500] + '20' },
-                  ]}
-                >
-                  <Icon
-                    name="target"
-                    size={24}
-                    color={theme.colors.yellow[500]}
-                    weight="fill"
-                  />
-                </View>
-
-                <Text variant="h3" style={styles.createGoalTitle}>
+                <Text variant="h4" style={styles.createGoalTitle}>
                   Genie
                 </Text>
 
                 <Text
-                  variant="body"
+                  variant="caption"
                   color="secondary"
                   style={styles.createGoalDescription}
                 >
@@ -1120,7 +1233,7 @@ export const DashboardScreen: React.FC = () => {
                   ]}
                 >
                   <LinearGradient
-                    colors={['#FFFF68', '#FFFFFF']}
+                    colors={['#FFFF68', '#FFFF68']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.createGoalButtonGradient}
@@ -1131,15 +1244,15 @@ export const DashboardScreen: React.FC = () => {
                       style={styles.createGoalButton}
                     >
                       <View style={styles.createGoalButtonContent}>
+                        <Text style={styles.createGoalButtonText}>
+                          Talk with Genie
+                        </Text>
                         <Icon
                           name="sparkle"
                           size={16}
                           color="#FFFFFF"
                           weight="fill"
                         />
-                        <Text style={styles.createGoalButtonText}>
-                          Talk with Genie
-                        </Text>
                       </View>
                     </TouchableOpacity>
                   </LinearGradient>
@@ -1152,120 +1265,44 @@ export const DashboardScreen: React.FC = () => {
         {/* Active Goals Section - Only show if there are goals */}
         {activeGoals.length > 0 && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text variant="h4">Active Goals</Text>
-              <Button variant="ghost" size="xs">
-                View All
-              </Button>
-            </View>
-
-            <View style={styles.goalsList}>
-              {activeGoals.map((goal) => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  onPress={() => setSelectedGoal(goal)}
-                  onEdit={() => setShowGoalMenu(goal.id)}
+            <Card variant="gradient" padding="md" style={styles.activePlansCard}>
+              <View style={styles.sectionHeaderWithIcon}>
+                <Icon
+                  name="target"
+                  size={20}
+                  color="#FFFF68"
+                  weight="fill"
                 />
-              ))}
-            </View>
+                <Text variant="h4">Active Plans</Text>
+              </View>
+              <View style={styles.goalsList}>
+                {activeGoals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    onPress={() => setSelectedGoal(goal)}
+                    onEdit={() => setShowGoalMenu(goal.id)}
+                    hasTimeReachedTasks={hasGoalTasksTimeReached(goal.id)}
+                  />
+                ))}
+              </View>
+            </Card>
           </View>
         )}
 
-        {/* Add Goal Button - Only show if there are goals */}
-        {activeGoals.length > 0 && (
-          <View style={styles.section}>
-            <Animated.View
-              style={[
-                {
-                  transform: [
-                    {
-                      scale: addGoalAnimation.interpolate({
-                        inputRange: [0, 0.5, 1],
-                        outputRange: [1, 1.02, 1],
-                      }),
-                    },
-                  ],
-                  opacity: addGoalAnimation.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0.9, 1, 0.9],
-                  }),
-                },
-              ]}
-            >
-              <AnimatedLinearGradient
-                colors={
-                  userTokens.remaining <= 0
-                    ? ['#FF6B6B', '#FF8E8E', '#FF6B6B']
-                    : ['#FFFF68', '#FFFFFF', '#FFFF68']
-                }
-                start={{
-                  x: gradientAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 1],
-                  }),
-                  y: 0,
-                }}
-                end={{
-                  x: gradientAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [1, 0],
-                  }),
-                  y: 1,
-                }}
-                style={styles.addGoalButtonGradient}
-              >
-                <TouchableOpacity
-                  onPress={
-                    userTokens.remaining <= 0
-                      ? () => setShowSubscriptionModal(true)
-                      : checkTokensAndCreateGoal
-                  }
-                  activeOpacity={0.8}
-                  style={styles.addGoalButton}
-                >
-                  <View style={styles.addGoalButtonContent}>
-                    <Icon
-                      name={userTokens.remaining <= 0 ? 'crown' : 'sparkle'}
-                      size={16}
-                      color={userTokens.remaining <= 0 ? '#FFFFFF' : '#FFFF68'}
-                      weight="fill"
-                    />
-                    <Text
-                      style={[
-                        styles.addGoalButtonText,
-                        userTokens.remaining <= 0 && { color: '#FFFFFF' },
-                      ]}
-                    >
-                      {userTokens.remaining <= 0
-                        ? 'Subscribe now to talk with Genie'
-                        : 'Talk with Genie'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </AnimatedLinearGradient>
-            </Animated.View>
-          </View>
-        )}
 
         {/* Today's Tasks Section */}
         <View style={[styles.section, styles.todayTasksSection]}>
-          <View style={styles.sectionHeader}>
-            <Text variant="h4">Today's Tasks</Text>
-            <Button variant="ghost" size="xs">
-              View All
-            </Button>
-          </View>
-
           {todaysTasksCount === 0 ? (
             <Card variant="gradient" padding="md" style={styles.todayTasksCard}>
-              <View style={styles.todayTasksIconContainer}>
+              <View style={styles.sectionHeaderWithIcon}>
                 <Icon
-                  name="calendar"
-                  size={24}
-                  color="rgba(255, 255, 255, 0.8)"
+                  name="clipboard-text"
+                  size={20}
+                  color="#FFFF68"
                   weight="fill"
                 />
+                <Text variant="h4">Today's Tasks</Text>
               </View>
               <View style={styles.todayTasksNumberContainer}>
                 <Text variant="h2" color="secondary">
@@ -1288,21 +1325,30 @@ export const DashboardScreen: React.FC = () => {
               </Text>
             </Card>
           ) : (
-            <View style={styles.todayTasksList}>
-              {todaysTasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  allTasks={todaysTasks}
-                  onComplete={() => handleToggleTask(task.id, true)}
-                  onIncomplete={() => handleToggleTask(task.id, false)}
-                  onPress={() => {
-                    // Navigate to task details
-                    setSelectedTask(task);
-                  }}
+            <Card variant="gradient" padding="md" style={styles.todayTasksListCard}>
+              <View style={styles.sectionHeaderWithIcon}>
+                <Icon
+                  name="clipboard-text"
+                  size={20}
+                  color="#FFFF68"
+                  weight="fill"
                 />
-              ))}
-            </View>
+                <Text variant="h4">Today's Tasks</Text>
+              </View>
+              <View style={styles.todayTasksList}>
+                {todaysTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    allTasks={todaysTasks}
+                    onPress={() => {
+                      // Navigate to task details
+                      setSelectedTask(task);
+                    }}
+                  />
+                ))}
+              </View>
+            </Card>
           )}
         </View>
 
@@ -1356,23 +1402,8 @@ export const DashboardScreen: React.FC = () => {
               <Button
                 variant="ghost"
                 fullWidth
-                onPress={() => handleEditGoal(showGoalMenu)}
-                leftIcon={
-                  <Icon
-                    name="gear"
-                    size={20}
-                    color={theme.colors.text.secondary}
-                  />
-                }
-                style={styles.goalMenuButton}
-              >
-                Edit Goal
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
                 onPress={() => handleDeleteGoal(showGoalMenu)}
-                leftIcon={<Icon name="trash" size={20} color="#FF0000" />}
+                rightIcon={<Icon name="trash" size={20} color="#FF0000" />}
                 style={[
                   styles.goalMenuButton,
                   { backgroundColor: '#FF000010' },
@@ -1387,14 +1418,39 @@ export const DashboardScreen: React.FC = () => {
 
       {/* Side Menu */}
       {showSideMenu && (
-        <View style={styles.sideMenuOverlay}>
+        <Animated.View 
+          style={[
+            styles.sideMenuOverlay,
+            {
+              opacity: overlayAnimation,
+            }
+          ]}
+        >
+          <BlurView
+            intensity={20}
+            style={StyleSheet.absoluteFillObject}
+          />
           <TouchableOpacity
             style={styles.sideMenuOverlayTouchable}
             activeOpacity={1}
-            onPress={() => setShowSideMenu(false)}
+            onPress={closeSideMenu}
           />
           <View style={styles.sideMenuShadow} />
-          <View style={styles.sideMenu}>
+          <Animated.View 
+            style={[
+              styles.sideMenu,
+              {
+                transform: [
+                  {
+                    translateX: sideMenuAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [300, 0], // Slide in from right
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             {/* Profile Image - Above Header */}
             <View style={styles.sideMenuProfileSection}>
               <View style={styles.sideMenuProfileImage}>
@@ -1406,10 +1462,10 @@ export const DashboardScreen: React.FC = () => {
               </View>
               <Button
                 variant="ghost"
-                onPress={() => setShowSideMenu(false)}
+                onPress={closeSideMenu}
                 style={styles.sideMenuCloseButton}
               >
-                <Icon name="x" size={20} color="#FFFF68" />
+                <Icon name="x" size={20} color="#FFFFFF" />
               </Button>
             </View>
 
@@ -1429,7 +1485,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.sideMenuGreetingButton}>
               <TalkWithGenieButton
                 onPress={() => {
-                  setShowSideMenu(false);
+                  closeSideMenu();
                   checkTokensAndCreateGoal();
                 }}
                 size="medium"
@@ -1440,10 +1496,34 @@ export const DashboardScreen: React.FC = () => {
                 variant="ghost"
                 fullWidth
                 onPress={() => {
-                  setShowSideMenu(false);
+                  closeSideMenu();
+                  setShowMyPlans(true);
+                }}
+                rightIcon={<Icon name="target" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                My Plans
+              </Button>
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowDailyGoals(true);
+                }}
+                rightIcon={<Icon name="calendar" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                Daily Goals
+              </Button>
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
                   setShowProfile(true);
                 }}
-                leftIcon={<Icon name="user" size={20} color="#FFFF68" />}
+                rightIcon={<Icon name="user" size={20} color="#FFFF68" />}
                 style={styles.sideMenuButton}
               >
                 Profile
@@ -1452,10 +1532,10 @@ export const DashboardScreen: React.FC = () => {
                 variant="ghost"
                 fullWidth
                 onPress={() => {
-                  setShowSideMenu(false);
+                  closeSideMenu();
                   setShowSettings(true);
                 }}
-                leftIcon={<Icon name="gear" size={20} color="#FFFF68" />}
+                rightIcon={<Icon name="gear" size={20} color="#FFFF68" />}
                 style={styles.sideMenuButton}
               >
                 Settings
@@ -1464,10 +1544,10 @@ export const DashboardScreen: React.FC = () => {
                 variant="ghost"
                 fullWidth
                 onPress={() => {
-                  setShowSideMenu(false);
+                  closeSideMenu();
                   setShowHelpSupport(true);
                 }}
-                leftIcon={<Icon name="question" size={20} color="#FFFF68" />}
+                rightIcon={<Icon name="headset" size={20} color="#FFFF68" />}
                 style={styles.sideMenuButton}
               >
                 Help & Support
@@ -1477,24 +1557,23 @@ export const DashboardScreen: React.FC = () => {
                   variant="ghost"
                   fullWidth
                   onPress={() => {
-                    setShowSideMenu(false);
+                    closeSideMenu();
                     setShowSubscription(true);
                   }}
-                  leftIcon={<Icon name="crown" size={20} color="#FFFF68" />}
+                  rightIcon={<Icon name="crown" size={20} color="#FFFF68" />}
                   style={styles.sideMenuButton}
                 >
                   My Subscription
                 </Button>
               )}
-              <View style={styles.sideMenuDivider} />
               <Button
                 variant="ghost"
                 fullWidth
                 onPress={() => {
-                  setShowSideMenu(false);
+                  closeSideMenu();
                   signOut();
                 }}
-                leftIcon={
+                rightIcon={
                   <Icon
                     name="sign-out"
                     size={20}
@@ -1503,6 +1582,7 @@ export const DashboardScreen: React.FC = () => {
                 }
                 style={[
                   styles.sideMenuButton,
+                  styles.sideMenuButtonNoBorder,
                   { backgroundColor: theme.colors.status.error + '10' },
                 ]}
               >
@@ -1514,8 +1594,8 @@ export const DashboardScreen: React.FC = () => {
                 © 2024 GenieAI • Version 1.0.0
               </Text>
             </View>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       )}
 
       {/* Task Details Screen */}
@@ -1560,6 +1640,46 @@ export const DashboardScreen: React.FC = () => {
             // Ensure token modal is on top: close subscription, then open
             setShowSubscription(false);
             requestAnimationFrame(() => setShowTokenPurchaseModal(true));
+          }}
+        />
+      )}
+
+      {/* My Plans Screen */}
+      {showMyPlans && (
+        <MyPlansScreen 
+          onBack={() => setShowMyPlans(false)}
+          onGoalPress={(goal) => {
+            setShowMyPlans(false);
+            setSelectedGoal(goal);
+          }}
+          onHomePress={() => setShowMyPlans(false)}
+          onDailyGoalsPress={() => {
+            setShowMyPlans(false);
+            setShowDailyGoals(true);
+          }}
+          onCreatePress={() => {
+            setShowMyPlans(false);
+            setShowNewGoal(true);
+          }}
+        />
+      )}
+
+      {/* Daily Goals Screen */}
+      {showDailyGoals && (
+        <DailyGoalsScreen 
+          onBack={() => setShowDailyGoals(false)}
+          onTaskPress={(task) => {
+            setShowDailyGoals(false);
+            setSelectedTask(task);
+          }}
+          onHomePress={() => setShowDailyGoals(false)}
+          onMyPlansPress={() => {
+            setShowDailyGoals(false);
+            setShowMyPlans(true);
+          }}
+          onCreatePress={() => {
+            setShowDailyGoals(false);
+            setShowNewGoal(true);
           }}
         />
       )}
@@ -1922,6 +2042,70 @@ export const DashboardScreen: React.FC = () => {
           </View>
         </View>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModal}>
+            <View style={styles.deleteModalHeader}>
+              <Icon name="warning" size={24} color="#FF4444" weight="fill" />
+              <Text variant="h3" style={styles.deleteModalTitle}>
+                Delete Goal
+              </Text>
+            </View>
+            <Text variant="body" color="secondary" style={styles.deleteModalDescription}>
+              This action cannot be undone. All tasks and progress will be permanently deleted.
+            </Text>
+            <Text variant="body" color="secondary" style={styles.deleteModalWarning}>
+              Type "Delete It" to confirm deletion:
+            </Text>
+            <TextInput
+              style={styles.deleteModalInput}
+              value={deleteConfirmationText}
+              onChangeText={setDeleteConfirmationText}
+              placeholder="Delete It"
+              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.deleteModalActions}>
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmationText('');
+                  setGoalToDelete(null);
+                }}
+                style={styles.deleteModalCancelButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onPress={confirmDeleteGoal}
+                disabled={deleteConfirmationText.toLowerCase().trim() !== "delete it"}
+                style={[
+                  styles.deleteModalConfirmButton,
+                  deleteConfirmationText.toLowerCase().trim() !== "delete it" && styles.deleteModalConfirmButtonDisabled
+                ]}
+              >
+                Confirm
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Floating Bottom Navigation */}
+      <FloatingBottomNav
+        onHomePress={() => {
+          // Already on home, do nothing or scroll to top
+        }}
+        onMyPlansPress={() => setShowMyPlans(true)}
+        onDailyGoalsPress={() => setShowDailyGoals(true)}
+        onCreatePress={() => setShowNewGoal(true)}
+        activeTab="home"
+      />
     </View>
   );
 };
@@ -1933,10 +2117,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 80, // Reduced space for header
+    paddingTop: 80, // Further reduced space for header
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra padding for bottom navigation
   },
   absoluteHeader: {
     position: 'absolute',
@@ -1948,30 +2132,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
-    paddingBottom: 0, // Removed padding below header
+    paddingBottom: 10, // Added padding below header
     backgroundColor: 'rgba(0, 0, 0, 0.9)', // More opaque background
+    minHeight: 110, // Increased minimum height
   },
   dashboardSloganContainer: {
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 0,
     paddingBottom: 10,
     marginBottom: 6,
   },
-  dashboardLogoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  dashboardLogo: {
-    width: 48,
-    height: 48,
-  },
   dashboardSloganText: {
-    color: '#FFFF68',
+    color: '#FFFFFF',
     lineHeight: 24,
     textAlign: 'center',
     fontWeight: '300',
     fontSize: 18,
+    marginTop: 0,
   },
   dashboardSloganSubtext: {
     marginTop: 6,
@@ -2018,13 +2195,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   contentHeader: {
-    padding: 16,
-    paddingTop: 8, // Further reduced padding above
+    paddingHorizontal: 16,
+    paddingTop: 0, // Removed padding above
     paddingBottom: 12, // Reduced padding below
   },
+  headerLogoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerLogo: {
-    width: 64,
-    height: 64,
+    width: 40,
+    height: 40,
   },
   greetingRow: {
     flexDirection: 'row',
@@ -2109,11 +2290,6 @@ const styles = StyleSheet.create({
     top: 12,
     right: 12,
   },
-  todayTasksIconContainer: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-  },
   todayTasksNumberContainer: {
     position: 'absolute',
     top: 12,
@@ -2153,14 +2329,22 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   todayTasksList: {
-    gap: 8,
+    gap: 6,
+  },
+  todayTasksListCard: {
+    marginBottom: 16,
+    paddingBottom: 0,
+  },
+  activePlansCard: {
+    marginBottom: 8,
+    paddingBottom: 0,
   },
   section: {
     paddingHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   todayTasksSection: {
-    paddingTop: 24,
+    paddingTop: 4,
   },
   sectionCompact: {
     paddingHorizontal: 16,
@@ -2170,6 +2354,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionHeaderWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
   },
   emptyState: {
@@ -2187,7 +2377,7 @@ const styles = StyleSheet.create({
     minWidth: 160,
   },
   goalsList: {
-    gap: 12,
+    gap: 4,
   },
   goalCard: {
     marginBottom: 0,
@@ -2216,10 +2406,11 @@ const styles = StyleSheet.create({
   },
   createGoalCard: {
     alignItems: 'center',
-    paddingVertical: 20,
-    borderWidth: 1,
-    borderColor: '#FFFF68', // Official yellow
-    backgroundColor: 'transparent',
+    paddingVertical: 40,
+    marginBottom: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderRadius: 16,
+    minHeight: 200,
   },
   createGoalContent: {
     alignItems: 'center',
@@ -2276,22 +2467,22 @@ const styles = StyleSheet.create({
   purchaseTokensButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 104, 0.1)',
-    borderRadius: 20,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 104, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   purchaseTokensText: {
-    color: '#FFFF68',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '600',
   },
   purchaseTokensButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 104, 0.05)',
-    borderColor: 'rgba(255, 255, 104, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   purchaseTokensTextDisabled: {
     color: 'rgba(255, 255, 104, 0.4)',
@@ -2334,7 +2525,7 @@ const styles = StyleSheet.create({
   },
   usageRateProgressFill: {
     height: '100%',
-    backgroundColor: '#FFFF68',
+    backgroundColor: '#FFFFFF',
     borderRadius: 3,
   },
   usageRateProgressText: {
@@ -2370,14 +2561,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 12,
     fontWeight: '600',
-  },
-  createGoalIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
   createGoalTitle: {
     textAlign: 'center',
@@ -2426,6 +2609,8 @@ const styles = StyleSheet.create({
   todayTasksCard: {
     position: 'relative',
     height: 120,
+    marginBottom: 16,
+    paddingBottom: 0,
   },
   rewardsList: {
     gap: 0,
@@ -2436,7 +2621,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Darker overlay
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Reduced opacity for blur effect
     zIndex: 2000,
   },
   sideMenuOverlayTouchable: {
@@ -2453,7 +2638,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: 1,
-    backgroundColor: '#FFFF68', // Yellow divider
+    backgroundColor: 'transparent', // Removed yellow divider
     zIndex: 2002,
   },
   sideMenu: {
@@ -2462,13 +2647,21 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: 300,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)', // Subtle black with transparency
+    backgroundColor: 'rgba(0, 0, 0, 0.95)', // More opaque black
     paddingTop: 60, // Reduced safe area padding
     paddingHorizontal: 24,
     paddingVertical: 24,
-    borderLeftWidth: 1,
-    borderLeftColor: '#FFFF68', // Yellow border
+    borderLeftWidth: 0, // Removed yellow border
+    borderLeftColor: 'transparent',
     zIndex: 2003,
+    shadowColor: '#FFFF68', // Yellow glow
+    shadowOffset: {
+      width: -5,
+      height: 0,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
   },
   sideMenuProfileSection: {
     flexDirection: 'row',
@@ -2486,7 +2679,8 @@ const styles = StyleSheet.create({
   sideMenuGreetingSection: {
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingTop: 0,
+    paddingBottom: 10,
   },
   sideMenuHeader: {
     marginBottom: 24,
@@ -2521,18 +2715,37 @@ const styles = StyleSheet.create({
   },
   sideMenuGreetingButton: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   sideMenuContent: {
     gap: 8,
   },
   sideMenuButton: {
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
     backgroundColor: 'transparent',
     borderWidth: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  sideMenuButtonNoBorder: {
+    borderBottomWidth: 0,
+    marginTop: 16,
+  },
+  sideMenuButtonContentOverride: {
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  sideMenuButtonOverride: {
+    justifyContent: 'space-between',
+  },
+  sideMenuButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   sideMenuDivider: {
     height: 1,
@@ -2912,5 +3125,70 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '800',
     fontSize: 16,
+  },
+  deleteModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 3000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteModal: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
+    maxWidth: 400,
+    width: '90%',
+    borderWidth: 2,
+    borderColor: '#FF4444',
+  },
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  deleteModalTitle: {
+    color: '#FF4444',
+    fontWeight: '700',
+  },
+  deleteModalDescription: {
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  deleteModalWarning: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  deleteModalInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  deleteModalConfirmButton: {
+    flex: 1,
+    backgroundColor: '#FF4444',
+  },
+  deleteModalConfirmButtonDisabled: {
+    backgroundColor: 'rgba(255, 68, 68, 0.3)',
+    opacity: 0.5,
   },
 });

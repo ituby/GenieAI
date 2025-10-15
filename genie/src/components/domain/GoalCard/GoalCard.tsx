@@ -10,12 +10,14 @@ export interface GoalCardProps {
   goal: GoalWithProgress;
   onPress?: () => void;
   onEdit?: () => void;
+  hasTimeReachedTasks?: boolean;
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
   goal,
   onPress,
   onEdit,
+  hasTimeReachedTasks = false,
 }) => {
   const theme = useTheme();
 
@@ -66,7 +68,14 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Card variant="gradient" padding="md" style={styles.container}>
+      <Card 
+        variant="gradient" 
+        padding="md" 
+        style={[
+          styles.container,
+          hasTimeReachedTasks && styles.timeReachedContainer
+        ]}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleContainer}>
@@ -244,5 +253,10 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  timeReachedContainer: {
+    borderColor: '#FFFF68',
+    borderWidth: 2,
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
   },
 });

@@ -2278,6 +2278,7 @@ serve(async (req) => {
 
       return {
         user_id,
+        goal_id,
         task_id: task.id,
         type: 'task_reminder',
         title: `${timeBasedGreetings[timeOfDay]} Day ${dayNumber} - ${task.title}`,
@@ -2309,6 +2310,7 @@ serve(async (req) => {
     const rewardNotifications = [
       {
         user_id,
+        goal_id,
         type: 'milestone_reward',
         title: '🎉 Reward Unlocked!',
         body: 'You reached a milestone! A new reward is waiting for you in the rewards screen',
@@ -2318,6 +2320,7 @@ serve(async (req) => {
       },
       {
         user_id,
+        goal_id,
         type: 'completion_reward',
         title: '🏆 Goal Completed!',
         body: 'Congratulations! You completed all tasks and achieved your goal!',

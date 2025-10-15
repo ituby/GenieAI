@@ -7,6 +7,7 @@ export * from './primitives/Input/TextField';
 export * from './primitives/Icon';
 export * from './primitives/Badge';
 export * from './primitives/Dropdown';
+export * from './primitives/FloatingBottomNav/FloatingBottomNav';
 
 // Complex components (to be added)
 // export * from './complex/HeaderBar';
