@@ -11,7 +11,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 // i18n removed
 import { Button, Text, Card, Icon, CustomRefreshControl } from '../components';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/index';
 import { TaskWithGoal } from '../types/task';
 import { supabase } from '../services/supabase/client';
@@ -274,23 +273,14 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           { backgroundColor: theme.colors.background.primary },
         ]}
       >
-        {/* Absolute Header */}
-        <View style={styles.absoluteHeader}>
-          {/* Blur overlay */}
-          <View style={styles.blurOverlay} />
-          {/* Additional blur effect */}
-          <View style={styles.blurEffect} />
-          {/* Extra blur layers */}
-          <View style={styles.blurEffect2} />
-          <View style={styles.blurEffect3} />
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color="#FFFFFF"
-            />
+            <Icon name="arrow-left" size={20} color={theme.colors.text.primary} />
           </TouchableOpacity>
-          <View style={styles.headerSpacer} />
+          <Text variant="h3" style={styles.headerTitle}>
+            Task Details
+          </Text>
           <View style={styles.pointsContainer}>
             <Icon
               name="trophy"
@@ -579,72 +569,30 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 50,
   },
-  absoluteHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
-    zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    position: 'relative',
   },
-  blurOverlay: {
+  headerTitle: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    zIndex: -1,
-  },
-  blurEffect: {
-    position: 'absolute',
-    top: -20,
-    left: -20,
-    right: -20,
-    bottom: -20,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 30,
-    zIndex: -2,
-  },
-  blurEffect2: {
-    position: 'absolute',
-    top: -30,
-    left: -30,
-    right: -30,
-    bottom: -30,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderRadius: 40,
-    zIndex: -3,
-  },
-  blurEffect3: {
-    position: 'absolute',
-    top: -40,
-    left: -40,
-    right: -40,
-    bottom: -40,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 50,
-    zIndex: -4,
+    textAlign: 'center',
   },
   backButton: {
     padding: 8,
-  },
-  headerSpacer: {
-    flex: 1,
+    zIndex: 1,
   },
   pointsContainer: {
     flexDirection: 'row',
@@ -655,6 +603,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 104, 0.3)',
+    zIndex: 1,
   },
   pointsText: {
     color: '#FFFF68',
@@ -664,7 +613,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 110,
   },
   scrollContent: {
     padding: 16,

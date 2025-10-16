@@ -495,22 +495,14 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
         { backgroundColor: theme.colors.background.primary },
       ]}
     >
-      {/* Absolute Header */}
-      <View style={styles.absoluteHeader}>
-        <Button
-          variant="ghost"
-          onPress={onBack}
-          leftIcon={
-            <Ionicons
-              name="arrow-back"
-              size={18}
-              color="#FFFFFF"
-            />
-          }
-        >
-          Back
-        </Button>
-        <View style={styles.headerSpacer} />
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Icon name="arrow-left" size={20} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        <Text variant="h3" style={styles.headerTitle}>
+          Goal Details
+        </Text>
         <View style={styles.pointsContainer}>
           <Icon
             name="trophy"
@@ -917,31 +909,36 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 20, // Top safe area padding
+    paddingTop: 50, // Top safe area padding
   },
   scrollView: {
     flex: 1,
-    paddingTop: 60, // Space for absolute header
   },
   scrollContent: {
     paddingBottom: 20,
   },
-  absoluteHeader: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    position: 'relative',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
-    zIndex: 1000,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50, // Safe area padding
-    paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    textAlign: 'center',
   },
-  headerSpacer: {
-    flex: 1,
+  backButton: {
+    padding: 8,
+    zIndex: 1,
   },
   pointsContainer: {
     flexDirection: 'row',
@@ -952,17 +949,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 104, 0.3)',
+    zIndex: 1,
   },
   pointsText: {
     color: '#FFFF68',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 4,
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 16,
   },
   content: {
     paddingHorizontal: 20,
