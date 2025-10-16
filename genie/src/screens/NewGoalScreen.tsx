@@ -176,6 +176,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   );
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPlanPreview, setShowPlanPreview] = useState(false);
+  const [isResuming, setIsResuming] = useState(false); // Prevent duplicate resume calls
   const [successData, setSuccessData] = useState({
     taskCount: 0,
     rewardCount: 0,
@@ -235,6 +236,57 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   const restoreProgress = async () => {
     try {
+      // First, check database for paused goals (highest priority)
+      if (user?.id) {
+        const { data: pendingGoals, error: dbError } = await supabase
+          .from('goals')
+          .select('id, title, description, category, icon_name, color, plan_duration_days, preferred_time_ranges, preferred_days')
+          .eq('user_id', user.id)
+          .eq('status', 'paused')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!dbError && pendingGoals && pendingGoals.length > 0) {
+          const pendingGoal = pendingGoals[0];
+          console.log('📋 Found paused goal in DB:', pendingGoal.id, '- resuming...');
+          
+          // Restore form data from goal
+          setFormData({
+            title: pendingGoal.title,
+            description: pendingGoal.description,
+            category: pendingGoal.category,
+            planDurationDays: pendingGoal.plan_duration_days || 21,
+            tasksPerDayRange: { min: 3, max: 5 },
+            preferredTimeRanges: pendingGoal.preferred_time_ranges || [
+              { start_hour: 8, end_hour: 12, label: 'Morning' },
+              { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+              { start_hour: 19, end_hour: 23, label: 'Evening' }
+            ],
+            preferredDays: pendingGoal.preferred_days || [1, 2, 3, 4, 5, 6],
+          });
+          
+          setCreatedGoalId(pendingGoal.id);
+          
+          // Resume plan generation (will check plan_outlines table)
+          resumePlanGeneration(pendingGoal.id, {
+            title: pendingGoal.title,
+            description: pendingGoal.description,
+            category: pendingGoal.category,
+            planDurationDays: pendingGoal.plan_duration_days || 21,
+            tasksPerDayRange: { min: 3, max: 5 },
+            preferredTimeRanges: pendingGoal.preferred_time_ranges || [
+              { start_hour: 8, end_hour: 12, label: 'Morning' },
+              { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+              { start_hour: 19, end_hour: 23, label: 'Evening' }
+            ],
+            preferredDays: pendingGoal.preferred_days || [1, 2, 3, 4, 5, 6],
+          });
+          
+          return; // Exit early - database takes priority
+        }
+      }
+      
+      // If no paused goals in DB, check AsyncStorage
       const raw = await AsyncStorage.getItem(PROGRESS_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
@@ -324,78 +376,128 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     goalId: string,
     savedForm: typeof formData
   ) => {
+    // Prevent duplicate calls
+    if (isResuming) {
+      console.log('⚠️ Already resuming plan generation, skipping duplicate call');
+      return;
+    }
+    
     try {
-      // First, check if the plan is already ready
-      const { data: goalData, error: goalError } = await supabase
-        .from('goals')
-        .select('*, goal_tasks(*), rewards(*)')
-        .eq('id', goalId)
-        .single();
+      setIsResuming(true);
+      console.log('🔄 Resuming plan generation for goal:', goalId);
+      
+      // Start loading animation
+      setIsCreatingPlan(true);
+      const interval = setInterval(() => {
+        setLoadingStep((prev) => (prev >= 39 ? 39 : prev + 1));
+      }, 800);
+      setLoadingInterval(interval);
+      
+      // Poll the database to check if plan outline was created (previous request completed)
+      const pollForPlanOutline = async (maxAttempts = 60): Promise<boolean> => {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          console.log(`🔍 Polling attempt ${attempt}/${maxAttempts} - checking if plan outline exists...`);
+          
+          const { data: planOutlineData, error: outlineError } = await supabase
+            .from('plan_outlines')
+            .select('*')
+            .eq('goal_id', goalId)
+            .single();
 
-      if (!goalError && goalData && goalData.status === 'active') {
-        // Plan is already ready! Load it and show preview
-        console.log('✅ Plan already ready, loading data...');
+          if (!outlineError && planOutlineData) {
+            // Plan outline exists! Load it and show preview
+            console.log('✅ Plan outline found - loading data...');
+            
+            // Reconstruct plan_outline array from week columns
+            const reconstructedOutline = [];
+            for (let i = 1; i <= 24; i++) {
+              const titleKey = `week_${i}_title` as keyof typeof planOutlineData;
+              const descKey = `week_${i}_description` as keyof typeof planOutlineData;
+              
+              if (planOutlineData[titleKey] && planOutlineData[descKey]) {
+                reconstructedOutline.push({
+                  title: planOutlineData[titleKey],
+                  description: planOutlineData[descKey],
+                });
+              } else {
+                break; // No more weeks
+              }
+            }
+            
+            // Get goal data for additional info
+            const { data: goalData } = await supabase
+              .from('goals')
+              .select('*, goal_tasks(id)')
+              .eq('id', goalId)
+              .single();
+            
+            const taskCount = goalData?.goal_tasks?.length || 0;
+            
+            const data = {
+              milestones: planOutlineData.milestones || [],
+              goalTitle: goalData?.title || savedForm.title,
+              subcategory: null,
+              marketingDomain: null,
+              planOutline: reconstructedOutline,
+              deliverables: planOutlineData.deliverables || {},
+            };
+            
+            setPlanData(data);
+            setPlanCategory(goalData?.category || savedForm.category);
+            setPlanIconName(goalData?.icon_name || 'star');
+            setPlanColor(goalData?.color || '#FFFF68');
+            setSuccessData({
+              taskCount,
+              rewardCount: 5,
+              iconName: goalData?.icon_name || 'star',
+              color: goalData?.color || '#FFFF68',
+            });
+            
+            if (interval) clearInterval(interval);
+            setLoadingInterval(null);
+            setIsCreatingPlan(false);
+            setShowPlanPreview(true);
+            
+            await persistProgress({
+              state: 'preview',
+              isCreatingPlan: false,
+              showPlanPreview: true,
+              planData: data,
+              createdGoalId: goalId,
+              formData: savedForm,
+              loadingStep: 40,
+              planCategory: goalData?.category,
+              planIconName: goalData?.icon_name,
+              planColor: goalData?.color,
+              successData: {
+                taskCount,
+                rewardCount: 5,
+                iconName: goalData?.icon_name || 'star',
+                color: goalData?.color || '#FFFF68',
+              },
+            });
+            
+            return true;
+          }
+          
+          // Wait 3 seconds before next poll
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
         
-        const tasks = goalData.goal_tasks || [];
-        const rewards = goalData.rewards || [];
-        
-        // Generate milestones from existing tasks
-        const milestones = generateMilestonesFromTasks(tasks, savedForm.planDurationDays);
-        
-        const data = {
-          milestones,
-          goalTitle: goalData.title,
-          subcategory: goalData.subcategory || null,
-          marketingDomain: goalData.marketing_domain || null,
-          planOutline: milestones.map((m: any) => ({
-            title: m.title,
-            description: m.description,
-          })),
-        };
-        
-        setPlanData(data);
-        setPlanCategory(goalData.category);
-        setPlanIconName(goalData.icon_name || 'star');
-        setPlanColor(goalData.color || '#FFFF68');
-        setSuccessData({
-          taskCount: tasks.length,
-          rewardCount: rewards.length,
-          iconName: goalData.icon_name || 'star',
-          color: goalData.color || '#FFFF68',
-        });
-        
-        setIsCreatingPlan(false);
-        setShowPlanPreview(true);
-        
-        await persistProgress({
-          state: 'preview',
-          isCreatingPlan: false,
-          showPlanPreview: true,
-          planData: data,
-          createdGoalId: goalId,
-          formData: savedForm,
-          loadingStep: 40,
-          planCategory: goalData.category,
-          planIconName: goalData.icon_name,
-          planColor: goalData.color,
-          successData: {
-            taskCount: tasks.length,
-            rewardCount: rewards.length,
-            iconName: goalData.icon_name || 'star',
-            color: goalData.color || '#FFFF68',
-          },
-        });
-        
+        console.log('⏱️ Polling timeout - no plan outline found after', maxAttempts, 'attempts');
+        return false;
+      };
+      
+      // Try polling first (wait up to 3 minutes for previous request to complete)
+      const planFound = await pollForPlanOutline(60);
+      
+      if (planFound) {
+        // Plan was found via polling, we're done!
         return;
       }
       
-      // If plan is not ready yet, continue with generation polling
-      setIsCreatingPlan(true);
-      // Recreate the interval progression
-      const interval = setInterval(() => {
-        setLoadingStep((prev) => (prev >= 39 ? 39 : prev + 1));
-      }, 800); // 800ms per step for 40 messages = ~32 seconds total
-      setLoadingInterval(interval);
+      // If polling failed, the previous request probably failed - send a new request
+      console.log('🆕 Previous request likely failed, sending new request...');
 
       // Get device timezone and current time using expo-localization
       const calendars = Localization.getCalendars();
@@ -539,11 +641,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
     } catch (e) {
       setIsCreatingPlan(false);
+      console.error('Error in resumePlanGeneration:', e);
     } finally {
       if (loadingInterval) {
         clearInterval(loadingInterval);
         setLoadingInterval(null);
       }
+      setIsResuming(false); // Reset flag to allow future calls
     }
   };
 

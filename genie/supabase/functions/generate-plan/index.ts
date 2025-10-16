@@ -831,10 +831,24 @@ The plan_outline is the FIRST thing users see when approving their plan. It MUST
 ✅ INSPIRING and motivating
 ✅ SPECIFIC, not generic
 
-BAD EXAMPLES (too generic):
-❌ "Week 1 • Foundations" - too vague
-❌ "Week 2 • Development" - doesn't say what's being developed
-❌ "Week 3 • Mastery" - generic, could apply to anything
+⚠️ CRITICAL JSON FORMAT FOR plan_outline:
+EACH element in plan_outline array MUST be a complete object with { }
+DO NOT forget the opening brace { before "title"!
+
+WRONG (will cause JSON parse error):
+❌ "plan_outline": [
+     { "title": "Week 1...", "description": "..." },
+     { "title": "Week 2...", "description": "..." },
+     "Week 3...",  // ← MISSING { }
+       "description": "..."
+   ]
+
+CORRECT:
+✅ "plan_outline": [
+     { "title": "Week 1...", "description": "..." },
+     { "title": "Week 2...", "description": "..." },
+     { "title": "Week 3...", "description": "..." }  // ← HAS { }
+   ]
 
 GOOD EXAMPLES (specific and customized):
 ✅ For "Create Startup": 
@@ -846,11 +860,6 @@ GOOD EXAMPLES (specific and customized):
    - Week 1 • Spanish Basics & Daily Vocabulary
    - Week 2 • Conversational Skills & Grammar
    - Week 3 • Fluency & Real-World Practice
-
-✅ For "Run Marathon":
-   - Week 1 • Base Building & Running Form
-   - Week 2 • Endurance & Speed Training
-   - Week 3 • Peak Performance & Race Prep
 
 The user will decide whether to approve based on this outline - make it compelling!
 
@@ -1248,7 +1257,27 @@ If your task count doesn't match, FIX IT before returning!
     console.log('AI Response text:', text);
 
     // Parse the JSON response
-    const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+    let cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+    
+    // Fix common JSON errors in plan_outline array
+    // Sometimes AI forgets { } around objects in plan_outline
+    const planOutlinePattern = /"plan_outline"\s*:\s*\[([\s\S]*?)\]/;
+    const match = cleanedText.match(planOutlinePattern);
+    
+    if (match) {
+      const outlineContent = match[1];
+      // Check if there are lines starting with "Week without { before them
+      const fixedOutline = outlineContent.replace(
+        /([,\[])\s*"(Week \d+[^"]*)",\s*"description"/g,
+        '$1 { "title": "$2", "description"'
+      );
+      
+      if (fixedOutline !== outlineContent) {
+        console.warn('⚠️ Fixed malformed plan_outline JSON');
+        cleanedText = cleanedText.replace(planOutlinePattern, `"plan_outline": [${fixedOutline}]`);
+      }
+    }
+    
     console.log('Cleaned AI text:', cleanedText);
 
     try {
@@ -2138,6 +2167,7 @@ serve(async (req) => {
     let aiCategory = category;
     let deliverables: any = { overview: { chosen_topic: '', rationale: '', synopsis: '' }, sections: [] };
     let planOutline: any[] = [];
+    let usedModel = 'gemini-1.5-flash'; // Track which model was used
 
     try {
       const aiStartTime = Date.now();
@@ -2184,6 +2214,7 @@ serve(async (req) => {
       aiCategory = result.category;
       deliverables = result.deliverables;
       planOutline = result.planOutline || [];
+      usedModel = result.usedModel || 'gemini-1.5-flash';
 
       console.log(`[${requestId}] AI generation successful: ${taskTemplates.length} tasks, ${aiLatency}ms`);
 
@@ -2469,6 +2500,40 @@ serve(async (req) => {
 
     if (insertError) {
       throw insertError;
+    }
+
+    // Save plan outline to plan_outlines table
+    try {
+      const planOutlineData: any = {
+        goal_id,
+        milestones,
+        deliverables,
+        ai_model_used: usedModel,
+        generation_latency_ms: Date.now() - startTime,
+      };
+
+      // Map plan_outline array to individual week columns (up to 24 weeks)
+      planOutline.forEach((week: any, index: number) => {
+        const weekNum = index + 1;
+        if (weekNum <= 24) {
+          planOutlineData[`week_${weekNum}_title`] = week.title || '';
+          planOutlineData[`week_${weekNum}_description`] = week.description || '';
+        }
+      });
+
+      const { error: outlineError } = await supabaseClient
+        .from('plan_outlines')
+        .upsert(planOutlineData, { onConflict: 'goal_id' });
+
+      if (outlineError) {
+        console.error(`[${requestId}] Error saving plan outline:`, outlineError);
+        // Don't fail the whole process - outline is not critical
+      } else {
+        console.log(`[${requestId}] ✅ Plan outline saved successfully with ${planOutline.length} weeks`);
+      }
+    } catch (outlineError) {
+      console.error(`[${requestId}] Error in plan outline save:`, outlineError);
+      // Continue - not critical
     }
 
     // Create personalized notifications for each task (dynamic based on actual tasks)

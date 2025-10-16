@@ -224,17 +224,38 @@ export const DashboardScreen: React.FC = () => {
         // Setup push notifications
         PushTokenService.setupPushNotifications(user.id);
 
-        // Check if there is in-progress new goal state to resume
+        // Check if there are pending goals (paused status = waiting for approval)
         (async () => {
           try {
+            // First check database for paused goals
+            const { data: pendingGoals, error } = await supabase
+              .from('goals')
+              .select('id, title, status, created_at')
+              .eq('user_id', user.id)
+              .eq('status', 'paused')
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            if (!error && pendingGoals && pendingGoals.length > 0) {
+              console.log('📋 Found pending goal waiting for approval:', pendingGoals[0].id);
+              // Auto-open NewGoalScreen to show approval modal
+              // NewGoalScreen will handle the restoration, not Dashboard
+              setShowNewGoal(true);
+              return;
+            }
+
+            // If no pending goals in DB, check AsyncStorage for in-progress state
             const raw = await AsyncStorage.getItem(PROGRESS_KEY);
             if (!raw) return;
             const saved = JSON.parse(raw);
-            if (saved && saved.userId === user.id) {
-              // Auto-open NewGoalScreen to restore UX
+            if (saved && saved.userId === user.id && saved.state !== 'creating') {
+              // Only auto-open for preview/success states, not creating
+              // (creating state is handled by NewGoalScreen's restoreProgress)
               setShowNewGoal(true);
             }
-          } catch {}
+          } catch (err) {
+            console.error('Error checking for pending goals:', err);
+          }
         })();
       }
     };
