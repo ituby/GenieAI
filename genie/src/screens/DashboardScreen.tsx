@@ -15,6 +15,7 @@ import {
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { colors } from '../theme/colors';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import Svg from 'react-native-svg';
@@ -3138,7 +3139,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteModal: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.background.secondary,
     borderRadius: 16,
     padding: 24,
     margin: 20,

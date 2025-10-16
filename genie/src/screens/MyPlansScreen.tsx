@@ -14,6 +14,7 @@ import { useTheme } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGoalStore } from '../store/useGoalStore';
 import { GoalWithProgress } from '../types/goal';
+import { colors } from '../theme/colors';
 
 interface MyPlansScreenProps {
   onBack: () => void;
@@ -536,7 +537,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteModal: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.background.secondary,
     borderRadius: 16,
     padding: 24,
     margin: 20,

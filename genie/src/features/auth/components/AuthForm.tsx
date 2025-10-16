@@ -4,6 +4,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { Button, TextField, Text, Card } from '../../../components';
 import { useTheme } from '../../../theme/index';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { colors } from '../../../theme/colors';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background.primary,
     borderWidth: 1,
     borderColor: '#FFFF68',
   },

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Image, Dimensions, Text, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
 import { dataLoadingService } from '../services/dataLoadingService';
+import { colors } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -166,7 +167,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

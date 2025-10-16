@@ -47,7 +47,7 @@ const formatTimeRanges = (ranges?: Array<{start_hour: number, end_hour: number, 
   return `${ranges.length} time slots: ${rangeDescriptions}`;
 };
 
-// Generate personalized loading messages with lots of variety
+// Generate personalized loading messages - detailed and without emojis
 const generateLoadingMessages = (
   goalTitle: string = 'your goal',
   goalDescription: string = '',
@@ -62,164 +62,209 @@ const generateLoadingMessages = (
   const totalTasks = totalDays * tasksPerDay;
   const daysText = formatDays(preferredDays);
   const timeRangesText = formatTimeRanges(preferredTimeRanges);
-  const shortGoal = goalTitle.slice(0, 40);
-  const shortDesc = goalDescription.slice(0, 50);
+  const shortGoal = goalTitle.slice(0, 45);
+  const shortDesc = goalDescription.slice(0, 60);
   
   return [
     {
       icon: 'MagicWand',
-      title: '✨ Reading Your Vision',
-      subtitle: `Analyzing "${shortGoal}"... ${shortDesc}${goalDescription.length > 50 ? '...' : ''}`,
+      title: 'Reading your request',
+      subtitle: `Analyzing "${shortGoal}" and understanding what you want to achieve. Genie is processing every detail of your description to create the perfect plan.`,
     },
     {
       icon: 'Eye',
-      title: '👁️ Understanding Context',
-      subtitle: `Genie is examining every detail of "${shortGoal}" to create the perfect roadmap for you.`,
+      title: 'Understanding the scope',
+      subtitle: `Examining the full context of "${shortGoal}". Identifying the key challenges, opportunities, and what success looks like for this specific goal.`,
     },
     {
       icon: 'Brain',
-      title: '🧠 Deep Analysis Mode',
-      subtitle: `Processing what it takes to achieve "${shortGoal}". Analyzing patterns, challenges, and opportunities...`,
-    },
-    {
-      icon: 'Sparkle',
-      title: '✨ Connecting Ideas',
-      subtitle: `Linking concepts and strategies that will help you succeed with "${shortGoal}". Building the foundation...`,
-    },
-    {
-      icon: 'Target',
-      title: '🎯 Identifying Milestones',
-      subtitle: `Breaking down "${shortGoal}" into achievable milestones. Mapping your ${planDurationDays}-day transformation journey...`,
-    },
-    {
-      icon: 'CalendarCheck',
-      title: '📅 Planning Timeline',
-      subtitle: `Creating a ${planDurationDays}-day personalized plan for "${shortGoal}" with tasks scheduled on ${daysText}.`,
-    },
-    {
-      icon: 'Clock',
-      title: '⏰ Time Optimization',
-      subtitle: `Setting up ${tasksPerDay} daily tasks ${timeRangesText} to perfectly fit your lifestyle and schedule.`,
+      title: 'Running deep analysis',
+      subtitle: `Genie is thinking about what it takes to achieve "${shortGoal}". Processing patterns from thousands of similar goals to find what works best.`,
     },
     {
       icon: 'Lightbulb',
-      title: '💡 Strategic Planning',
-      subtitle: `Designing ${totalTasks} strategic tasks that will guide you step-by-step toward "${shortGoal}".`,
+      title: 'Generating insights',
+      subtitle: `Connecting strategies and best practices specific to "${shortGoal}". Building a foundation of proven methods that lead to success.`,
     },
     {
-      icon: 'ListChecks',
-      title: '✅ Task Generation',
-      subtitle: `Generating ${totalTasks} personalized tasks across ${totalDays} days. Each one is tailored for your success...`,
+      icon: 'Target',
+      title: 'Mapping your journey',
+      subtitle: `Breaking down "${shortGoal}" into ${totalTasks} actionable steps. Creating a clear roadmap across ${planDurationDays} days with realistic milestones.`,
+    },
+    {
+      icon: 'CalendarCheck',
+      title: 'Planning timeline structure',
+      subtitle: `Designing your ${planDurationDays}-day journey for "${shortGoal}". Organizing tasks across ${daysText} to match your availability and preferences.`,
+    },
+    {
+      icon: 'Clock',
+      title: 'Optimizing task scheduling',
+      subtitle: `Calculating optimal times for ${tasksPerDay} daily tasks. Using ${timeRangesText} to align with your energy patterns and lifestyle.`,
     },
     {
       icon: 'Puzzle',
-      title: '🧩 Structuring Tasks',
-      subtitle: `Breaking down each task into micro-actions for "${shortGoal}". Making big goals feel achievable...`,
+      title: 'Crafting individual tasks',
+      subtitle: `Genie is writing ${totalTasks} custom tasks specifically for "${shortGoal}". Each task is designed to build on the previous one and move you forward.`,
     },
     {
-      icon: 'TrendUp',
-      title: '📈 Building Progression',
-      subtitle: `Week 1: Foundation → Week 2: Development → Week 3: Mastery. Creating your growth curve for "${shortGoal}".`,
-    },
-    {
-      icon: 'Rocket',
-      title: '🚀 Momentum Builder',
-      subtitle: `Designing tasks that build momentum and excitement. Ensuring you stay motivated throughout your "${shortGoal}" journey.`,
-    },
-    {
-      icon: 'Star',
-      title: '⭐ Adding Motivation',
-      subtitle: `Infusing each task with purpose and meaning. Making "${shortGoal}" inspiring and rewarding every step of the way.`,
-    },
-    {
-      icon: 'Heart',
-      title: '❤️ Personal Touch',
-      subtitle: `Tailoring task descriptions, motivational messages, and timing specifically for your "${shortGoal}" journey.`,
-    },
-    {
-      icon: 'Compass',
-      title: '🧭 Direction Setting',
-      subtitle: `Ensuring every task points you toward "${shortGoal}". Creating a clear path with no confusion or detours.`,
-    },
-    {
-      icon: 'Trophy',
-      title: '🏆 Reward System',
-      subtitle: `Setting up milestone celebrations and achievement badges. Your progress toward "${shortGoal}" will be celebrated!`,
-    },
-    {
-      icon: 'Bell',
-      title: '🔔 Smart Notifications',
-      subtitle: `Creating ${totalTasks} intelligent reminders aligned with your schedule. You'll never miss a beat!`,
-    },
-    {
-      icon: 'ChartLine',
-      title: '📊 Progress Tracking',
-      subtitle: `Establishing metrics, success indicators, and analytics. You'll see your progress toward "${shortGoal}" in real-time.`,
-    },
-    {
-      icon: 'Shield',
-      title: '🛡️ Quality Check',
-      subtitle: `Validating task scheduling, checking for timing conflicts, and ensuring optimal spacing for "${shortGoal}".`,
-    },
-    {
-      icon: 'Sparkle',
-      title: '✨ Optimization Pass',
-      subtitle: `Fine-tuning task difficulty, balancing workload, and ensuring sustainable progress toward "${shortGoal}".`,
+      icon: 'ListChecks',
+      title: 'Creating subtask breakdowns',
+      subtitle: `Breaking down each task into 1-6 actionable subtasks. Making "${shortGoal}" achievable through small, clear steps that you can track and complete.`,
     },
     {
       icon: 'Book',
-      title: '📚 Knowledge Integration',
-      subtitle: `Adding best practices, proven strategies, and expert tips relevant to "${shortGoal}". Learning from the best!`,
+      title: 'Writing detailed descriptions',
+      subtitle: `Crafting 2-3 sentence descriptions for each task. Explaining what to do, why it matters, and how it connects to "${shortGoal}".`,
     },
     {
-      icon: 'Lightning',
-      title: '⚡ Energy Balance',
-      subtitle: `Distributing tasks to match your energy levels throughout the day. Maximizing productivity for "${shortGoal}".`,
+      icon: 'TrendUp',
+      title: 'Building progression logic',
+      subtitle: `Structuring Week 1 Foundation, Week 2 Development, and Week 3 Mastery phases. Creating a growth curve tailored to "${shortGoal}".`,
+    },
+    {
+      icon: 'Sparkle',
+      title: 'Personalizing content',
+      subtitle: `Adapting every task title, description, and timing to match your specific request for "${shortGoal}". No generic templates here.`,
+    },
+    {
+      icon: 'Shield',
+      title: 'Validating task spacing',
+      subtitle: `Checking that tasks are spaced at least 30 minutes apart. Ensuring no scheduling conflicts and realistic time allocation for "${shortGoal}".`,
+    },
+    {
+      icon: 'Compass',
+      title: 'Setting success metrics',
+      subtitle: `Defining what progress looks like for "${shortGoal}". Establishing clear indicators so you can measure your advancement every step of the way.`,
+    },
+    {
+      icon: 'Trophy',
+      title: 'Designing reward system',
+      subtitle: `Creating milestone celebrations and achievement badges for "${shortGoal}". Setting up weekly check-ins and completion rewards to keep you motivated.`,
+    },
+    {
+      icon: 'Bell',
+      title: 'Scheduling notifications',
+      subtitle: `Planning ${totalTasks} smart reminders for your tasks. Adding good morning and good night messages from Genie to support your journey.`,
+    },
+    {
+      icon: 'ChartLine',
+      title: 'Calculating time allocations',
+      subtitle: `Determining how long each task should take for "${shortGoal}". Allocating 20-60 minutes per task based on subtask complexity.`,
     },
     {
       icon: 'Users',
-      title: '👥 Community Insights',
-      subtitle: `Incorporating insights from thousands who achieved similar goals. You're not alone in pursuing "${shortGoal}"!`,
+      title: 'Applying community wisdom',
+      subtitle: `Incorporating insights from thousands who achieved goals like "${shortGoal}". Learning from what worked for others in similar journeys.`,
     },
     {
       icon: 'Leaf',
-      title: '🌱 Growth Planning',
-      subtitle: `Designing your transformation journey. Every task will help you grow and evolve toward "${shortGoal}".`,
+      title: 'Planning growth trajectory',
+      subtitle: `Mapping how you will evolve during this ${planDurationDays}-day journey toward "${shortGoal}". Each week builds on the last for sustainable transformation.`,
     },
     {
       icon: 'Fire',
-      title: '🔥 Motivation Boost',
-      subtitle: `Adding powerful motivational elements to keep you fired up about "${shortGoal}" every single day!`,
-    },
-    {
-      icon: 'Rainbow',
-      title: '🌈 Positive Vibes',
-      subtitle: `Infusing your plan with positivity and encouragement. "${shortGoal}" will feel exciting, not overwhelming!`,
+      title: 'Adding motivational elements',
+      subtitle: `Infusing every task with purpose and inspiration for "${shortGoal}". Creating descriptions that remind you why this journey matters to you.`,
     },
     {
       icon: 'Mountain',
-      title: '⛰️ Challenge Mapping',
-      subtitle: `Identifying potential obstacles in your "${shortGoal}" journey and creating strategies to overcome them.`,
+      title: 'Anticipating challenges',
+      subtitle: `Identifying potential obstacles in your "${shortGoal}" path. Building in strategies and support to help you overcome difficulties when they arise.`,
     },
     {
       icon: 'Key',
-      title: '🔑 Success Factors',
-      subtitle: `Highlighting the key habits, mindsets, and actions that will unlock success with "${shortGoal}".`,
+      title: 'Highlighting success factors',
+      subtitle: `Determining the critical habits, mindsets, and actions that will unlock "${shortGoal}". Focusing on what truly makes the difference.`,
     },
     {
-      icon: 'Wand',
-      title: '🪄 Final Magic',
-      subtitle: `Polishing your personalized plan, adding final touches, and preparing your ${planDurationDays}-day transformation!`,
+      icon: 'Rocket',
+      title: 'Building momentum strategy',
+      subtitle: `Designing early wins and progressive challenges for "${shortGoal}". Ensuring you build confidence and momentum from day one.`,
     },
     {
-      icon: 'RocketLaunch',
-      title: '🚀 Launch Preparation',
-      subtitle: `Your custom plan for "${shortGoal}" is almost ready. Preparing for liftoff in 3... 2... 1...`,
+      icon: 'Heart',
+      title: 'Personalizing experience',
+      subtitle: `Tailoring every aspect of the plan to your preferences and schedule. Making "${shortGoal}" fit seamlessly into your life.`,
+    },
+    {
+      icon: 'Star',
+      title: 'Crafting weekly themes',
+      subtitle: `Creating distinct themes for each week of your "${shortGoal}" journey. Week 1 focuses on foundation, Week 2 on skill building, Week 3 on mastery.`,
+    },
+    {
+      icon: 'Target',
+      title: 'Defining clear outcomes',
+      subtitle: `Establishing what completion looks like for each task in "${shortGoal}". Setting success criteria so you know when you've truly finished each step.`,
+    },
+    {
+      icon: 'Compass',
+      title: 'Ensuring directional clarity',
+      subtitle: `Making sure every single task moves you closer to "${shortGoal}". Eliminating distractions and focusing only on what matters.`,
+    },
+    {
+      icon: 'Lightning',
+      title: 'Balancing energy demands',
+      subtitle: `Distributing harder and easier tasks throughout each day for "${shortGoal}". Matching task difficulty to your typical energy patterns.`,
+    },
+    {
+      icon: 'Shield',
+      title: 'Running quality assurance',
+      subtitle: `Double-checking task order, timing, and content quality for "${shortGoal}". Ensuring professional-grade planning standards.`,
+    },
+    {
+      icon: 'Book',
+      title: 'Integrating best practices',
+      subtitle: `Adding proven methodologies and expert techniques relevant to "${shortGoal}". Drawing from industry standards and success patterns.`,
+    },
+    {
+      icon: 'Sparkle',
+      title: 'Fine-tuning difficulty curve',
+      subtitle: `Adjusting the challenge level across ${planDurationDays} days for "${shortGoal}". Starting accessible, gradually increasing, and ensuring realistic expectations.`,
+    },
+    {
+      icon: 'Calendar',
+      title: 'Finalizing schedule',
+      subtitle: `Locking in your ${totalTasks} tasks across ${totalDays} days. Confirming all times fit within your ${timeRangesText} preferences.`,
     },
     {
       icon: 'CheckCircle',
-      title: '✅ Mission Complete!',
-      subtitle: `Your personalized ${planDurationDays}-day plan with ${totalTasks} tasks is ready! Let's achieve "${shortGoal}" together! 🎉`,
+      title: 'Preparing your plan',
+      subtitle: `Compiling everything into your personalized ${planDurationDays}-day roadmap for "${shortGoal}". Getting ready to show you the complete plan.`,
+    },
+    {
+      icon: 'Eye',
+      title: 'Reviewing plan coherence',
+      subtitle: `Ensuring all ${totalTasks} tasks flow logically toward "${shortGoal}". Checking that each task builds on previous ones and leads naturally to the next.`,
+    },
+    {
+      icon: 'Trophy',
+      title: 'Setting achievement milestones',
+      subtitle: `Configuring weekly checkpoints and celebration points for "${shortGoal}". Planning when you will pause to recognize your progress and earn rewards.`,
+    },
+    {
+      icon: 'Wand',
+      title: 'Adding final touches',
+      subtitle: `Polishing task descriptions, refining timing, and ensuring everything is perfect for "${shortGoal}". Almost ready to present your custom plan.`,
+    },
+    {
+      icon: 'Brain',
+      title: 'Verifying plan completeness',
+      subtitle: `Confirming that your plan covers everything needed to achieve "${shortGoal}". Checking that no critical steps or phases are missing.`,
+    },
+    {
+      icon: 'Lightbulb',
+      title: 'Optimizing task sequencing',
+      subtitle: `Ensuring tasks for "${shortGoal}" are ordered for maximum learning and skill building. Each task prepares you perfectly for what comes next.`,
+    },
+    {
+      icon: 'Target',
+      title: 'Finalizing deliverables',
+      subtitle: `Preparing concrete outputs and deliverables for "${shortGoal}". Making sure you will have tangible results to show for your ${planDurationDays} days of effort.`,
+    },
+    {
+      icon: 'CheckCircle',
+      title: 'Your plan is ready',
+      subtitle: `Your personalized ${planDurationDays}-day plan with ${totalTasks} tasks is complete. Preparing to show you the roadmap to "${shortGoal}".`,
     },
   ];
 };
@@ -316,7 +361,7 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
 
             {/* Dynamic content */}
             <View style={styles.content}>
-              <Text variant="h5" style={[styles.title, { color: '#FFFFFF' }]}>
+              <Text variant="h4" style={[styles.title, { color: '#FFFFFF' }]}>
                 {currentStepData.title}
               </Text>
               <Text
@@ -333,7 +378,7 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
                 variant="caption"
                 style={[styles.workingText, { color: '#FFFFFF', opacity: 0.6 }]}
               >
-                ✨ Genie is working its magic...
+                Genie is working on your personalized plan...
               </Text>
             </View>
           </View>

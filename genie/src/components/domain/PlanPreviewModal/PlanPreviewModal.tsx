@@ -161,13 +161,13 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
           </View>
         </Animated.View>
 
-        {/* Try Again Button - Outside modal */}
+        {/* Not for Me Button - Outside modal */}
         <TouchableOpacity
-          style={styles.tryAgainTextButton}
+          style={styles.notForMeTextButton}
           onPress={onTryAgain}
           activeOpacity={0.7}
         >
-          <Text style={styles.tryAgainTextButtonText}>Try Again</Text>
+          <Text style={styles.notForMeTextButtonText}>Not for Me</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -286,14 +286,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontSize: 13,
   },
-  tryAgainTextButton: {
+  notForMeTextButton: {
     alignSelf: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
     marginTop: 20,
   },
-  tryAgainTextButtonText: {
-    color: '#FFFF68',
+  notForMeTextButtonText: {
+    color: '#FF6B6B',
     fontSize: 16,
     fontWeight: '500',
     textDecorationLine: 'underline',

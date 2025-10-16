@@ -2361,62 +2361,41 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // Create personalized notifications for tasks
+    // Create personalized notifications for each task (dynamic based on actual tasks)
     const notificationsToInsert = insertedTasks.map((task, index) => {
-      const dayNumber = index + 1;
-      const weekNumber = Math.ceil(dayNumber / 7);
-
-      const motivationalMessages = {
-        week1: [
-          `Day ${dayNumber}: Building your foundation! 💪`,
-          `Day ${dayNumber}: Every step counts! 🚀`,
-          `Day ${dayNumber}: You're creating new habits! ✨`,
-          `Day ${dayNumber}: Progress starts with action! 🎯`,
-          `Day ${dayNumber}: Your journey begins now! 🌟`,
-        ],
-        week2: [
-          `Day ${dayNumber}: Skills are developing! 💪`,
-          `Day ${dayNumber}: You're getting stronger! 🚀`,
-          `Day ${dayNumber}: Consistency is key! ✨`,
-          `Day ${dayNumber}: Building momentum! 🎯`,
-          `Day ${dayNumber}: You're halfway there! 🌟`,
-        ],
-        week3: [
-          `Day ${dayNumber}: Mastery is emerging! 💪`,
-          `Day ${dayNumber}: You're almost there! 🚀`,
-          `Day ${dayNumber}: Excellence is becoming natural! ✨`,
-          `Day ${dayNumber}: The finish line is near! 🎯`,
-          `Day ${dayNumber}: You're transforming! 🌟`,
-        ],
-      };
+      const taskTime = new Date(task.run_at);
+      const taskHour = taskTime.getHours();
 
       const timeBasedGreetings = {
-        morning: 'Good morning! ☀️',
-        mid_morning: 'Good morning! 🌅',
-        afternoon: 'Good afternoon! 🌤️',
-        evening: 'Good evening! 🌙',
+        morning: '☀️ Good morning!',
+        mid_morning: '🌅 Morning task time!',
+        afternoon: '🌤️ Afternoon focus!',
+        evening: '🌙 Evening task!',
       };
 
-      const timeOfDay = task.run_at.includes('08:')
-        ? 'morning'
-        : task.run_at.includes('10:')
-          ? 'mid_morning'
-          : task.run_at.includes('14:')
-            ? 'afternoon'
-            : 'evening';
+      let timeOfDay: 'morning' | 'mid_morning' | 'afternoon' | 'evening';
+      if (taskHour < 10) timeOfDay = 'morning';
+      else if (taskHour < 13) timeOfDay = 'mid_morning';
+      else if (taskHour < 18) timeOfDay = 'afternoon';
+      else timeOfDay = 'evening';
 
-      const weekKey =
-        weekNumber === 1 ? 'week1' : weekNumber === 2 ? 'week2' : 'week3';
-      const weekMessages = motivationalMessages[weekKey];
-      const messageIndex = (dayNumber - 1) % weekMessages.length;
+      const motivationalPrefixes = [
+        'Let\'s do this! 💪',
+        'Time to shine! ✨',
+        'You\'ve got this! 🚀',
+        'Make it count! 🎯',
+        'Keep going! 🌟',
+      ];
+
+      const prefix = motivationalPrefixes[index % motivationalPrefixes.length];
 
       return {
         user_id,
         goal_id,
         task_id: task.id,
         type: 'task_reminder',
-        title: `${timeBasedGreetings[timeOfDay]} Day ${dayNumber} - ${task.title}`,
-        body: `${weekMessages[messageIndex]}\n\n${task.description}\n\nTap to start your task!`,
+        title: `${timeBasedGreetings[timeOfDay]} ${task.title}`,
+        body: `${prefix}\n\n${task.description}\n\nTap to view subtasks and get started!`,
         scheduled_for: task.run_at,
       };
     });
@@ -2426,8 +2405,10 @@ serve(async (req) => {
       .insert(notificationsToInsert);
 
     if (notificationError) {
-      console.error('Error creating notifications:', notificationError);
+      console.error('Error creating task notifications:', notificationError);
       // Don't throw here, as the main task creation succeeded
+    } else {
+      console.log(`✅ Created ${notificationsToInsert.length} task reminder notifications`);
     }
 
     // Generate rewards for the goal

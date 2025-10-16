@@ -26,6 +26,7 @@ import {
   PlanPreviewModal,
   Dropdown,
 } from '../components';
+import { colors } from '../theme/colors';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useTheme } from '../theme/index';
@@ -296,8 +297,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       setIsCreatingPlan(true);
       // Recreate the interval progression
       const interval = setInterval(() => {
-        setLoadingStep((prev) => (prev >= 30 ? 30 : prev + 1));
-      }, 1000); // Faster updates (1 second instead of 1.5) since we have more messages
+        setLoadingStep((prev) => (prev >= 39 ? 39 : prev + 1));
+      }, 800); // 800ms per step for 40 messages = ~32 seconds total
       setLoadingInterval(interval);
 
       // Get device timezone and current time using expo-localization
@@ -327,7 +328,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       });
 
       if (response.error) {
-        setLoadingStep(31);
+        setLoadingStep(40);
         const fallbackMilestones = [
           {
             week: 1,
@@ -389,7 +390,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         setPlanCategory(category);
         setPlanIconName(iconName);
         setPlanColor(aiColor || mapCategoryToColor(category));
-        setLoadingStep(31);
+        setLoadingStep(40);
         // Prefer AI-provided milestones; otherwise derive from days
         let milestones =
           response.data?.milestones ||
@@ -498,17 +499,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       setIsCreatingPlan(true);
       setLoadingStep(1);
 
-      // Start progressive loading animation - now with 31 messages
+      // Start progressive loading animation - now with 40 messages
       const interval = setInterval(() => {
         setLoadingStep((prev) => {
-          if (prev >= 30) {
-            // Stop at step 30, let the final step (31) be triggered when done
+          if (prev >= 39) {
+            // Stop at step 39, let the final step (40) be triggered when done
             clearInterval(interval);
-            return 30;
+            return 39;
           }
           return prev + 1;
         });
-      }, 1000); // Change step every 1000ms (1 second) - faster with 31 messages
+      }, 800); // Change step every 800ms for 40 messages = ~32 seconds total
 
       setLoadingInterval(interval);
 
@@ -570,7 +571,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         if (response.error) {
           console.error('❌ Plan generation error:', response.error);
           // Ensure we reach the final step before showing plan preview
-          setLoadingStep(31);
+          setLoadingStep(40);
 
           // Generate fallback milestones
           const fallbackMilestones = [
@@ -649,7 +650,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           setPlanIconName(iconName);
           setPlanColor(aiColor || mapCategoryToColor(category));
           // Ensure we reach the final step before showing plan preview
-          setLoadingStep(31);
+          setLoadingStep(40);
 
           // Use milestones from AI response or derive from days
           let milestones =
@@ -708,7 +709,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       } catch (planError) {
         console.error('❌ Failed to generate plan:', planError);
         // Ensure we reach the final step before showing plan preview
-        setLoadingStep(31);
+        setLoadingStep(40);
 
         // Generate fallback milestones
         const fallbackMilestones = [
@@ -771,7 +772,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     } catch (error: any) {
       console.error('❌ Goal creation error:', error);
       // Ensure we reach the final step before showing error
-      setLoadingStep(31);
+      setLoadingStep(40);
 
       Alert.alert('Error', `Failed to create goal: ${error.message}`);
     } finally {
@@ -1018,26 +1019,64 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     return map[category] || 'yellow';
   };
 
-  const handleTryAgain = () => {
-    setShowPlanPreview(false);
-    // Reset form and allow user to try again
-    setCurrentStep(1);
-    setFormData({
-      title: '',
-      description: '',
-      category: 'custom',
-      planDurationDays: 21,
-      tasksPerDayRange: { min: 3, max: 5 },
-      preferredTimeRanges: [
-        { start_hour: 8, end_hour: 12, label: 'Morning' },
-        { start_hour: 14, end_hour: 18, label: 'Afternoon' },
-        { start_hour: 19, end_hour: 23, label: 'Evening' }
-      ],
-      preferredDays: [1, 2, 3, 4, 5, 6],
-    });
-    setErrors({});
-    // Clear persisted progress on try again
-    clearProgress();
+  const handleTryAgain = async () => {
+    try {
+      // If a goal was created, delete it completely
+      if (createdGoalId) {
+        console.log('🗑️ Deleting goal and all related data:', createdGoalId);
+        
+        // Delete the goal - CASCADE will handle tasks, notifications, rewards, etc.
+        const { error: deleteError } = await supabase
+          .from('goals')
+          .delete()
+          .eq('id', createdGoalId);
+
+        if (deleteError) {
+          console.error('❌ Error deleting goal:', deleteError);
+          Alert.alert('Error', 'Failed to delete the plan. Please try again.');
+          return;
+        }
+
+        console.log('✅ Goal and all related data deleted successfully');
+        setCreatedGoalId(null);
+      }
+
+      // Reset UI state
+      setShowPlanPreview(false);
+      setCurrentStep(1);
+      
+      // Reset form to defaults
+      setFormData({
+        title: '',
+        description: '',
+        category: 'custom',
+        planDurationDays: 21,
+        tasksPerDayRange: { min: 3, max: 5 },
+        preferredTimeRanges: [
+          { start_hour: 8, end_hour: 12, label: 'Morning' },
+          { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+          { start_hour: 19, end_hour: 23, label: 'Evening' }
+        ],
+        preferredDays: [1, 2, 3, 4, 5, 6],
+      });
+      
+      setErrors({});
+      setPlanData({
+        milestones: [],
+        goalTitle: '',
+        subcategory: null,
+        marketingDomain: null,
+        planOutline: [],
+      });
+      
+      // Clear persisted progress
+      clearProgress();
+      
+      console.log('✅ UI reset complete - ready for new goal');
+    } catch (error) {
+      console.error('❌ Error in handleTryAgain:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   const handleStartJourney = () => {
@@ -1641,7 +1680,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           <AILoadingModal
             visible={isCreatingPlan}
             currentStep={loadingStep}
-            totalSteps={31}
+            totalSteps={40}
             goalTitle={formData.title}
             goalDescription={formData.description}
             planDurationDays={formData.planDurationDays}
@@ -1701,6 +1740,7 @@ const styles = StyleSheet.create({
     paddingTop: 40, // Small padding under header
   },
   scrollContent: {
+    paddingTop: 20,
     paddingBottom: 20,
   },
   spacer: {
@@ -2199,7 +2239,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContainer: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.background.secondary,
     borderRadius: 16,
     width: '100%',
     height: '100%',
