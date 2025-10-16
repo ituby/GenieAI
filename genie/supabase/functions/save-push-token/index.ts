@@ -59,80 +59,30 @@ serve(async (req) => {
       is_dev_token: isDevToken 
     });
 
-    // Check if token already exists for this user
-    const { data: existingToken, error: checkError } = await supabaseClient
+    // Get all existing tokens for this user
+    const { data: existingTokens, error: checkError } = await supabaseClient
       .from('push_tokens')
-      .select('id, expo_token')
+      .select('id, expo_token, platform, created_at')
       .eq('user_id', user_id)
-      .eq('platform', platform)
-      .single();
+      .order('created_at', { ascending: true }); // Oldest first
 
-    if (checkError && checkError.code !== 'PGRST116') {
+    if (checkError) {
       throw checkError;
     }
 
+    // Check if this exact token already exists (same token, same platform)
+    const existingToken = existingTokens?.find(token => 
+      token.expo_token === expo_token && token.platform === platform
+    );
+    
     if (existingToken) {
-      // Update existing token if it's different
-      if (existingToken.expo_token !== expo_token) {
-        const { error: updateError } = await supabaseClient
-          .from('push_tokens')
-          .update({ 
-            expo_token,
-            created_at: new Date().toISOString()
-          })
-          .eq('id', existingToken.id);
-
-        if (updateError) throw updateError;
-
-        console.log('✅ Updated existing push token', isDevToken ? '(dev token)' : '');
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'Push token updated successfully',
-            action: 'updated',
-            is_dev_token: isDevToken
-          }),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      } else {
-        console.log('ℹ️ Token already exists and is the same', isDevToken ? '(dev token)' : '');
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'Push token already exists',
-            action: 'exists',
-            is_dev_token: isDevToken
-          }),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-    } else {
-      // Insert new token
-      const { error: insertError } = await supabaseClient
-        .from('push_tokens')
-        .insert({
-          user_id,
-          expo_token,
-          platform
-        });
-
-      if (insertError) throw insertError;
-
-      console.log('✅ Created new push token', isDevToken ? '(dev token)' : '');
+      console.log('ℹ️ Token already exists for this platform', isDevToken ? '(dev token)' : '');
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Push token saved successfully',
-          action: 'created',
+          message: 'Push token already exists for this platform',
+          action: 'exists',
           is_dev_token: isDevToken
         }),
         { 
@@ -141,6 +91,85 @@ serve(async (req) => {
         }
       );
     }
+
+    // Check if user already has a token for this platform (different token, same platform)
+    const existingPlatformToken = existingTokens?.find(token => token.platform === platform);
+    
+    if (existingPlatformToken) {
+      console.log(`🔄 User already has a token for ${platform}, updating it`);
+      
+      // Update the existing token for this platform
+      const { error: updateError } = await supabaseClient
+        .from('push_tokens')
+        .update({ 
+          expo_token,
+          created_at: new Date().toISOString()
+        })
+        .eq('id', existingPlatformToken.id);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Updated existing token for platform', isDevToken ? '(dev token)' : '');
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Push token updated for this platform',
+          action: 'updated',
+          is_dev_token: isDevToken
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check if user has reached the limit of 2 tokens
+    if (existingTokens && existingTokens.length >= 2) {
+      // Remove the oldest token (first in the sorted array)
+      const oldestToken = existingTokens[0];
+      
+      console.log(`🔄 User has ${existingTokens.length} tokens, removing oldest: ${oldestToken.id}`);
+      
+      const { error: deleteError } = await supabaseClient
+        .from('push_tokens')
+        .delete()
+        .eq('id', oldestToken.id);
+
+      if (deleteError) {
+        console.error('❌ Failed to delete oldest token:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('✅ Removed oldest token to make room for new one');
+    }
+
+    // Insert new token
+    const { error: insertError } = await supabaseClient
+      .from('push_tokens')
+      .insert({
+        user_id,
+        expo_token,
+        platform
+      });
+
+    if (insertError) throw insertError;
+
+    console.log('✅ Created new push token', isDevToken ? '(dev token)' : '');
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Push token saved successfully',
+        action: 'created',
+        is_dev_token: isDevToken
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
 
   } catch (error: any) {
     console.error('❌ Error saving push token:', error);

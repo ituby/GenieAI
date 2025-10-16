@@ -292,6 +292,22 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       const saved = JSON.parse(raw);
       if (!saved || saved.userId !== user?.id) return;
 
+      // Check if the saved goal is still paused in the database
+      if (saved.createdGoalId) {
+        const { data: goalData } = await supabase
+          .from('goals')
+          .select('status')
+          .eq('id', saved.createdGoalId)
+          .single();
+        
+        // If goal is no longer paused, clear the progress
+        if (!goalData || goalData.status !== 'paused') {
+          console.log('🧹 Clearing stale progress - goal is no longer paused');
+          await clearProgress();
+          return;
+        }
+      }
+
       // Restore basic form/progress state
       if (saved.formData) setFormData(saved.formData);
       if (saved.createdGoalId) setCreatedGoalId(saved.createdGoalId);
@@ -726,6 +742,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         start_date: new Date().toISOString().split('T')[0],
         icon_name: selectedCategoryConfig?.icon || 'star',
         color: selectedCategoryConfig?.color || '#FFFF68',
+        // Save advanced settings to database
+        plan_duration_days: formData.planDurationDays,
+        preferred_time_ranges: formData.preferredTimeRanges,
+        preferred_days: formData.preferredDays,
+        tasks_per_day_min: formData.tasksPerDayRange.min,
+        tasks_per_day_max: formData.tasksPerDayRange.max,
       });
 
       console.log('✅ Goal created:', goal.id);
@@ -740,7 +762,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         formData,
       });
 
-      // Then generate AI plan with detailed 21-day roadmap
+      // Then generate AI plan outline first (Stage 1)
       try {
         // Get device timezone and current time using expo-localization
         const calendars = Localization.getCalendars();
@@ -748,7 +770,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         const deviceNow = new Date(); // Local device time
         const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
         
-        const response = await supabase.functions.invoke('generate-plan', {
+        // Stage 1: Generate plan outline
+        const outlineResponse = await supabase.functions.invoke('generate-plan', {
           body: {
             user_id: user.id,
             goal_id: goal.id,
@@ -761,15 +784,15 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             device_timezone: deviceTimezone,
             device_utc_offset_minutes: deviceUtcOffset,
             language: 'en', // Default to English
-            detailed_plan: true, // Request detailed 21-day roadmap
+            stage: 'outline', // Request outline generation only
             plan_duration_days: formData.planDurationDays,
             preferred_time_ranges: formData.preferredTimeRanges,
             preferred_days: formData.preferredDays.length > 0 ? formData.preferredDays : undefined,
           },
         });
 
-        if (response.error) {
-          console.error('❌ Plan generation error:', response.error);
+        if (outlineResponse.error) {
+          console.error('❌ Plan outline generation error:', outlineResponse.error);
           // Ensure we reach the final step before showing plan preview
           setLoadingStep(40);
 
@@ -831,50 +854,29 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             });
           }, 1000);
         } else {
-          const taskCount = response.data?.tasks?.length || 21;
-          const rewardCount = response.data?.rewards?.length || 0;
-          const iconName = response.data?.icon_name || 'star';
-          const aiColor =
-            (response.data?.color as string | undefined) || undefined;
-          const category = response.data?.category || 'custom';
-          const subcategory = response.data?.subcategory || null;
-          const marketingDomain = response.data?.marketing_domain || null;
+          // Stage 1 successful - we got the outline
+          const iconName = outlineResponse.data?.icon_name || 'star';
+          const aiColor = (outlineResponse.data?.color as string | undefined) || undefined;
+          const category = outlineResponse.data?.category || 'custom';
+          const subcategory = outlineResponse.data?.subcategory || null;
+          const marketingDomain = outlineResponse.data?.marketing_domain || null;
+          const milestones = outlineResponse.data?.milestones || [];
+          const planOutline = outlineResponse.data?.plan_outline || [];
 
-          console.log('✅ AI Plan generated:', {
-            taskCount,
-            rewardCount,
+          console.log('✅ AI Plan outline generated:', {
             iconName,
             color: aiColor,
+            category,
+            milestonesCount: milestones.length,
+            outlineCount: planOutline.length,
           });
+
           setPlanCategory(category);
           setPlanIconName(iconName);
           setPlanColor(aiColor || mapCategoryToColor(category));
+          
           // Ensure we reach the final step before showing plan preview
           setLoadingStep(40);
-
-          // Use milestones from AI response or derive from days
-          let milestones =
-            response.data?.milestones ||
-            generateMilestonesFromPlan(response.data);
-          // Build outline and align milestone titles/descriptions if possible
-          const planOutline =
-            response.data?.plan_outline ||
-            milestones.map((m: any) => ({
-              title: m.title,
-              description: m.description,
-            }));
-          if (
-            Array.isArray(planOutline) &&
-            planOutline.length >= 3 &&
-            Array.isArray(milestones) &&
-            milestones.length >= 3
-          ) {
-            milestones = milestones.slice(0, 3).map((m: any, idx: number) => ({
-              ...m,
-              title: planOutline[idx]?.title || m.title,
-              description: planOutline[idx]?.description || m.description,
-            }));
-          }
 
           setTimeout(() => {
             setPlanData({
@@ -1149,37 +1151,115 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const handleApprovePlan = async () => {
     setShowPlanPreview(false);
     
-    // Calculate task count from plan data or use fallback
-    const taskCount = planData.milestones?.reduce(
-      (sum, milestone) => sum + (milestone.tasks || 0),
-      0
-    ) || 0;
+    // Start Stage 2: Generate detailed tasks
+    setIsCreatingPlan(true);
+    setLoadingStep(1);
     
-    // Get the selected category config for success modal
-    const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+    // Start progressive loading animation for Stage 2
+    const interval = setInterval(() => {
+      setLoadingStep((prev) => {
+        if (prev >= 39) {
+          clearInterval(interval);
+          return 39;
+        }
+        return prev + 1;
+      });
+    }, 800);
     
-    // Use plan data if available, otherwise fallback to category config
-    const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
-    const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
+    setLoadingInterval(interval);
     
-    const newSuccessData = {
-      taskCount: taskCount > 0 ? taskCount : 21, // Fallback to 21 if no tasks calculated
-      rewardCount: 5,
-      iconName,
-      color,
-    };
-    
-    setSuccessData(newSuccessData);
-    
-    // Persist success data for recovery
-    persistProgress({
-      state: 'success',
-      successData: newSuccessData,
-      createdGoalId,
-      formData,
-    });
-    // If user consented to share and a goal was created, insert shared submission row
     try {
+      // Get device timezone and current time using expo-localization
+      const calendars = Localization.getCalendars();
+      const deviceTimezone = calendars[0]?.timeZone || 'UTC';
+      const deviceNow = new Date();
+      const deviceUtcOffset = -deviceNow.getTimezoneOffset();
+      
+      // Stage 2: Generate detailed tasks
+      const tasksResponse = await supabase.functions.invoke('generate-plan', {
+        body: {
+          user_id: user?.id,
+          goal_id: createdGoalId,
+          category: formData.category,
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          intensity: 'medium',
+          timezone: deviceTimezone,
+          device_now_iso: deviceNow.toISOString(),
+          device_timezone: deviceTimezone,
+          device_utc_offset_minutes: deviceUtcOffset,
+          language: 'en',
+          stage: 'tasks', // Request detailed task generation
+          plan_duration_days: formData.planDurationDays,
+          preferred_time_ranges: formData.preferredTimeRanges,
+          preferred_days: formData.preferredDays.length > 0 ? formData.preferredDays : undefined,
+        },
+      });
+      
+      if (tasksResponse.error) {
+        console.error('❌ Tasks generation error:', tasksResponse.error);
+        setLoadingStep(40);
+        
+        // Fallback to success modal with estimated data
+        const taskCount = planData.milestones?.reduce(
+          (sum, milestone) => sum + (milestone.tasks || 0),
+          0
+        ) || 21;
+        
+        const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+        const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
+        const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
+        
+        const newSuccessData = {
+          taskCount,
+          rewardCount: 5,
+          iconName,
+          color,
+        };
+        
+        setSuccessData(newSuccessData);
+        setShowSuccessModal(true);
+        
+        // Activate the goal
+        if (createdGoalId) {
+          await supabase
+            .from('goals')
+            .update({ status: 'active' })
+            .eq('id', createdGoalId);
+          
+          // Clear progress since goal is now active
+          await clearProgress();
+          console.log('🧹 Cleared progress - goal is now active (fallback)');
+        }
+        
+        return;
+      }
+      
+      // Stage 2 successful - we got the detailed tasks
+      const taskCount = tasksResponse.data?.tasks?.length || 21;
+      const rewardCount = tasksResponse.data?.rewards?.length || 0;
+      
+      console.log('✅ AI Tasks generated:', {
+        taskCount,
+        rewardCount,
+      });
+      
+      setLoadingStep(40);
+      
+      // Get the selected category config for success modal
+      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+      
+      // Use plan data if available, otherwise fallback to category config
+      const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
+      const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
+      
+      const newSuccessData = {
+        taskCount,
+        rewardCount,
+        iconName,
+        color,
+      };
+      
       // Activate the goal with user's selected category and color
       if (createdGoalId) {
         // Get the selected category config to preserve user's choice
@@ -1198,54 +1278,100 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               color: finalColor,
             })
             .eq('id', createdGoalId);
+          
+          // Clear progress since goal is now active
+          await clearProgress();
+          console.log('🧹 Cleared progress - goal is now active');
         } catch (e) {
           console.warn('Failed to activate goal with user settings:', e);
         }
       }
 
-      if (publishWithDevelopers && createdGoalId && user?.id) {
-        // Fetch user points for this goal (if exists)
-        const { data: pointsRow } = await supabase
-          .from('user_points')
-          .select('points')
-          .eq('user_id', user.id)
-          .eq('goal_id', createdGoalId)
-          .single();
+      // If user consented to share and a goal was created, insert shared submission row
+      try {
+        if (publishWithDevelopers && createdGoalId && user?.id) {
+          // Fetch user points for this goal (if exists)
+          const { data: pointsRow } = await supabase
+            .from('user_points')
+            .select('points')
+            .eq('user_id', user.id)
+            .eq('goal_id', createdGoalId)
+            .single();
 
-        // Insert shared submission
-        await supabase.from('shared_goal_submissions').insert({
-          user_id: user.id,
-          goal_id: createdGoalId,
-          request_title: formData.title.trim(),
-          request_description: formData.description.trim(),
-          intensity: 'medium', // Default intensity
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          category: (planCategory as any) || 'custom',
-          subcategory: planData.subcategory,
-          marketing_domain: planData.marketingDomain,
-          plan_milestones: planData.milestones,
-          plan_outline: planData.planOutline,
-          tasks_generated: planData.milestones.reduce(
-            (sum, m) => sum + (m.tasks || 0),
-            0
-          ),
-          program_start_at: new Date().toISOString(),
-          program_end_at: null,
-          points_earned: pointsRow?.points || 0,
-          adherence_score: 0,
-          status: 'active',
-          publish_with_developers: true,
-          consent_version: 'v1',
-          notes: null,
-        });
+          // Insert shared submission
+          await supabase.from('shared_goal_submissions').insert({
+            user_id: user.id,
+            goal_id: createdGoalId,
+            request_title: formData.title.trim(),
+            request_description: formData.description.trim(),
+            intensity: 'medium', // Default intensity
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            category: (planCategory as any) || 'custom',
+            subcategory: planData.subcategory,
+            marketing_domain: planData.marketingDomain,
+            plan_milestones: planData.milestones,
+            plan_outline: planData.planOutline,
+            tasks_generated: planData.milestones.reduce(
+              (sum, m) => sum + (m.tasks || 0),
+              0
+            ),
+            program_start_at: new Date().toISOString(),
+            program_end_at: null,
+            points_earned: pointsRow?.points || 0,
+            adherence_score: 0,
+            status: 'active',
+            publish_with_developers: true,
+            consent_version: 'v1',
+            notes: null,
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to insert shared submission:', e);
       }
-    } catch (e) {
-      console.warn('Failed to insert shared submission:', e);
-    }
 
-    setShowSuccessModal(true);
-    // Mark as completed in progress store
-    persistProgress({ state: 'success' });
+      // Navigate to dashboard instead of showing success modal
+      onGoalCreated?.();
+      
+    } catch (error) {
+      console.error('❌ Error in Stage 2:', error);
+      setLoadingStep(40);
+      
+      // Fallback to success modal with estimated data
+      const taskCount = planData.milestones?.reduce(
+        (sum, milestone) => sum + (milestone.tasks || 0),
+        0
+      ) || 21;
+      
+      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+      const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
+      const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
+      
+      const newSuccessData = {
+        taskCount,
+        rewardCount: 5,
+        iconName,
+        color,
+      };
+      
+      // Activate the goal
+      if (createdGoalId) {
+        await supabase
+          .from('goals')
+          .update({ status: 'active' })
+          .eq('id', createdGoalId);
+      }
+      
+      // Navigate to dashboard instead of showing success modal
+      onGoalCreated?.();
+    } finally {
+      // Clear loading interval
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
+        setLoadingInterval(null);
+      }
+      setIsCreatingPlan(false);
+      setLoadingStep(1);
+    }
   };
 
   // Category -> color name mapping used when AI doesn't provide a color
@@ -1934,6 +2060,22 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             planDurationDays={formData.planDurationDays}
             preferredTimeRanges={formData.preferredTimeRanges}
             preferredDays={formData.preferredDays}
+            stage={loadingStep <= 20 ? 'outline' : 'tasks'}
+            onStop={() => {
+              // Stop the loading process
+              if (loadingInterval) {
+                clearInterval(loadingInterval);
+                setLoadingInterval(null);
+              }
+              setIsCreatingPlan(false);
+              setLoadingStep(1);
+              
+              // If we have a created goal, we can optionally delete it or keep it paused
+              if (createdGoalId) {
+                console.log('🛑 User stopped plan generation for goal:', createdGoalId);
+                // Keep the goal in paused state for potential resume
+              }
+            }}
           />
 
           {/* Plan Preview Modal */}

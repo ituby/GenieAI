@@ -27,6 +27,7 @@ import { Button } from '../components/primitives/Button';
 import { TalkWithGenieButton } from '../components/primitives/TalkWithGenieButton';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard, GoalCardProps } from '../components/domain/GoalCard';
+import { LoadingGoalCard } from '../components/domain/LoadingGoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { TaskItem } from '../components/domain/TaskItem';
@@ -1329,15 +1330,30 @@ export const DashboardScreen: React.FC = () => {
                 <Text variant="h4">Active Plans</Text>
               </View>
               <View style={styles.goalsList}>
-                {activeGoals.map((goal) => (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    onPress={() => setSelectedGoal(goal)}
-                    onEdit={() => setShowGoalMenu(goal.id)}
-                    hasTimeReachedTasks={hasGoalTasksTimeReached(goal.id)}
-                  />
-                ))}
+                {activeGoals.map((goal) => {
+                  // Show loading card for paused goals
+                  if (goal.status === 'paused') {
+                    return (
+                      <LoadingGoalCard
+                        key={goal.id}
+                        title={goal.title}
+                        color={goal.color}
+                        iconName={goal.icon_name}
+                      />
+                    );
+                  }
+                  
+                  // Show regular goal card for active goals
+                  return (
+                    <GoalCard
+                      key={goal.id}
+                      goal={goal}
+                      onPress={() => setSelectedGoal(goal)}
+                      onEdit={() => setShowGoalMenu(goal.id)}
+                      hasTimeReachedTasks={hasGoalTasksTimeReached(goal.id)}
+                    />
+                  );
+                })}
               </View>
             </Card>
           </View>

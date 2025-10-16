@@ -64,7 +64,7 @@ export const useGoalStore = create<GoalState>((set, get) => ({
       });
 
       const activeGoals = goalsWithProgress.filter(
-        (goal) => goal.status === 'active' && goal.completion_percentage < 100
+        (goal) => (goal.status === 'active' || goal.status === 'paused') && goal.completion_percentage < 100
       );
 
       set({

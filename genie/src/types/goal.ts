@@ -15,6 +15,16 @@ export interface Goal {
   color?: string; // AI-selected color
   created_at: string;
   updated_at?: string;
+  // Advanced settings
+  plan_duration_days?: number;
+  preferred_time_ranges?: Array<{
+    start_hour: number;
+    end_hour: number;
+    label: string;
+  }>;
+  preferred_days?: number[];
+  tasks_per_day_min?: number;
+  tasks_per_day_max?: number;
 }
 
 export interface GoalWithProgress extends Goal {
