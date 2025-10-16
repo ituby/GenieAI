@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, Animated, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Dimensions, Animated, Text, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Icon } from '../Icon';
@@ -36,10 +36,11 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
 
     const targetPosition = getTabIndex(activeTab);
     
-    Animated.timing(slideAnimation, {
+    Animated.spring(slideAnimation, {
       toValue: targetPosition,
-      duration: 300,
       useNativeDriver: true,
+      tension: 100,
+      friction: 10,
     }).start();
   }, [activeTab, slideAnimation]);
 
@@ -72,25 +73,48 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.navBarWrapper}>
-        <BlurView intensity={60} tint="dark" style={styles.navBar}>
-          {navItems.map((item, index) => (
+      {/* Outer gradient border wrapper */}
+      <LinearGradient
+        colors={[
+          'rgba(255, 255, 255, 0.2)',
+          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0.2)',
+        ]}
+        start={{ x: 0, y: 1 }}
+        end={{ x: 1, y: 0 }}
+        locations={[0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]}
+        style={styles.gradientBorderWrapper}
+      >
+        <View style={styles.navBarWrapper}>
+          <BlurView intensity={60} tint="dark" style={styles.navBar}>
+            {navItems.map((item, index) => (
             <View key={item.id} style={styles.navItemContainer}>
               {/* Animated background indicator for this item */}
-              {activeTab === item.id && (
-                <Animated.View
-                  style={[
-                    styles.activeIndicator,
-                    {
-                      opacity: slideAnimation.interpolate({
-                        inputRange: [index - 0.5, index, index + 0.5],
-                        outputRange: [0, 1, 0],
-                        extrapolate: 'clamp',
-                      }),
-                    },
-                  ]}
-                />
-              )}
+              <Animated.View
+                style={[
+                  styles.activeIndicator,
+                  {
+                    opacity: slideAnimation.interpolate({
+                      inputRange: [index - 0.8, index - 0.3, index, index + 0.3, index + 0.8],
+                      outputRange: [0, 0.3, 1, 0.3, 0],
+                      extrapolate: 'clamp',
+                    }),
+                    transform: [
+                      {
+                        scale: slideAnimation.interpolate({
+                          inputRange: [index - 0.5, index, index + 0.5],
+                          outputRange: [0.7, 1, 0.7],
+                          extrapolate: 'clamp',
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
               
               <TouchableOpacity
                 onPress={item.onPress}
@@ -127,8 +151,9 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
               </TouchableOpacity>
             </View>
           ))}
-        </BlurView>
-      </View>
+          </BlurView>
+        </View>
+      </LinearGradient>
     </View>
   );
 };
@@ -147,6 +172,10 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     overflow: 'hidden',
   },
+  gradientBorderWrapper: {
+    borderRadius: 50,
+    padding: 2,
+  },
   navBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -154,6 +183,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 48,
   },
   navItemContainer: {
     position: 'relative',

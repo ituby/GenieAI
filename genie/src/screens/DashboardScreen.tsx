@@ -245,44 +245,55 @@ export const DashboardScreen: React.FC = () => {
   // Breathing animation for refresh loader
   useEffect(() => {
     if (showRefreshLoader) {
+      refreshBreathingAnimation.setValue(1);
+      
       const breathing = Animated.loop(
         Animated.sequence([
           Animated.timing(refreshBreathingAnimation, {
-            toValue: 1.3,
+            toValue: 1.2,
             duration: 1500,
             useNativeDriver: true,
           }),
           Animated.timing(refreshBreathingAnimation, {
-            toValue: 0.9,
+            toValue: 1,
             duration: 1500,
             useNativeDriver: true,
           }),
         ])
       );
       breathing.start();
-      return () => breathing.stop();
+      return () => {
+        breathing.stop();
+        refreshBreathingAnimation.setValue(1);
+      };
     }
-  }, [showRefreshLoader, refreshBreathingAnimation]);
+  }, [showRefreshLoader]);
 
   // Breathing animation for header logo
   useEffect(() => {
+    // Set initial value to 1
+    headerLogoBreathingAnimation.setValue(1);
+    
     const headerLogoBreathing = Animated.loop(
       Animated.sequence([
         Animated.timing(headerLogoBreathingAnimation, {
-          toValue: 1.1,
+          toValue: 1.08,
           duration: 2000,
           useNativeDriver: true,
         }),
         Animated.timing(headerLogoBreathingAnimation, {
-          toValue: 0.95,
+          toValue: 1,
           duration: 2000,
           useNativeDriver: true,
         }),
       ])
     );
     headerLogoBreathing.start();
-    return () => headerLogoBreathing.stop();
-  }, [headerLogoBreathingAnimation]);
+    return () => {
+      headerLogoBreathing.stop();
+      headerLogoBreathingAnimation.setValue(1);
+    };
+  }, []);
 
   // Start Add Goal button animation
   useEffect(() => {
@@ -542,11 +553,15 @@ export const DashboardScreen: React.FC = () => {
   const handleRefresh = () => {
     setShowRefreshLoader(true);
 
+    // Clear cache to force fresh data load
+    dataLoadingService.clearCache();
+
     if (user?.id) {
       fetchGoals(user.id);
       fetchTodaysTasks();
       fetchUserTokens(); // Add this to refresh tokens data
       fetchTotalPoints(); // Add this to refresh points data
+      fetchRecentRewards(); // Add this to refresh rewards data
     }
 
     // Hide loader after 3 seconds
@@ -694,10 +709,12 @@ export const DashboardScreen: React.FC = () => {
 
   const checkTokensAndCreateGoal = () => {
     if (userTokens.remaining <= 0) {
-      // Show subscription modal or upgrade prompt
-      alert(
-        'You have used all your free plans. Please subscribe to continue creating goals.'
-      );
+      // Show appropriate modal based on subscription status
+      if (userTokens.isSubscribed) {
+        setShowTokenPurchaseModal(true);
+      } else {
+        setShowSubscriptionModal(true);
+      }
       return;
     }
     setShowNewGoal(true);
@@ -1048,7 +1065,7 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.greetingButtonContainer}>
             <AnimatedLinearGradient
               colors={
-                userTokens.remaining <= 0
+                userTokens.remaining <= 0 && !userTokens.isSubscribed
                   ? ['#FF6B6B', '#FF8E8E', '#FF6B6B']
                   : ['#FFFF68', '#FFFF68', '#FFFF68']
               }
@@ -1057,29 +1074,35 @@ export const DashboardScreen: React.FC = () => {
               style={styles.addGoalButtonGradient}
             >
               <TouchableOpacity
-                onPress={
-                  userTokens.remaining <= 0
-                    ? () => setShowSubscriptionModal(true)
-                    : checkTokensAndCreateGoal
-                }
+                onPress={checkTokensAndCreateGoal}
                 activeOpacity={0.8}
-                style={styles.addGoalButton}
+                style={[
+                  styles.addGoalButton,
+                  userTokens.remaining <= 0 && userTokens.isSubscribed && styles.addGoalButtonDisabled
+                ]}
               >
                 <View style={styles.addGoalButtonContent}>
                   <Text
                     style={[
                       styles.addGoalButtonText,
-                      userTokens.remaining <= 0 && { color: '#FFFFFF' },
+                      userTokens.remaining <= 0 && !userTokens.isSubscribed && { color: '#FFFFFF' },
+                      userTokens.remaining <= 0 && userTokens.isSubscribed && { opacity: 0.5 },
                     ]}
                   >
-                    {userTokens.remaining <= 0
+                    {userTokens.remaining <= 0 && !userTokens.isSubscribed
                       ? 'Subscribe now to talk with Genie'
                       : 'Talk with Genie'}
                   </Text>
                   <Icon
-                    name={userTokens.remaining <= 0 ? 'crown' : 'sparkle'}
+                    name={userTokens.remaining <= 0 && !userTokens.isSubscribed ? 'crown' : 'sparkle'}
                     size={16}
-                    color={userTokens.remaining <= 0 ? '#FFFFFF' : '#FFFF68'}
+                    color={
+                      userTokens.remaining <= 0 && !userTokens.isSubscribed
+                        ? '#FFFFFF'
+                        : userTokens.remaining <= 0 && userTokens.isSubscribed
+                        ? 'rgba(255, 255, 104, 0.5)'
+                        : '#FFFF68'
+                    }
                     weight="fill"
                   />
                 </View>
@@ -2599,6 +2622,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addGoalButtonDisabled: {
+    opacity: 0.6,
   },
   addGoalButtonContent: {
     flexDirection: 'row',
