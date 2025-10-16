@@ -1691,7 +1691,7 @@ export const DashboardScreen: React.FC = () => {
           }}
           onCreatePress={() => {
             setShowMyPlans(false);
-            setShowNewGoal(true);
+            checkTokensAndCreateGoal();
           }}
         />
       )}
@@ -1711,7 +1711,7 @@ export const DashboardScreen: React.FC = () => {
           }}
           onCreatePress={() => {
             setShowDailyGoals(false);
-            setShowNewGoal(true);
+            checkTokensAndCreateGoal();
           }}
         />
       )}
@@ -2135,7 +2135,7 @@ export const DashboardScreen: React.FC = () => {
         }}
         onMyPlansPress={() => setShowMyPlans(true)}
         onDailyGoalsPress={() => setShowDailyGoals(true)}
-        onCreatePress={() => setShowNewGoal(true)}
+        onCreatePress={checkTokensAndCreateGoal}
         activeTab="home"
       />
     </View>
