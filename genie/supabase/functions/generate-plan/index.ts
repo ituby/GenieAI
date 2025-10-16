@@ -1040,8 +1040,8 @@ DELIVERABLES MUST EXIST:
       throw new Error('GOOGLE_AI_API_KEY is missing or invalid');
     }
 
-    // Try with gemini-2.0-flash-exp first, fallback to gemini-1.5-flash if not available
-    const models = ['gemini-2.0-flash-exp', 'gemini-1.5-flash'];
+    // Try with gemini-2.5-flash first, fallback to gemini-1.5-flash if not available
+    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
     let response: Response | null = null;
     let usedModel = '';
     let lastError = '';
@@ -1966,7 +1966,7 @@ serve(async (req) => {
           .from('scheduled_notifications')
           .delete()
           .eq('user_id', user_id)
-          .in('type', ['task_reminder', 'milestone_reward', 'completion_reward']);
+          .in('type', ['task_reminder', 'milestone_reward', 'completion_reward', 'motivation']);
         
         if (deleteNotificationsError) {
           console.error(`[${requestId}] Error deleting existing notifications:`, deleteNotificationsError);
@@ -2440,33 +2440,92 @@ serve(async (req) => {
       intensity
     );
 
-    // Create reward notification templates
-    const rewardNotifications = [
-      {
+    // Create all notification templates (rewards, good morning/night from Genie)
+    const allNotifications: any[] = [];
+    
+    // Good morning & good night notifications from Genie
+    const deviceNow = new Date(device_now_iso);
+    for (let day = 0; day < plan_duration_days; day++) {
+      const dayDate = new Date(deviceNow);
+      dayDate.setDate(dayDate.getDate() + day);
+      
+      // Check if this day is in user's preferred days
+      if (preferred_days && preferred_days.length > 0) {
+        const dayOfWeek = dayDate.getDay();
+        if (!preferred_days.includes(dayOfWeek)) {
+          continue; // Skip days not in preferred days
+        }
+      }
+      
+      // Good Morning from Genie (7:30 AM)
+      const morningTime = new Date(dayDate);
+      morningTime.setHours(7, 30, 0, 0);
+      allNotifications.push({
         user_id,
         goal_id,
-        type: 'milestone_reward',
-        title: '🎉 Reward Unlocked!',
-        body: 'You reached a milestone! A new reward is waiting for you in the rewards screen',
-        scheduled_for: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 7 days from now
-      },
-      {
+        type: 'motivation',
+        title: '🌅 Good Morning from Genie!',
+        body: `Ready to make progress on "${title}" today? Your tasks are waiting. Let's make it a great day! ✨`,
+        scheduled_for: morningTime.toISOString(),
+      });
+      
+      // Good Night from Genie (22:30 PM)
+      const nightTime = new Date(dayDate);
+      nightTime.setHours(22, 30, 0, 0);
+      allNotifications.push({
         user_id,
         goal_id,
-        type: 'completion_reward',
-        title: '🏆 Goal Completed!',
-        body: 'Congratulations! You completed all tasks and achieved your goal!',
-        scheduled_for: new Date(
-          Date.now() + 21 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 21 days from now
-      },
-    ];
+        type: 'motivation',
+        title: '🌙 Good Night from Genie',
+        body: `Great work today on "${title}"! Rest well and recharge for tomorrow's journey. Sweet dreams! 💫`,
+        scheduled_for: nightTime.toISOString(),
+      });
+    }
+    
+    // Milestone reward notifications (weekly check-ins)
+    const weeklyCheckpoints = [7, 14, 21]; // Days 7, 14, 21
+    weeklyCheckpoints.forEach((day, index) => {
+      if (day <= plan_duration_days) {
+        const checkpointDate = new Date(deviceNow);
+        checkpointDate.setDate(checkpointDate.getDate() + day);
+        checkpointDate.setHours(20, 0, 0, 0); // 8 PM
+        
+        const weekNum = index + 1;
+        allNotifications.push({
+          user_id,
+          goal_id,
+          type: 'milestone_reward',
+          title: `🎉 Week ${weekNum} Complete!`,
+          body: `Amazing progress on "${title}"! Check your rewards - you've earned something special! 🏆`,
+          scheduled_for: checkpointDate.toISOString(),
+        });
+      }
+    });
+    
+    // Final completion reward
+    const completionDate = new Date(deviceNow);
+    completionDate.setDate(completionDate.getDate() + plan_duration_days);
+    completionDate.setHours(21, 0, 0, 0); // 9 PM on last day
+    allNotifications.push({
+      user_id,
+      goal_id,
+      type: 'completion_reward',
+      title: '🏆 Goal Achievement Unlocked!',
+      body: `Congratulations! You completed "${title}"! Your transformation is complete. Check out your final rewards! 🎉✨`,
+      scheduled_for: completionDate.toISOString(),
+    });
 
-    await supabaseClient
+    // Insert all notifications at once
+    const { error: notificationsInsertError } = await supabaseClient
       .from('scheduled_notifications')
-      .insert(rewardNotifications);
+      .insert(allNotifications);
+      
+    if (notificationsInsertError) {
+      console.error('Error creating notifications:', notificationsInsertError);
+      // Don't throw here, as the main task creation succeeded
+    } else {
+      console.log(`✅ Created ${allNotifications.length} scheduled notifications (tasks, morning/night greetings, rewards)`);
+    }
 
     // Update the goal with the AI-selected icon, color, and device timezone info
     await supabaseClient
@@ -2480,38 +2539,8 @@ serve(async (req) => {
       })
       .eq('id', goal_id);
 
-    // Send immediate notification for the first task
-    if (insertedTasks.length > 0) {
-      const firstTask = insertedTasks[0];
-      try {
-        const notificationResponse = await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-task-notification`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              user_id,
-              task_id: firstTask.id,
-              task_title: firstTask.title,
-              task_description: firstTask.description,
-              goal_title: title,
-            }),
-          }
-        );
-
-        if (notificationResponse.ok) {
-          console.log('✅ Immediate task notification sent');
-        } else {
-          console.warn('⚠️ Failed to send immediate task notification');
-        }
-      } catch (error) {
-        console.error('❌ Error sending immediate task notification:', error);
-        // Don't fail the whole process for notification errors
-      }
-    }
+    // Note: Task notifications are scheduled, not sent immediately
+    // Users will receive notifications based on scheduled_for times in scheduled_notifications table
 
     // Send push notification that plan is ready for approval
     try {

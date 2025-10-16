@@ -181,9 +181,12 @@ serve(async (req) => {
       }
     }
 
-    // Update rewards in database
+    // Update rewards in database and send notifications
     if (updates.length > 0) {
       for (const update of updates) {
+        // Get reward details for notification
+        const reward = rewards.find(r => r.id === update.id);
+        
         const { error: updateError } = await supabaseClient
           .from('rewards')
           .update({
@@ -194,6 +197,37 @@ serve(async (req) => {
 
         if (updateError) {
           console.error('Error updating reward:', updateError);
+          continue;
+        }
+        
+        // Send push notification about unlocked reward
+        if (reward) {
+          try {
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                user_id,
+                title: '🎉 Reward Unlocked!',
+                body: `${reward.title} - ${reward.description.slice(0, 100)}...`,
+                data: {
+                  type: 'reward_unlocked',
+                  reward_id: reward.id,
+                  goal_id,
+                  screen: 'rewards'
+                },
+                sound: true,
+                badge: 1
+              }),
+            });
+            console.log(`✅ Sent notification for unlocked reward: ${reward.title}`);
+          } catch (notificationError) {
+            console.error('Error sending reward notification:', notificationError);
+            // Don't fail the whole process for notification errors
+          }
         }
       }
     }

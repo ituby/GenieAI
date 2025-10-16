@@ -102,19 +102,18 @@ serve(async (req) => {
           const pushResult = await pushResponse.json();
           console.log(`✅ Push notification sent successfully for ${notification.id}`);
 
-          // Update notification as sent
-          const { error: updateError } = await supabaseClient
+          // Delete notification after sending (to prevent duplicates)
+          const { error: deleteError } = await supabaseClient
             .from('scheduled_notifications')
-            .update({
-              sent: true,
-              sent_at: new Date().toISOString()
-            })
+            .delete()
             .eq('id', notification.id);
 
-          if (updateError) {
-            console.error(`❌ Error updating notification ${notification.id}:`, updateError);
-            throw updateError;
+          if (deleteError) {
+            console.error(`❌ Error deleting notification ${notification.id}:`, deleteError);
+            throw deleteError;
           }
+          
+          console.log(`🗑️ Notification ${notification.id} deleted after successful send`);
 
           // Create notification record in notifications table for in-app display
           const { error: insertError } = await supabaseClient

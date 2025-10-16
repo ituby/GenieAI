@@ -1,11 +1,11 @@
 export const colors = {
-  // Official Genie colors: Yellow, White, Black
+  // Official Genie colors: Yellow, White, Dark Blue
   background: {
-    primary: '#000000',      // Pure black
-    secondary: '#1A1A1A',    // Dark gray
-    tertiary: '#2A2A2A',     // Medium gray
-    card: '#333333',         // Card background
-    modal: '#1A1A1A',        // Modal background
+    primary: '#0A0C10',      // Very dark blue (almost black)
+    secondary: '#101215',    // Dark blue-gray
+    tertiary: '#181A1F',     // Medium dark blue
+    card: '#1F2126',         // Card background (subtle blue tint)
+    modal: '#101215',        // Modal background (dark blue)
   },
   
   // Neutral grayscale colors
