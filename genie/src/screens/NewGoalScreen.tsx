@@ -277,6 +277,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         resumePlanGeneration(saved.createdGoalId, saved.formData);
       }
       
+      // If we were in preview state, show the plan preview modal
+      if (saved.state === 'preview' && saved.planData) {
+        setShowPlanPreview(true);
+      }
+      
       // If we were in success state, show the success modal
       if (saved.state === 'success' && saved.successData) {
         setShowSuccessModal(true);
@@ -286,8 +291,34 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   useEffect(() => {
     restoreProgress();
+    cleanupOrphanedGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Clean up orphaned goals (paused goals older than 24 hours with no progress)
+  const cleanupOrphanedGoals = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const oneDayAgo = new Date();
+      oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+      
+      const { error } = await supabase
+        .from('goals')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('status', 'paused')
+        .lt('created_at', oneDayAgo.toISOString());
+      
+      if (error) {
+        console.warn('⚠️ Error cleaning up orphaned goals:', error);
+      } else {
+        console.log('🧹 Cleaned up old paused goals');
+      }
+    } catch (error) {
+      console.warn('⚠️ Error in cleanupOrphanedGoals:', error);
+    }
+  };
 
   const resumePlanGeneration = async (
     goalId: string,

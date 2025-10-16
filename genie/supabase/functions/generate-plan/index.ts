@@ -672,48 +672,12 @@ SUBTASKS (MANDATORY - RICH CONTENT):
 - If task is "Learn Y", subtasks should include specific resources, practice exercises, reflection questions
 - If user requests specific help (e.g., "help me write", "recommend tools", "create outline"), subtasks should deliver on that request
 
-🎨 RICH CONTENT GUIDELINES - USER-FOCUSED RESPONSES:
+🎨 RICH CONTENT GUIDELINES:
 ==========================================
-Your goal is to be HELPFUL and SPECIFIC. If a user asks for help with something, deliver it!
-
-Examples of rich, contextual content:
-
-EXAMPLE 1 - User wants help writing a script about a historical figure:
-Task: "Research Historical Figure Background"
-Description: "Deep dive into the life, achievements, and context of [Figure Name]. Understanding their story, motivations, and historical impact will help you create an authentic and compelling script. Focus on finding unique angles and lesser-known facts that will make your script stand out."
-Subtasks:
-- Read comprehensive biography or watch documentary (20 min)
-- Create timeline of major life events and turning points (10 min)
-- Note 5-7 defining moments or characteristics (8 min)
-- Write personal reflection: What makes this figure interesting to you? (7 min)
-- List 3-5 potential dramatic conflicts or story arcs (5 min)
-
-EXAMPLE 2 - User wants to learn programming:
-Task: "Set Up Development Environment"
-Description: "Install and configure professional development tools. Having the right setup from day one will make coding smoother and help you learn faster. We'll use VS Code (free, industry-standard) with recommended extensions for beginners."
-Subtasks:
-- Download and install VS Code from code.visualstudio.com (10 min)
-- Install Python extension and Prettier formatter (5 min)
-- Create your first 'hello_world.py' file and run it (10 min)
-- Bookmark Python documentation and W3Schools tutorials (5 min)
-- Join r/learnprogramming subreddit for community support (5 min)
-
-EXAMPLE 3 - User wants fitness plan:
-Task: "Assess Current Fitness Level"
-Description: "Establish your baseline fitness through simple at-home tests. Knowing where you start helps track progress and prevents injury by setting appropriate intensity levels. Take photos and measurements for motivation!"
-Subtasks:
-- Do max push-ups test (stop before failure) and record (5 min)
-- Do plank hold test and record time (3 min)
-- Measure and record: weight, waist, chest, arms (7 min)
-- Take before photos (front, side, back) in consistent lighting (5 min)
-- Set 3 specific, measurable fitness goals for 30 days (10 min)
-
-KEY PRINCIPLES:
-✅ BE SPECIFIC: Name actual tools, websites, resources, techniques
-✅ BE HELPFUL: Answer the implicit questions in the user's request
-✅ BE PRACTICAL: Provide actionable steps, not vague advice
-✅ BE INSPIRING: Show users the "why" behind each action
-✅ BE COMPLETE: Don't leave users wondering "now what?"
+✅ BE SPECIFIC: Name actual tools, websites, resources (e.g., "Use Duolingo app", "Read on Wikipedia")
+✅ BE HELPFUL: If user asks for recommendations, include them in descriptions and subtasks
+✅ BE PRACTICAL: Provide actionable steps with concrete examples
+✅ BE CONTEXTUAL: Subtasks should deliver on what the task title promises
 
 TIME SPACING (CRITICAL):
 - Tasks must be spaced at LEAST 30 minutes apart
@@ -1155,52 +1119,89 @@ If your task count doesn't match, FIX IT before returning!
     let usedModel = '';
     let lastError = '';
 
+    // Helper function to wait
+    const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
     for (const model of models) {
       console.log(`🤖 Trying model: ${model}`);
       
-      try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: `${systemPrompt}\n\n${userGoalPrompt}` }],
-                },
-              ],
-            }),
+      // Retry logic for rate limits
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [{ text: `${systemPrompt}\n\n${userGoalPrompt}` }],
+                  },
+                ],
+              }),
+            }
+          );
+
+          console.log(`📡 ${model} API response status:`, response.status);
+
+          // If successful, use this model
+          if (response.ok) {
+            usedModel = model;
+            console.log(`✅ Using model: ${usedModel}`);
+            break;
           }
-        );
 
-        console.log(`📡 ${model} API response status:`, response.status);
+          // If rate limited (429), retry with exponential backoff
+          if (response.status === 429) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000); // 2s, 4s, 8s max
+              console.warn(`⏳ Rate limit hit (429). Retry ${retryCount}/${maxRetries} in ${waitTime}ms...`);
+              await wait(waitTime);
+              continue; // Retry same model
+            } else {
+              console.error(`❌ Rate limit exceeded after ${maxRetries} retries`);
+              lastError = 'Rate limit exceeded after retries';
+              break; // Try next model
+            }
+          }
 
-        // If successful or rate limited, use this model
-        if (response.ok || response.status === 429) {
+          // If model not found or not available, try next model
+          if (response.status === 404 || response.status === 400) {
+            const errorText = await response.text();
+            lastError = errorText;
+            console.warn(`⚠️ ${model} not available (${response.status}), trying fallback...`);
+            break; // Break retry loop to try next model
+          }
+
+          // For other errors, use this response and break
           usedModel = model;
-          console.log(`✅ Using model: ${usedModel}`);
           break;
+          
+        } catch (fetchError) {
+          console.error(`❌ Error fetching ${model}:`, fetchError);
+          lastError = fetchError.message;
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            const waitTime = 1000 * retryCount;
+            console.warn(`⏳ Retrying after error in ${waitTime}ms...`);
+            await wait(waitTime);
+            continue;
+          }
+          break; // Break retry loop to try next model
         }
-
-        // If model not found or not available, try next model
-        if (response.status === 404 || response.status === 400) {
-          const errorText = await response.text();
-          lastError = errorText;
-          console.warn(`⚠️ ${model} not available (${response.status}), trying fallback...`);
-          continue;
-        }
-
-        // For other errors, use this response and break
-        usedModel = model;
+      }
+      
+      // If we got a successful response or used model, break from models loop
+      if (response && (response.ok || usedModel)) {
         break;
-      } catch (fetchError) {
-        console.error(`❌ Error fetching ${model}:`, fetchError);
-        lastError = fetchError.message;
-        continue;
       }
     }
 

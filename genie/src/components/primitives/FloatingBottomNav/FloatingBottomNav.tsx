@@ -77,16 +77,16 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
       <LinearGradient
         colors={[
           'rgba(255, 255, 255, 0.2)',
+          'rgba(255, 255, 255, 0.1)',
           'rgba(255, 255, 255, 0)',
           'rgba(255, 255, 255, 0)',
           'rgba(255, 255, 255, 0)',
-          'rgba(255, 255, 255, 0)',
-          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0.1)',
           'rgba(255, 255, 255, 0.2)',
         ]}
         start={{ x: 0, y: 1 }}
         end={{ x: 1, y: 0 }}
-        locations={[0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]}
+        locations={[0, 0.05, 0.15, 0.5, 0.85, 0.95, 1]}
         style={styles.gradientBorderWrapper}
       >
         <View style={styles.navBarWrapper}>
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
   gradientBorderWrapper: {
     borderRadius: 50,
-    padding: 2,
+    padding: 1,
   },
   navBar: {
     flexDirection: 'row',
