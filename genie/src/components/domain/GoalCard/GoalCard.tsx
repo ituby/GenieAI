@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useTheme } from '../../../theme/index';
 import { Text } from '../../primitives/Text';
 import { Card } from '../../primitives/Card';
@@ -20,6 +20,55 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   hasTimeReachedTasks = false,
 }) => {
   const theme = useTheme();
+  
+  // Check if goal is still loading (active but no tasks yet)
+  const isLoading = goal.status === 'active' && goal.total_tasks === 0;
+  
+  // Animation for loading dots
+  const dot1Opacity = useRef(new Animated.Value(0.3)).current;
+  const dot2Opacity = useRef(new Animated.Value(0.3)).current;
+  const dot3Opacity = useRef(new Animated.Value(0.3)).current;
+  
+  useEffect(() => {
+    if (isLoading) {
+      const animateDots = () => {
+        Animated.sequence([
+          Animated.timing(dot1Opacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot2Opacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot3Opacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot1Opacity, {
+            toValue: 0.3,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot2Opacity, {
+            toValue: 0.3,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot3Opacity, {
+            toValue: 0.3,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => animateDots());
+      };
+      
+      animateDots();
+    }
+  }, [isLoading, dot1Opacity, dot2Opacity, dot3Opacity]);
 
   const getGoalColor = (goalColor?: string) => {
     // Use AI-selected color if available
@@ -76,9 +125,52 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           hasTimeReachedTasks && styles.timeReachedContainer
         ]}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
+        {isLoading ? (
+          /* Loading State - Minimal with only placeholders */
+          <View style={styles.loadingState}>
+            {/* Placeholder for icon */}
+            <View style={styles.placeholderIcon} />
+            
+            {/* Placeholder for title */}
+            <View style={styles.placeholderTitle} />
+            
+            {/* Placeholder for description */}
+            <View style={styles.placeholderDescription} />
+            <View style={[styles.placeholderDescription, { width: '70%' }]} />
+            
+            {/* Animated loading dots */}
+            <View style={styles.loadingDotsContainer}>
+              <View style={styles.loadingDots}>
+                <Animated.View style={[
+                  styles.loadingDot, 
+                  { 
+                    backgroundColor: theme.colors.text.tertiary,
+                    opacity: dot1Opacity
+                  }
+                ]} />
+                <Animated.View style={[
+                  styles.loadingDot, 
+                  { 
+                    backgroundColor: theme.colors.text.tertiary,
+                    opacity: dot2Opacity
+                  }
+                ]} />
+                <Animated.View style={[
+                  styles.loadingDot, 
+                  { 
+                    backgroundColor: theme.colors.text.tertiary,
+                    opacity: dot3Opacity
+                  }
+                ]} />
+              </View>
+            </View>
+          </View>
+        ) : (
+          /* Normal State */
+          <>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.titleContainer}>
                 <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
                   <Icon 
                     name={getCategoryIcon(goal.category, goal.icon_name) as any}
@@ -86,85 +178,87 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                     color={getGoalColor(goal.color)}
                   />
                 </View>
-            <View style={styles.titleText}>
-              <Text variant="h4" numberOfLines={1} style={styles.title}>
-                {goal.title}
-              </Text>
+                <View style={styles.titleText}>
+                  <Text variant="h4" numberOfLines={1} style={styles.title}>
+                    {goal.title}
+                  </Text>
                   <Text 
                     variant="caption" 
                     style={[styles.category, { color: getGoalColor(goal.color) }]}
                   >
                     {goal.category.toUpperCase()}
                   </Text>
+                </View>
+              </View>
+              
+              {onEdit && (
+                <TouchableOpacity onPress={onEdit} style={styles.editButton}>
+                  <Icon name="dots-three" size={16} color={theme.colors.text.tertiary} />
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
-          
-          {onEdit && (
-            <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-              <Icon name="dots-three" size={16} color={theme.colors.text.tertiary} />
-            </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Description */}
-        <Text 
-          variant="body" 
-          color="secondary" 
-          numberOfLines={2} 
-          style={styles.description}
-        >
-          {goal.description}
-        </Text>
-
-        {/* Progress */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressInfo}>
-            <Text variant="caption" color="tertiary">
-              {goal.completed_tasks}/{goal.total_tasks} tasks
-            </Text>
-            <Text variant="caption" color="primary-color">
-              {Math.round(goal.completion_percentage)}%
-            </Text>
-          </View>
-          
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${goal.completion_percentage}%`,
-                  backgroundColor: getGoalColor(goal.color),
-                },
-              ]}
-            />
-          </View>
-
-          {/* Streak */}
-          {goal.current_streak > 0 && (
-            <View style={styles.streakContainer}>
-              <Icon name="fire" size={12} color={theme.colors.status.success} />
-              <Text variant="caption" color="success" style={styles.streakText}>
-                {goal.current_streak} day streak
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Status */}
-        <View style={styles.statusContainer}>
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: goal.status === 'active' ? theme.colors.primary[500] + '20' : theme.colors.text.disabled + '20' }
-          ]}>
+            {/* Description */}
             <Text 
-              variant="caption" 
-              color={goal.status === 'active' ? 'success' : 'disabled'}
-              style={styles.statusText}
+              variant="body" 
+              color="secondary" 
+              numberOfLines={2} 
+              style={styles.description}
             >
-              {goal.status === 'active' ? 'Active' : goal.status === 'completed' ? 'Completed' : 'Paused'}
+              {goal.description}
             </Text>
-          </View>
-        </View>
+
+            {/* Progress */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressInfo}>
+                <Text variant="caption" color="tertiary">
+                  {goal.completed_tasks}/{goal.total_tasks} tasks
+                </Text>
+                <Text variant="caption" color="primary-color">
+                  {Math.round(goal.completion_percentage)}%
+                </Text>
+              </View>
+              
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${goal.completion_percentage}%`,
+                      backgroundColor: getGoalColor(goal.color),
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Streak */}
+              {goal.current_streak > 0 && (
+                <View style={styles.streakContainer}>
+                  <Icon name="fire" size={12} color={theme.colors.status.success} />
+                  <Text variant="caption" color="success" style={styles.streakText}>
+                    {goal.current_streak} day streak
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Status */}
+            <View style={styles.statusContainer}>
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: goal.status === 'active' ? theme.colors.primary[500] + '20' : theme.colors.text.disabled + '20' }
+              ]}>
+                <Text 
+                  variant="caption" 
+                  color={goal.status === 'active' ? 'success' : 'disabled'}
+                  style={styles.statusText}
+                >
+                  {goal.status === 'active' ? 'Active' : goal.status === 'completed' ? 'Completed' : 'Paused'}
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
       </Card>
     </TouchableOpacity>
   );
@@ -258,5 +352,58 @@ const styles = StyleSheet.create({
     borderColor: '#FFFF68',
     borderWidth: 2,
     backgroundColor: 'rgba(255, 255, 104, 0.1)',
+  },
+  loadingContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingAnimation: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  loadingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    opacity: 0.6,
+  },
+  loadingText: {
+    textAlign: 'center',
+  },
+  loadingState: {
+    paddingVertical: 20,
+    alignItems: 'flex-start',
+  },
+  placeholderIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 12,
+  },
+  placeholderTitle: {
+    height: 20,
+    width: '60%',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  placeholderDescription: {
+    height: 16,
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  loadingDotsContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  loadingDots: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
 });

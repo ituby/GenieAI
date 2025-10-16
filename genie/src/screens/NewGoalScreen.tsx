@@ -1151,22 +1151,14 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const handleApprovePlan = async () => {
     setShowPlanPreview(false);
     
-    // Start Stage 2: Generate detailed tasks
-    setIsCreatingPlan(true);
-    setLoadingStep(1);
+    // Close the NewGoal screen and return to dashboard
+    // The goal will show as loading in dashboard until tasks are ready
+    if (onGoalCreated) {
+      onGoalCreated();
+    }
     
-    // Start progressive loading animation for Stage 2
-    const interval = setInterval(() => {
-      setLoadingStep((prev) => {
-        if (prev >= 39) {
-          clearInterval(interval);
-          return 39;
-        }
-        return prev + 1;
-      });
-    }, 800);
-    
-    setLoadingInterval(interval);
+    // Clear progress and close modals
+    await clearProgress();
     
     try {
       // Get device timezone and current time using expo-localization
@@ -1175,7 +1167,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       const deviceNow = new Date();
       const deviceUtcOffset = -deviceNow.getTimezoneOffset();
       
-      // Stage 2: Generate detailed tasks
+      // Stage 2: Generate detailed tasks (runs in background)
       const tasksResponse = await supabase.functions.invoke('generate-plan', {
         body: {
           user_id: user?.id,
@@ -1196,181 +1188,44 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         },
       });
       
-      if (tasksResponse.error) {
-        console.error('❌ Tasks generation error:', tasksResponse.error);
-        setLoadingStep(40);
-        
-        // Fallback to success modal with estimated data
-        const taskCount = planData.milestones?.reduce(
-          (sum, milestone) => sum + (milestone.tasks || 0),
-          0
-        ) || 21;
-        
-        const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
-        const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
-        const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
-        
-        const newSuccessData = {
-          taskCount,
-          rewardCount: 5,
-          iconName,
-          color,
-        };
-        
-        setSuccessData(newSuccessData);
-        setShowSuccessModal(true);
-        
-        // Activate the goal
-        if (createdGoalId) {
-          await supabase
-            .from('goals')
-            .update({ status: 'active' })
-            .eq('id', createdGoalId);
-          
-          // Clear progress since goal is now active
-          await clearProgress();
-          console.log('🧹 Cleared progress - goal is now active (fallback)');
-        }
-        
-        return;
-      }
-      
-      // Stage 2 successful - we got the detailed tasks
-      const taskCount = tasksResponse.data?.tasks?.length || 21;
-      const rewardCount = tasksResponse.data?.rewards?.length || 0;
-      
-      console.log('✅ AI Tasks generated:', {
-        taskCount,
-        rewardCount,
-      });
-      
-      setLoadingStep(40);
-      
-      // Get the selected category config for success modal
-      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
-      
-      // Use plan data if available, otherwise fallback to category config
-      const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
-      const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
-      
-      const newSuccessData = {
-        taskCount,
-        rewardCount,
-        iconName,
-        color,
-      };
-      
-      // Activate the goal with user's selected category and color
+      // Activate the goal immediately after approval
+      // Goal will show as loading in dashboard until tasks are ready
       if (createdGoalId) {
-        // Get the selected category config to preserve user's choice
         const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
         const finalCategory = formData.category;
-        const finalIcon = selectedCategoryConfig?.icon || 'star';
-        const finalColor = selectedCategoryConfig?.color || '#FFFF68';
+        const finalIcon = planIconName || selectedCategoryConfig?.icon || 'star';
+        const finalColor = planColor || selectedCategoryConfig?.color || '#FFFF68';
         
-        try {
-          await supabase
-            .from('goals')
-            .update({
-              status: 'active',
-              category: finalCategory,
-              icon_name: finalIcon,
-              color: finalColor,
-            })
-            .eq('id', createdGoalId);
-          
-          // Clear progress since goal is now active
-          await clearProgress();
-          console.log('🧹 Cleared progress - goal is now active');
-        } catch (e) {
-          console.warn('Failed to activate goal with user settings:', e);
-        }
-      }
-
-      // If user consented to share and a goal was created, insert shared submission row
-      try {
-        if (publishWithDevelopers && createdGoalId && user?.id) {
-          // Fetch user points for this goal (if exists)
-          const { data: pointsRow } = await supabase
-            .from('user_points')
-            .select('points')
-            .eq('user_id', user.id)
-            .eq('goal_id', createdGoalId)
-            .single();
-
-          // Insert shared submission
-          await supabase.from('shared_goal_submissions').insert({
-            user_id: user.id,
-            goal_id: createdGoalId,
-            request_title: formData.title.trim(),
-            request_description: formData.description.trim(),
-            intensity: 'medium', // Default intensity
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            category: (planCategory as any) || 'custom',
-            subcategory: planData.subcategory,
-            marketing_domain: planData.marketingDomain,
-            plan_milestones: planData.milestones,
-            plan_outline: planData.planOutline,
-            tasks_generated: planData.milestones.reduce(
-              (sum, m) => sum + (m.tasks || 0),
-              0
-            ),
-            program_start_at: new Date().toISOString(),
-            program_end_at: null,
-            points_earned: pointsRow?.points || 0,
-            adherence_score: 0,
+        await supabase
+          .from('goals')
+          .update({
             status: 'active',
-            publish_with_developers: true,
-            consent_version: 'v1',
-            notes: null,
-          });
-        }
-      } catch (e) {
-        console.warn('Failed to insert shared submission:', e);
+            category: finalCategory,
+            icon_name: finalIcon,
+            color: finalColor,
+          })
+          .eq('id', createdGoalId);
+        
+        console.log('✅ Goal activated - tasks will be generated in background');
       }
-
-      // Navigate to dashboard instead of showing success modal
-      onGoalCreated?.();
+      
+      // Log the task generation request (no need to wait for completion)
+      if (tasksResponse.error) {
+        console.error('❌ Tasks generation error:', tasksResponse.error);
+      } else {
+        console.log('✅ Task generation started successfully');
+      }
       
     } catch (error) {
       console.error('❌ Error in Stage 2:', error);
-      setLoadingStep(40);
       
-      // Fallback to success modal with estimated data
-      const taskCount = planData.milestones?.reduce(
-        (sum, milestone) => sum + (milestone.tasks || 0),
-        0
-      ) || 21;
-      
-      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
-      const iconName = planIconName || selectedCategoryConfig?.icon || 'star';
-      const color = planColor || selectedCategoryConfig?.color || '#FFFF68';
-      
-      const newSuccessData = {
-        taskCount,
-        rewardCount: 5,
-        iconName,
-        color,
-      };
-      
-      // Activate the goal
+      // Even if task generation fails, activate the goal so user can see it
       if (createdGoalId) {
         await supabase
           .from('goals')
           .update({ status: 'active' })
           .eq('id', createdGoalId);
       }
-      
-      // Navigate to dashboard instead of showing success modal
-      onGoalCreated?.();
-    } finally {
-      // Clear loading interval
-      if (loadingInterval) {
-        clearInterval(loadingInterval);
-        setLoadingInterval(null);
-      }
-      setIsCreatingPlan(false);
-      setLoadingStep(1);
     }
   };
 

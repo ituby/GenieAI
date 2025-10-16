@@ -27,7 +27,6 @@ import { Button } from '../components/primitives/Button';
 import { TalkWithGenieButton } from '../components/primitives/TalkWithGenieButton';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard, GoalCardProps } from '../components/domain/GoalCard';
-import { LoadingGoalCard } from '../components/domain/LoadingGoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
 import { RewardCard } from '../components/domain/RewardCard';
 import { TaskItem } from '../components/domain/TaskItem';
@@ -72,7 +71,7 @@ const STAT_CARD_SIZE = Math.floor(
 export const DashboardScreen: React.FC = () => {
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
-  const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal } =
+  const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal, refreshGoal } =
     useGoalStore();
   const { unreadCount, refreshCount } = useNotificationCount();
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
@@ -263,6 +262,38 @@ export const DashboardScreen: React.FC = () => {
 
     initializeDashboard();
   }, [user?.id]);
+
+  // Auto-refresh mechanism for goals that are loading (active but no tasks)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const checkForLoadingGoals = async () => {
+      const loadingGoals = activeGoals.filter(goal => 
+        goal.status === 'active' && goal.total_tasks === 0
+      );
+      
+      if (loadingGoals.length > 0) {
+        console.log(`🔄 Found ${loadingGoals.length} loading goals, refreshing...`);
+        
+        // Refresh each loading goal
+        for (const goal of loadingGoals) {
+          await refreshGoal(goal.id);
+        }
+        
+        // Also refresh today's tasks to show new tasks
+        console.log('🔄 Refreshing today\'s tasks after goal update');
+        fetchTodaysTasks();
+      }
+    };
+
+    // Check immediately
+    checkForLoadingGoals();
+
+    // Set up polling every 3 seconds for loading goals
+    const interval = setInterval(checkForLoadingGoals, 3000);
+
+    return () => clearInterval(interval);
+  }, [user?.id, activeGoals, refreshGoal]);
 
   // Breathing animation for refresh loader
   useEffect(() => {
@@ -1330,30 +1361,15 @@ export const DashboardScreen: React.FC = () => {
                 <Text variant="h4">Active Plans</Text>
               </View>
               <View style={styles.goalsList}>
-                {activeGoals.map((goal) => {
-                  // Show loading card for paused goals
-                  if (goal.status === 'paused') {
-                    return (
-                      <LoadingGoalCard
-                        key={goal.id}
-                        title={goal.title}
-                        color={goal.color}
-                        iconName={goal.icon_name}
-                      />
-                    );
-                  }
-                  
-                  // Show regular goal card for active goals
-                  return (
-                    <GoalCard
-                      key={goal.id}
-                      goal={goal}
-                      onPress={() => setSelectedGoal(goal)}
-                      onEdit={() => setShowGoalMenu(goal.id)}
-                      hasTimeReachedTasks={hasGoalTasksTimeReached(goal.id)}
-                    />
-                  );
-                })}
+                {activeGoals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    onPress={() => setSelectedGoal(goal)}
+                    onEdit={() => setShowGoalMenu(goal.id)}
+                    hasTimeReachedTasks={hasGoalTasksTimeReached(goal.id)}
+                  />
+                ))}
               </View>
             </Card>
           </View>

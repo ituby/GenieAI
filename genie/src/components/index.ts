@@ -22,4 +22,3 @@ export * from './domain/AILoadingModal';
 export * from './domain/GoalSuccessModal/GoalSuccessModal';
 export * from './domain/PlanPreviewModal';
 export * from './domain/TaskCard/TaskCard';
-export * from './domain/LoadingGoalCard';

@@ -15,6 +15,7 @@ interface GoalState {
   ) => Promise<Goal>;
   updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
+  refreshGoal: (goalId: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -64,7 +65,7 @@ export const useGoalStore = create<GoalState>((set, get) => ({
       });
 
       const activeGoals = goalsWithProgress.filter(
-        (goal) => (goal.status === 'active' || goal.status === 'paused') && goal.completion_percentage < 100
+        (goal) => goal.status === 'active' && goal.completion_percentage < 100
       );
 
       set({
@@ -197,6 +198,60 @@ export const useGoalStore = create<GoalState>((set, get) => ({
         loading: false,
       });
       throw error;
+    }
+  },
+
+  refreshGoal: async (goalId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .select(
+          `
+          *,
+          goal_tasks (
+            id,
+            completed
+          )
+        `
+        )
+        .eq('id', goalId)
+        .single();
+
+      if (error) throw error;
+
+      const totalTasks = data.goal_tasks?.length || 0;
+      const completedTasks =
+        data.goal_tasks?.filter((task: any) => task.completed).length || 0;
+      const completionPercentage =
+        totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+      const updatedGoal: GoalWithProgress = {
+        ...data,
+        total_tasks: totalTasks,
+        completed_tasks: completedTasks,
+        completion_percentage: completionPercentage,
+        current_streak: data.current_streak || 0,
+      };
+
+      // Update local state
+      const { goals, activeGoals } = get();
+      const updatedGoals = goals.map((goal) =>
+        goal.id === goalId ? updatedGoal : goal
+      );
+
+      // Update active goals
+      const updatedActiveGoals = activeGoals.map((goal) =>
+        goal.id === goalId ? updatedGoal : goal
+      );
+
+      set({
+        goals: updatedGoals,
+        activeGoals: updatedActiveGoals,
+      });
+
+      console.log(`🔄 Goal ${goalId} refreshed: ${totalTasks} tasks (${completedTasks} completed)`);
+    } catch (error: any) {
+      console.error('Error refreshing goal:', error);
     }
   },
 }));

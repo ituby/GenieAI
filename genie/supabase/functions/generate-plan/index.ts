@@ -215,13 +215,39 @@ async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): P
   for (let i = 0; i <= maxRetries; i++) {
     try {
       const response = await fetch(url, init);
-      if (response.ok) return response;
-      if (response.status === 429 && i < maxRetries) {
-        await wait(Math.min(1000 * Math.pow(2, i), 10000));
-        continue;
+      
+      // Handle rate limiting and overloaded service
+      if (response.status === 429 || response.status === 529) {
+        if (i < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, i), 10000);
+          console.log(`[AI] Rate limited/overloaded (${response.status}), retrying in ${delay}ms...`);
+          await wait(delay);
+          continue;
+        }
       }
-      if (!response.ok) throw new Error(`API error ${response.status}`);
-      return response;
+      
+      if (response.ok) return response;
+      
+      // For other errors, try to get error details
+      let errorDetails = '';
+      try {
+        const errorText = await response.text();
+        errorDetails = ` - ${errorText.substring(0, 200)}`;
+      } catch (e) {
+        // Ignore text parsing errors
+      }
+      
+      if (i === maxRetries) {
+        throw new Error(`API error ${response.status}${errorDetails}`);
+      }
+      
+      // For non-retryable errors, throw immediately
+      if (response.status >= 400 && response.status < 500 && response.status !== 429 && response.status !== 529) {
+        throw new Error(`API error ${response.status}${errorDetails}`);
+      }
+      
+      // For server errors, retry
+      await wait(1000 * (i + 1));
     } catch (error) {
       if (i === maxRetries) throw error;
       await wait(1000 * (i + 1));
@@ -274,37 +300,68 @@ Description: ${description}
 Category: ${category}
 Intensity: ${intensity}`;
 
-  const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: 'claude-opus-4-1-20250805',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
-    })
-  });
-
-  const data = await response.json();
-  const text = data.content?.[0]?.text || '';
-  const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-
-  console.log(`[AI] Outline raw response: ${text.substring(0, 500)}...`);
-  console.log(`[AI] Outline cleaned text: ${cleanedText.substring(0, 500)}...`);
-
-  let planData;
   try {
-    planData = JSON.parse(cleanedText);
-    console.log(`[AI] Outline successfully parsed JSON`);
-  } catch (parseError) {
-    console.warn('[AI] Outline JSON parse failed, using fallback');
-    console.error('[AI] Outline parse error:', parseError);
-    console.error('[AI] Failed to parse outline text:', cleanedText.substring(0, 1000));
+    const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-1-20250805',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+
+    console.log(`[AI] Outline raw response: ${text.substring(0, 500)}...`);
+    console.log(`[AI] Outline cleaned text: ${cleanedText.substring(0, 500)}...`);
+
+    let planData;
+    try {
+      planData = JSON.parse(cleanedText);
+      console.log(`[AI] Outline successfully parsed JSON`);
+    } catch (parseError) {
+      console.warn('[AI] Outline JSON parse failed, using fallback');
+      console.error('[AI] Outline parse error:', parseError);
+      console.error('[AI] Failed to parse outline text:', cleanedText.substring(0, 1000));
+      
+      // Return fallback data
+      return {
+        iconName: 'star',
+        color: CATEGORY_COLOR_MAP[category] || 'yellow',
+        milestones: buildTailoredMilestones(title, planDurationDays),
+        planOutline: buildTailoredOutline(title, description),
+        category,
+        deliverables: { overview: { chosen_topic: '', rationale: '', synopsis: '' }, sections: [] },
+        usedModel: 'template-fallback'
+      };
+    }
+
+    return {
+      iconName: planData.icon_name || 'star',
+      color: CATEGORY_COLOR_MAP[category] || 'yellow',
+      milestones: planData.milestones || buildTailoredMilestones(title, planDurationDays),
+      planOutline: planData.plan_outline || buildTailoredOutline(title, description),
+      category,
+      deliverables: planData.deliverables || { overview: { chosen_topic: '', rationale: '', synopsis: '' }, sections: [] },
+      usedModel: 'claude-opus-4-1-20250805'
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[AI] Outline API error: ${msg}`);
     
-    // Return fallback data
+    // Check if it's a credit/balance error
+    if (msg.includes('credit balance') || msg.includes('too low')) {
+      console.warn('[AI] Credit balance too low, using template fallback');
+    }
+    
+    // Return fallback data for any API error
     return {
       iconName: 'star',
       color: CATEGORY_COLOR_MAP[category] || 'yellow',
@@ -315,16 +372,6 @@ Intensity: ${intensity}`;
       usedModel: 'template-fallback'
     };
   }
-
-  return {
-    iconName: planData.icon_name || 'star',
-    color: CATEGORY_COLOR_MAP[category] || 'yellow',
-    milestones: planData.milestones || buildTailoredMilestones(title, planDurationDays),
-    planOutline: planData.plan_outline || buildTailoredOutline(title, description),
-    category,
-    deliverables: planData.deliverables || { overview: { chosen_topic: '', rationale: '', synopsis: '' }, sections: [] },
-    usedModel: 'claude-opus-4-1-20250805'
-  };
 }
 
 // ============================================================================
@@ -739,6 +786,13 @@ serve(async (req) => {
 
       if (outlineError) {
         console.error(`[${requestId}] Outline fetch error:`, outlineError);
+        
+        // If it's a "no rows" error, the outline doesn't exist yet
+        if (outlineError.code === 'PGRST116') {
+          console.error(`[${requestId}] No outline found for goal ${goal_id} - outline may not be ready yet`);
+          return errorResponse(400, 'Outline not found. The plan outline may still be generating. Please try again in a few moments.', requestId);
+        }
+        
         return errorResponse(400, `Failed to load outline: ${outlineError.message}`, requestId);
       }
 
@@ -814,7 +868,7 @@ serve(async (req) => {
           body: JSON.stringify({
             user_id: user_id,
             title: 'Your Plan is Ready',
-            body: `Your ${title} plan is ready for your review. Tap to approve and start your journey!`,
+            body: `Your ${title} plan is ready for your review. Tap to approve and start your journey.`,
             data: { 
               type: 'plan_ready_for_approval',
               goal_id: goal_id, 
@@ -842,7 +896,7 @@ serve(async (req) => {
           body: JSON.stringify({
             user_id: user_id,
             title: 'Tasks Generated',
-            body: `Your ${title} tasks are ready! ${insertedTasks.length} tasks have been created for your journey.`,
+            body: `Your ${title} tasks are ready. ${insertedTasks.length} tasks have been created for your journey.`,
             data: {
               type: 'tasks_generated',
               goal_id: goal_id, 
