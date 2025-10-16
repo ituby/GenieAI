@@ -820,6 +820,10 @@ export const DashboardScreen: React.FC = () => {
     >
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
+        <BlurView
+          intensity={20}
+          style={StyleSheet.absoluteFillObject}
+        />
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <View style={styles.notificationIconContainer}>
@@ -908,17 +912,23 @@ export const DashboardScreen: React.FC = () => {
       >
         {/* Content Header */}
         <View style={styles.contentHeader}>
-          {/* Dashboard Slogan */}
-          <View style={styles.dashboardSloganContainer}>
-            <Text variant="h3" style={styles.dashboardSloganText}>
-              Tell me what you're wishing for
-            </Text>
+          {/* Dashboard Slogan Card */}
+          <Card variant="gradient" padding="md" style={styles.dashboardSloganCard}>
+            <View style={styles.dashboardSloganHeader}>
+              <Text variant="h4" style={styles.dashboardSloganText}>
+                What's your wish?
+              </Text>
+              <Icon
+                name="sparkle"
+                size={20}
+                color="#FFFF68"
+                weight="fill"
+              />
+            </View>
             <Text variant="body" style={styles.dashboardSloganSubtext}>
-              Genie creates a focused 21-day plan with daily tasks, rewards, and
-              smart notifications. Ask to learn, achieve, fulfill, change, build
-              habits, improve mindset, and more.
+              Tell me what you want to learn, achieve, change, or build. I'll create a personalized plan with daily tasks, rewards, and smart notifications to help you crush it.
             </Text>
-          </View>
+          </Card>
 
           {/* Usage Rate Card */}
           <Card variant="gradient" padding="md" style={styles.usageRateCard}>
@@ -1209,9 +1219,7 @@ export const DashboardScreen: React.FC = () => {
                   color="secondary"
                   style={styles.createGoalDescription}
                 >
-                  Tell me what you're wishing for, and I'll create a
-                  personalized 21-day plan with daily tasks, rewards, and smart
-                  notifications.
+                  Tell me what you want to learn, achieve, change, or build. I'll create a personalized plan with daily tasks, rewards, and smart notifications to help you crush it.
                 </Text>
 
                 <Animated.View
@@ -1476,7 +1484,7 @@ export const DashboardScreen: React.FC = () => {
                 Hello, {getUserName()}
               </Text>
               <Text variant="body" style={styles.sideMenuGreetingSubtitle}>
-                Tell me what you're wishing for
+                What's your wish?
               </Text>
             </View>
 
@@ -2134,30 +2142,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50, // Safe area padding
     paddingBottom: 10, // Added padding below header
-    backgroundColor: 'rgba(0, 0, 0, 0.9)', // More opaque background
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Less transparent
     minHeight: 110, // Increased minimum height
+    overflow: 'hidden',
   },
-  dashboardSloganContainer: {
+  dashboardSloganCard: {
+    marginBottom: 16,
+  },
+  dashboardSloganHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 0,
-    paddingBottom: 10,
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   dashboardSloganText: {
     color: '#FFFFFF',
-    lineHeight: 24,
-    textAlign: 'center',
-    fontWeight: '300',
-    fontSize: 18,
-    marginTop: 0,
   },
   dashboardSloganSubtext: {
-    marginTop: 6,
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    lineHeight: 16,
-    textAlign: 'center',
-    paddingHorizontal: 12,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'left',
   },
   refreshLoaderContainer: {
     position: 'absolute',
