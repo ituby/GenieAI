@@ -386,18 +386,18 @@ function computeRunAtDeviceAware(
     const currentHour = deviceNow.getHours();
     const currentMinute = deviceNow.getMinutes();
     
-    // Smart decision: if it's after 20:00, recommend starting tomorrow
-    // If it's before 20:00, we can start today but only if there are valid slots
-    const isAfter8PM = currentHour >= 20;
+    // Smart decision: if it's after 12:00 (noon), recommend starting tomorrow
+    // If it's before 12:00, we can start today but only if there are valid slots
+    const isAfterNoon = currentHour >= 12;
     
-    if (isAfter8PM) {
-      // After 8 PM - recommend starting tomorrow at the target time slot
+    if (isAfterNoon) {
+      // After noon (12:00) - recommend starting tomorrow at the target time slot
       startDecision = 'tomorrow';
       finalLocalTime = new Date(deviceNow);
       finalLocalTime.setDate(finalLocalTime.getDate() + 1);
       finalLocalTime.setHours(targetHour, 0, 0, 0);
     } else {
-      // Before 8 PM - can start today
+      // Before noon (12:00) - can start today
       if (targetDate <= deviceNow) {
         // Target time has passed, find next available slot today
         const nextSlot = new Date(deviceNow);
@@ -465,35 +465,73 @@ function buildTailoredOutline(
   description: string,
   category: string
 ): Array<{ title: string; description: string }> {
-  const shortTitle = (title || '').trim().slice(0, 60);
-  const shortDesc = (description || '').trim().slice(0, 140);
-  const cat = (category || 'custom').toLowerCase();
-  const theme =
-    cat === 'career'
-      ? 'professional growth'
-      : cat === 'mindset'
-        ? 'mental strength'
-        : cat === 'character'
-          ? 'personal excellence'
-          : cat === 'lifestyle'
-            ? 'healthy habits'
-            : 'personal mastery';
+  const shortTitle = (title || 'Your Goal').trim().slice(0, 50);
+  const goalLower = title.toLowerCase();
+  const descLower = description.toLowerCase();
+
+  // Try to infer the goal type and create specific outline
+  let week1Title, week1Desc, week2Title, week2Desc, week3Title, week3Desc;
+
+  // Startup/Business goals
+  if (goalLower.includes('startup') || goalLower.includes('business') || goalLower.includes('company')) {
+    week1Title = `Week 1 • ${shortTitle} - Idea & Market Research`;
+    week1Desc = `Validate your business idea, research market opportunities, and create your initial business plan for "${shortTitle}".`;
+    week2Title = `Week 2 • ${shortTitle} - MVP & Testing`;
+    week2Desc = `Build your minimum viable product, test with early users, and iterate based on feedback for "${shortTitle}".`;
+    week3Title = `Week 3 • ${shortTitle} - Launch & Growth`;
+    week3Desc = `Launch your business, acquire first customers, and establish growth strategies for "${shortTitle}".`;
+  }
+  // Learning/Education goals
+  else if (goalLower.includes('learn') || goalLower.includes('study') || goalLower.includes('course')) {
+    const subject = goalLower.replace(/learn|study|course/gi, '').trim();
+    week1Title = `Week 1 • ${shortTitle} - Basics & Foundation`;
+    week1Desc = `Master the fundamentals and core concepts. Build a strong foundation for "${shortTitle}".`;
+    week2Title = `Week 2 • ${shortTitle} - Practice & Application`;
+    week2Desc = `Apply your knowledge through hands-on practice and real-world exercises for "${shortTitle}".`;
+    week3Title = `Week 3 • ${shortTitle} - Mastery & Fluency`;
+    week3Desc = `Achieve proficiency and confidence. Demonstrate your mastery of "${shortTitle}".`;
+  }
+  // Fitness/Health goals
+  else if (goalLower.includes('fitness') || goalLower.includes('workout') || goalLower.includes('exercise') || goalLower.includes('run') || goalLower.includes('weight')) {
+    week1Title = `Week 1 • ${shortTitle} - Foundation & Form`;
+    week1Desc = `Build your base fitness level, master proper form, and establish consistent habits for "${shortTitle}".`;
+    week2Title = `Week 2 • ${shortTitle} - Strength & Endurance`;
+    week2Desc = `Increase intensity, build strength and stamina, and push your limits for "${shortTitle}".`;
+    week3Title = `Week 3 • ${shortTitle} - Peak Performance`;
+    week3Desc = `Maximize your fitness level, achieve your targets, and celebrate your transformation with "${shortTitle}".`;
+  }
+  // Creative goals (writing, music, art, content creation)
+  else if (goalLower.includes('write') || goalLower.includes('create') || goalLower.includes('music') || goalLower.includes('art') || goalLower.includes('content') || goalLower.includes('video') || goalLower.includes('channel')) {
+    week1Title = `Week 1 • ${shortTitle} - Planning & Setup`;
+    week1Desc = `Plan your creative project, gather resources and tools, and create your content strategy for "${shortTitle}".`;
+    week2Title = `Week 2 • ${shortTitle} - Creation & Production`;
+    week2Desc = `Produce your content, refine your craft, and develop your unique creative style for "${shortTitle}".`;
+    week3Title = `Week 3 • ${shortTitle} - Publishing & Growth`;
+    week3Desc = `Launch your work, build your audience, and establish your creative presence with "${shortTitle}".`;
+  }
+  // Career goals
+  else if (goalLower.includes('career') || goalLower.includes('job') || goalLower.includes('promotion') || goalLower.includes('skill')) {
+    week1Title = `Week 1 • ${shortTitle} - Skills & Knowledge`;
+    week1Desc = `Develop essential skills, expand your knowledge base, and identify growth opportunities for "${shortTitle}".`;
+    week2Title = `Week 2 • ${shortTitle} - Portfolio & Network`;
+    week2Desc = `Build your professional portfolio, expand your network, and demonstrate your expertise in "${shortTitle}".`;
+    week3Title = `Week 3 • ${shortTitle} - Advancement & Results`;
+    week3Desc = `Apply for opportunities, showcase your growth, and achieve your career goals with "${shortTitle}".`;
+  }
+  // Generic fallback (still personalized with goal title)
+  else {
+    week1Title = `Week 1 • ${shortTitle} - Getting Started`;
+    week1Desc = `Build the foundation, establish core habits, and gain momentum toward "${shortTitle}".`;
+    week2Title = `Week 2 • ${shortTitle} - Building Skills`;
+    week2Desc = `Develop expertise, practice consistently, and overcome challenges in your "${shortTitle}" journey.`;
+    week3Title = `Week 3 • ${shortTitle} - Achieving Success`;
+    week3Desc = `Master your skills, reach your targets, and celebrate your achievement of "${shortTitle}".`;
+  }
 
   return [
-    {
-      title: `Week 1 • ${shortTitle || 'Foundations'} Foundations`,
-      description:
-        shortDesc ||
-        `Lay the groundwork for ${shortTitle || 'your goal'} with ${theme}, systems, and quick wins.`,
-    },
-    {
-      title: `Week 2 • ${shortTitle || 'Goal'} Development`,
-      description: `Deepen skills and practice through realistic outputs aligned to "${shortTitle || 'your goal'}".`,
-    },
-    {
-      title: `Week 3 • ${shortTitle || 'Goal'} Mastery`,
-      description: `Integrate, optimize, and finalize deliverables. Lock in habits for long-term ${theme}.`,
-    },
+    { title: week1Title, description: week1Desc },
+    { title: week2Title, description: week2Desc },
+    { title: week3Title, description: week3Desc },
   ];
 }
 
@@ -551,6 +589,7 @@ const generateTasksWithAI = async (
   subcategory?: string | null;
   marketingDomain?: string | null;
   deliverables?: any;
+  usedModel?: string;
 }> => {
   console.log('🤖 Generating AI-powered plan for:', {
     category,
@@ -588,30 +627,50 @@ IMPORTANT: If user has preferred days, ONLY create tasks for those days! For exa
 - If user wants Mon-Fri (days 1-5) and plan is 2 weeks, create tasks for 10 days only
 - NEVER create tasks for days not in the preferred days list!
 
-TASK STRUCTURE REQUIREMENTS:
-- Each task should have a SHORT title (max 6 words) and SHORT description (max 1 sentence)
-- Each task MUST include subtasks array with 2-4 specific, actionable subtasks
-- Each subtask should be completable in 5-15 minutes
-- Total time allocation per task should be 15-45 minutes
-- Example structure:
-  {
-    "time": "09:00",
-    "title": "Morning Hydration",
-    "description": "Start your day with proper hydration and light movement.",
-    "subtasks": [
-      {"title": "Drink 500ml water", "estimated_minutes": 5},
-      {"title": "Do 10 minutes stretching", "estimated_minutes": 10},
-      {"title": "Take 5 deep breaths", "estimated_minutes": 3}
-    ],
-    "time_allocation_minutes": 18
-  }
+🎯 TASK STRUCTURE REQUIREMENTS (CRITICAL):
+
+TITLE FORMAT:
+- Clear, actionable title (3-8 words max)
+- NO "Day X" or day numbers in the title!
+- Focus on the action, not the day (e.g., "Research Marketing Strategies" NOT "Day 1: Research")
+
+DESCRIPTION FORMAT:
+- Detailed, informative description (2-3 sentences)
+- Explain WHAT to do, WHY it matters, and HOW it connects to the goal
+- Make it inspiring and motivating
+
+SUBTASKS (MANDATORY):
+- Each task MUST include subtasks array with MINIMUM 1-3 subtasks, MAXIMUM 6 subtasks
+- Each subtask should be a specific, completable action
+- Each subtask estimated time: 5-20 minutes
+- Total time allocation per task: 20-60 minutes
+- Subtasks should break down the main task into clear steps
+
+TIME SPACING (CRITICAL):
+- Tasks must be spaced at LEAST 30 minutes apart
+- If a task takes 30 minutes and starts at 09:00, next task should be at 09:30 or later
+- NO overlapping tasks!
+- Consider time_allocation_minutes when scheduling
+
+Example structure:
+{
+  "time": "09:00",
+  "title": "Research Marketing Strategies",
+  "description": "Explore proven marketing techniques for startups. Understanding these strategies will help you reach your target audience effectively and build a strong brand presence from day one.",
+  "subtasks": [
+    {"title": "Research 3 successful startup marketing campaigns", "estimated_minutes": 15},
+    {"title": "List key takeaways and tactics", "estimated_minutes": 10},
+    {"title": "Identify which strategies fit your idea", "estimated_minutes": 10}
+  ],
+  "time_allocation_minutes": 35
+}
 
 ⏰ TIME RULES (STRICT):
 1) Use 24-hour clock times in HH:MM format only
 2) All task times MUST be between 07:00 and 23:00 inclusive - NO EXCEPTIONS
 3) For Day 1, consider the user's current time and timezone provided below. Do NOT schedule any Day 1 task in the past. If a suggested time has already passed, choose the next valid future time today; if no valid slot remains today, schedule the task for tomorrow at the earliest valid time (>= 07:00)
 4) CRITICAL: If you generate a time outside 07:00-23:00, the system will reject it. Always validate times before including them.
-5) STRICT CUT-OFF: If the user's local time (timezone below) is after 20:00, schedule ALL Day 1 tasks for TOMORROW starting at 07:00. If it's before 20:00, you may schedule today but still within 07:00-23:00 and not in the past
+5) STRICT CUT-OFF: If the user's local time (timezone below) is after 12:00 (noon), schedule ALL Day 1 tasks for TOMORROW starting at 07:00. If it's before 12:00, you may schedule today but still within 07:00-23:00 and not in the past
 6) NO DUPLICATE TIMES: Each task on the same day must have a UNIQUE time. Never schedule multiple tasks at the exact same HH:MM on the same day. Space tasks at least 15 minutes apart.
 7) DISTRIBUTE TIMES: Spread tasks throughout the day (morning, afternoon, evening) to avoid clustering at the same time.
 
@@ -656,16 +715,26 @@ EXPERT-LEVEL TASK CREATION:
 - Include reflection and learning components
 - Ensure long-term impact beyond the 21 days
 
-Choose an appropriate Phosphor icon for this goal:
+🎨 ICON SELECTION (CRITICAL):
 
-IMPORTANT: Use ONLY valid Phosphor React Native icon names. The icon name must be in kebab-case format and exist in the phosphor-react-native library.
+IMPORTANT: Icons are NOT category-specific! The user has already selected their category. Your job is to choose the BEST icon based on the GOAL CONTENT, not the category.
 
-ALL ICONS ARE AVAILABLE FOR ALL CATEGORIES! You can choose from any of these popular icons:
-- Basic: heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube, book, book-open, graduation-cap, pencil, calculator, camera, music-notes, flower, tree, leaf, sun, moon, cloud, rainbow, drop, mountains, wave, fire
-- People: user, user-circle, user-square, users, handshake, hand-heart, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, eye, eye-closed, password
-- Objects: briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront, bicycle, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down
+Choose from these valid Phosphor React Native icons (kebab-case format):
+- People & Human: user, user-circle, user-square, users, handshake, hand-heart, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, eye, eye-closed
+- Objects & Tools: heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube
+- Business & Career: briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront
+- Education: book, book-open, graduation-cap, pencil, calculator
+- Nature & Lifestyle: leaf, sun, moon, tree, flower, cloud, rainbow, drop, mountains, wave, fire
+- Activities: bicycle, music-notes, camera
+- Brain & Mind: brain
+- Communication: bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, password
+- Other: globe-hemisphere-west, thumbs-up, thumbs-down
 
-CRITICAL: The icon_name field MUST be a valid Phosphor React Native icon name in kebab-case format (e.g., "person-simple-run", "user-circle", "lightbulb"). Do NOT use invalid names like "running" which don't exist in the library.
+RULES:
+1. Choose based on GOAL CONTENT, not category (e.g., "Learn Guitar" → "music-notes" even if category is "mindset")
+2. Icon must be in kebab-case format (e.g., "person-simple-run", NOT "running")
+3. Icon must exist in the list above
+4. Be creative and match the icon to the specific goal, not just the category
 
 CATEGORY SELECTION:
 - You MUST classify the user's goal into one of the following exact categories:
@@ -686,7 +755,7 @@ SUBCATEGORY (REQUIRED):
 MARKETING DOMAIN (REQUIRED):
 - Provide a concise marketing domain label the goal best fits: one of ["content creation", "productivity", "wellness", "education", "finance", "creative arts", "career growth", "mindset", "lifestyle", "health", "business"]. If none fit exactly, choose the closest.
 
-Context for day 1 timing (use these EXACTLY to compute user's local time and apply the 20:00 cut-off):
+Context for day 1 timing (use these EXACTLY to compute user's local time and apply the 12:00 cut-off):
 - current_time_iso: ${currentTimeIso || ''}
 - timezone: ${timezone || ''}
 
@@ -704,8 +773,8 @@ ${preferredDays && preferredDays.length > 0 ?
   '- All days of the week (user has no restrictions)'}
 
 ⏰ SMART SCHEDULING RULES (MANDATORY):
-1) If the user's local time is after 20:00 (8 PM), schedule ALL Day 1 tasks for TOMORROW starting at 07:00
-2) If the user's local time is before 20:00, you may schedule Day 1 tasks for TODAY but:
+1) If the user's local time is after 12:00 (noon), schedule ALL Day 1 tasks for TOMORROW starting at 07:00
+2) If the user's local time is before 12:00 (noon), you may schedule Day 1 tasks for TODAY but:
    - No task should be scheduled in the past
    - All tasks must be between 07:00-23:00 in the user's local timezone
    - If a suggested time has passed, choose the next available future time today
@@ -720,6 +789,37 @@ ${preferredDays && preferredDays.length > 0 ?
 6) DISTRIBUTE TIMES: Spread tasks throughout the day to avoid clustering
 7) NO DUPLICATE TIMES: Each task on the same day must have a unique time slot
 8) RESPECT USER PREFERENCES: The user has customized their plan - honor their choices exactly
+
+🎯 PLAN OUTLINE REQUIREMENTS (CRITICAL - USER SEES THIS FOR APPROVAL):
+
+The plan_outline is the FIRST thing users see when approving their plan. It MUST be:
+✅ CUSTOMIZED to their specific goal (use goal title and context)
+✅ DESCRIPTIVE of what they will actually do each week
+✅ INSPIRING and motivating
+✅ SPECIFIC, not generic
+
+BAD EXAMPLES (too generic):
+❌ "Week 1 • Foundations" - too vague
+❌ "Week 2 • Development" - doesn't say what's being developed
+❌ "Week 3 • Mastery" - generic, could apply to anything
+
+GOOD EXAMPLES (specific and customized):
+✅ For "Create Startup": 
+   - Week 1 • Idea Validation & Market Research
+   - Week 2 • MVP Development & User Testing  
+   - Week 3 • Launch & Customer Acquisition
+
+✅ For "Learn Spanish":
+   - Week 1 • Spanish Basics & Daily Vocabulary
+   - Week 2 • Conversational Skills & Grammar
+   - Week 3 • Fluency & Real-World Practice
+
+✅ For "Run Marathon":
+   - Week 1 • Base Building & Running Form
+   - Week 2 • Endurance & Speed Training
+   - Week 3 • Peak Performance & Race Prep
+
+The user will decide whether to approve based on this outline - make it compelling!
 
 🎯 FINAL OUTPUT REQUIREMENTS:
 
@@ -751,8 +851,9 @@ Return ONLY valid JSON in this exact format:
     }
   ],
   "plan_outline": [
-    { "title": "Section title tailored to this plan", "description": "What this section covers and why" },
-    { "title": "Section title", "description": "Details" }
+    { "title": "Week 1 • [Specific Phase Name]", "description": "Customized description for this goal's first week" },
+    { "title": "Week 2 • [Specific Phase Name]", "description": "Customized description for this goal's second week" },
+    { "title": "Week 3 • [Specific Phase Name]", "description": "Customized description for this goal's third week" }
   ],
   "days": [
     {
@@ -930,43 +1031,95 @@ DELIVERABLES MUST EXIST:
 - Ensure the "deliverables" object is present and populated specifically for the user's intent. Include an "overview" and one or more "sections" whose content directly fulfills what they asked for.
 `;
 
+    const apiKey = Deno.env.get('GOOGLE_AI_API_KEY');
     console.log('📡 Sending request to Gemini API...');
-    console.log('🔑 API Key exists:', !!Deno.env.get('GOOGLE_AI_API_KEY'));
-    console.log(
-      '🔑 API Key length:',
-      Deno.env.get('GOOGLE_AI_API_KEY')?.length || 0
-    );
+    console.log('🔑 API Key exists:', !!apiKey);
+    console.log('🔑 API Key length:', apiKey?.length || 0);
+    
+    if (!apiKey || apiKey.length < 10) {
+      throw new Error('GOOGLE_AI_API_KEY is missing or invalid');
+    }
 
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' +
-        Deno.env.get('GOOGLE_AI_API_KEY'),
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `${systemPrompt}\n\n${userGoalPrompt}` }],
+    // Try with gemini-2.0-flash-exp first, fallback to gemini-1.5-flash if not available
+    const models = ['gemini-2.0-flash-exp', 'gemini-1.5-flash'];
+    let response: Response | null = null;
+    let usedModel = '';
+    let lastError = '';
+
+    for (const model of models) {
+      console.log(`🤖 Trying model: ${model}`);
+      
+      try {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          ],
-        }),
-      }
-    );
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: `${systemPrompt}\n\n${userGoalPrompt}` }],
+                },
+              ],
+            }),
+          }
+        );
 
-    console.log('📡 Gemini API response status:', response.status);
+        console.log(`📡 ${model} API response status:`, response.status);
+
+        // If successful or rate limited, use this model
+        if (response.ok || response.status === 429) {
+          usedModel = model;
+          console.log(`✅ Using model: ${usedModel}`);
+          break;
+        }
+
+        // If model not found or not available, try next model
+        if (response.status === 404 || response.status === 400) {
+          const errorText = await response.text();
+          lastError = errorText;
+          console.warn(`⚠️ ${model} not available (${response.status}), trying fallback...`);
+          continue;
+        }
+
+        // For other errors, use this response and break
+        usedModel = model;
+        break;
+      } catch (fetchError) {
+        console.error(`❌ Error fetching ${model}:`, fetchError);
+        lastError = fetchError.message;
+        continue;
+      }
+    }
+
+    if (!response) {
+      throw new Error(`All Gemini models failed. Last error: ${lastError}`);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ AI API error: ${response.status}`, errorText);
+      console.error(`❌ Gemini API error: ${response.status}`, errorText);
       console.error('❌ Full error details:', {
         status: response.status,
         statusText: response.statusText,
         errorText,
+        model: usedModel,
       });
-      throw new Error(`AI API error: ${response.status} - ${errorText}`);
+      
+      // Provide more helpful error messages
+      let userMessage = 'AI service temporarily unavailable. Using template-based plan.';
+      if (response.status === 429) {
+        userMessage = 'AI API rate limit exceeded. Using template-based plan.';
+      } else if (response.status === 401 || response.status === 403) {
+        userMessage = 'AI API authentication failed. Using template-based plan.';
+      } else if (response.status === 400) {
+        userMessage = 'Invalid AI request format. Using template-based plan.';
+      }
+      
+      throw new Error(`${userMessage} (Status: ${response.status})`);
     }
 
     const data = await response.json();
@@ -1147,24 +1300,25 @@ DELIVERABLES MUST EXIST:
           custom: 'yellow',
         };
 
-      // Select appropriate icon for the user-selected category
-      const defaultIconForCategory: Record<
-        (typeof validCategories)[number],
-        string
-      > = {
-        lifestyle: 'heart',
-        career: 'briefcase',
-        mindset: 'brain',
-        character: 'star',
-        custom: 'target',
-      };
-
-      let iconName = defaultIconForCategory[aiCategory];
+      // Use AI-provided icon or fallback to category default
+      // Note: Icons are NOT category-specific - AI chooses based on goal content
+      let iconName = 'star'; // Default fallback
       
-      // If AI provided an icon name, use it (all icons are now allowed for all categories)
       if (planData.icon_name) {
+        // AI provided an icon - use it (icons are chosen based on goal content, not category)
         iconName = planData.icon_name;
-        console.log(`🎨 Using AI suggested icon: ${iconName} for category: ${aiCategory}`);
+        console.log(`🎨 Using AI suggested icon: ${iconName} (chosen based on goal content, not category: ${aiCategory})`);
+      } else {
+        // AI didn't provide an icon - use category fallback
+        const fallbackIcons: Record<(typeof validCategories)[number], string> = {
+          lifestyle: 'heart',
+          career: 'briefcase',
+          mindset: 'brain',
+          character: 'star',
+          custom: 'target',
+        };
+        iconName = fallbackIcons[aiCategory];
+        console.log(`⚠️ AI didn't provide icon, using category fallback: ${iconName} for ${aiCategory}`);
       }
 
       // Choose color based on category mapping; ignore AI-provided color if any
@@ -1191,6 +1345,7 @@ DELIVERABLES MUST EXIST:
         subcategory,
         marketingDomain,
         deliverables,
+        usedModel,
       };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
@@ -1235,7 +1390,10 @@ DELIVERABLES MUST EXIST:
       character: 'pink',
       custom: 'yellow',
     };
-    const defaultIconForCategory: Record<(typeof validCategories)[number], string> = {
+    
+    // Fallback icons (used when AI generation fails completely)
+    // Note: Icons are NOT category-specific, but we use category fallback when AI fails
+    const fallbackIcons: Record<(typeof validCategories)[number], string> = {
       lifestyle: 'heart',
       career: 'briefcase',
       mindset: 'brain',
@@ -1245,7 +1403,7 @@ DELIVERABLES MUST EXIST:
 
     return {
       tasks: fallbackTasks,
-      iconName: defaultIconForCategory[aiCategory],
+      iconName: fallbackIcons[aiCategory],
       color: categoryColorMap[aiCategory],
       milestones: fallbackMilestones,
       category: aiCategory,
@@ -1256,6 +1414,7 @@ DELIVERABLES MUST EXIST:
         sections: [],
       },
       planOutline: fallbackOutline,
+      usedModel: 'template-fallback',
     }; // Default icon/color; include typing fields
   }
 };
@@ -1709,42 +1868,27 @@ serve(async (req) => {
       );
     }
 
-    // Validate device timezone fields
-    try {
-      const deviceNow = new Date(requestData.device_now_iso);
-      if (isNaN(deviceNow.getTime())) {
-        throw new Error('Invalid device_now_iso format');
+    // Validate device timezone fields (only if provided)
+    if (device_now_iso && device_timezone) {
+      try {
+        const deviceNow = new Date(device_now_iso);
+        if (isNaN(deviceNow.getTime())) {
+          console.warn(`[${requestId}] Invalid device_now_iso format, using fallback:`, device_now_iso);
+          device_now_iso = new Date().toISOString();
+          device_timezone = 'UTC';
+        }
+      } catch (timeError) {
+        console.warn(`[${requestId}] Error parsing device_now_iso, using fallback:`, timeError);
+        device_now_iso = new Date().toISOString();
+        device_timezone = 'UTC';
       }
-    } catch (timeError) {
-      console.error(`[${requestId}] Invalid device_now_iso format:`, requestData.device_now_iso);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Invalid device_now_iso format. Must be valid ISO string with timezone offset.',
-          request_id: requestId,
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
-      );
-    }
 
-    // Validate IANA timezone format (basic check)
-    const ianaTimezoneRegex = /^[A-Za-z_]+\/[A-Za-z_]+$/;
-    if (!ianaTimezoneRegex.test(requestData.device_timezone)) {
-      console.error(`[${requestId}] Invalid device_timezone format:`, requestData.device_timezone);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Invalid device_timezone format. Must be IANA timezone (e.g., Asia/Jerusalem).',
-          request_id: requestId,
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
-      );
+      // Validate IANA timezone format (basic check) - if invalid, use fallback
+      const ianaTimezoneRegex = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+      if (!ianaTimezoneRegex.test(device_timezone)) {
+        console.warn(`[${requestId}] Invalid device_timezone format, using UTC fallback:`, device_timezone);
+        device_timezone = 'UTC';
+      }
     }
 
     // Verify goal ownership
@@ -1886,24 +2030,6 @@ serve(async (req) => {
     let planOutline: any[] = [];
 
     try {
-      // Record AI run start
-      const { data: aiRun, error: aiRunError } = await supabaseClient
-        .from('ai_runs')
-        .insert({
-          goal_id,
-          status: 'success', // Will update to failed if needed
-          provider_model: 'gemini-2.5-flash',
-          attempts: 1,
-        })
-        .select('id')
-        .single();
-
-      if (aiRunError) {
-        console.error(`[${requestId}] Error creating AI run record:`, aiRunError);
-      } else {
-        aiRunId = aiRun.id;
-      }
-
       const aiStartTime = Date.now();
       
       const result = await generateTasksWithAI(
@@ -1921,16 +2047,24 @@ serve(async (req) => {
 
       const aiLatency = Date.now() - aiStartTime;
 
-      // Update AI run with success
-      if (aiRunId) {
-        await supabaseClient
-          .from('ai_runs')
-          .update({
-            status: 'success',
-            latency_ms: aiLatency,
-            response_size: JSON.stringify(result).length,
-          })
-          .eq('id', aiRunId);
+      // Record AI run with the actual model used (stored in result)
+      const { data: aiRun, error: aiRunError } = await supabaseClient
+        .from('ai_runs')
+        .insert({
+          goal_id,
+          status: 'success',
+          provider_model: result.usedModel || 'gemini-1.5-flash',
+          attempts: 1,
+          latency_ms: aiLatency,
+          response_size: JSON.stringify(result).length,
+        })
+        .select('id')
+        .single();
+
+      if (aiRunError) {
+        console.error(`[${requestId}] Error creating AI run record:`, aiRunError);
+      } else {
+        aiRunId = aiRun.id;
       }
 
       taskTemplates = result.tasks;
@@ -2377,6 +2511,39 @@ serve(async (req) => {
         console.error('❌ Error sending immediate task notification:', error);
         // Don't fail the whole process for notification errors
       }
+    }
+
+    // Send push notification that plan is ready for approval
+    try {
+      const notificationResponse = await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id,
+            title: '✨ Your Plan is Ready!',
+            body: `Your personalized ${plan_duration_days}-day plan for "${title}" is ready for approval. Check it out now!`,
+            data: {
+              type: 'plan_ready',
+              goal_id,
+              screen: 'NewGoal',
+            },
+          }),
+        }
+      );
+
+      if (notificationResponse.ok) {
+        console.log('✅ Plan ready notification sent successfully');
+      } else {
+        console.warn('⚠️ Failed to send plan ready notification');
+      }
+    } catch (notificationError) {
+      console.error('❌ Error sending plan ready notification:', notificationError);
+      // Don't fail the whole process for notification errors
     }
 
     const totalTime = Date.now() - startTime;

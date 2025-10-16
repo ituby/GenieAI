@@ -296,8 +296,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       setIsCreatingPlan(true);
       // Recreate the interval progression
       const interval = setInterval(() => {
-        setLoadingStep((prev) => (prev >= 15 ? 15 : prev + 1));
-      }, 1500);
+        setLoadingStep((prev) => (prev >= 30 ? 30 : prev + 1));
+      }, 1000); // Faster updates (1 second instead of 1.5) since we have more messages
       setLoadingInterval(interval);
 
       // Get device timezone and current time using expo-localization
@@ -327,7 +327,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       });
 
       if (response.error) {
-        setLoadingStep(16);
+        setLoadingStep(31);
         const fallbackMilestones = [
           {
             week: 1,
@@ -389,7 +389,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         setPlanCategory(category);
         setPlanIconName(iconName);
         setPlanColor(aiColor || mapCategoryToColor(category));
-        setLoadingStep(16);
+        setLoadingStep(31);
         // Prefer AI-provided milestones; otherwise derive from days
         let milestones =
           response.data?.milestones ||
@@ -498,17 +498,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       setIsCreatingPlan(true);
       setLoadingStep(1);
 
-      // Start progressive loading animation with faster pace to reach last title 3 seconds before results
+      // Start progressive loading animation - now with 31 messages
       const interval = setInterval(() => {
         setLoadingStep((prev) => {
-          if (prev >= 15) {
-            // Stop at step 15, let the final step be triggered manually
+          if (prev >= 30) {
+            // Stop at step 30, let the final step (31) be triggered when done
             clearInterval(interval);
-            return 15;
+            return 30;
           }
           return prev + 1;
         });
-      }, 1500); // Change step every 1500ms (1.5 seconds) for faster progression
+      }, 1000); // Change step every 1000ms (1 second) - faster with 31 messages
 
       setLoadingInterval(interval);
 
@@ -570,7 +570,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         if (response.error) {
           console.error('❌ Plan generation error:', response.error);
           // Ensure we reach the final step before showing plan preview
-          setLoadingStep(16);
+          setLoadingStep(31);
 
           // Generate fallback milestones
           const fallbackMilestones = [
@@ -649,7 +649,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           setPlanIconName(iconName);
           setPlanColor(aiColor || mapCategoryToColor(category));
           // Ensure we reach the final step before showing plan preview
-          setLoadingStep(16);
+          setLoadingStep(31);
 
           // Use milestones from AI response or derive from days
           let milestones =
@@ -708,7 +708,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       } catch (planError) {
         console.error('❌ Failed to generate plan:', planError);
         // Ensure we reach the final step before showing plan preview
-        setLoadingStep(15);
+        setLoadingStep(31);
 
         // Generate fallback milestones
         const fallbackMilestones = [
@@ -771,7 +771,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     } catch (error: any) {
       console.error('❌ Goal creation error:', error);
       // Ensure we reach the final step before showing error
-      setLoadingStep(16);
+      setLoadingStep(31);
 
       Alert.alert('Error', `Failed to create goal: ${error.message}`);
     } finally {
@@ -1641,7 +1641,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           <AILoadingModal
             visible={isCreatingPlan}
             currentStep={loadingStep}
-            totalSteps={16}
+            totalSteps={31}
+            goalTitle={formData.title}
+            goalDescription={formData.description}
+            planDurationDays={formData.planDurationDays}
+            preferredTimeRanges={formData.preferredTimeRanges}
+            preferredDays={formData.preferredDays}
           />
 
           {/* Plan Preview Modal */}

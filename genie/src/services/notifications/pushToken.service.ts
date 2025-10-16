@@ -14,16 +14,7 @@ export class PushTokenService {
    */
   static async registerForPushNotifications(): Promise<string | null> {
     try {
-      // Check if running on simulator
-      const isSimulator = __DEV__ && (Platform.OS === 'ios' || Platform.OS === 'android');
-      
-      if (isSimulator) {
-        console.log('📱 Running on simulator - using development token');
-        // Return a mock token for development
-        return 'ExponentPushToken[simulator-dev-token]';
-      }
-
-      // Request permissions
+      // Request permissions first
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
@@ -37,26 +28,36 @@ export class PushTokenService {
         return null;
       }
 
-      // Get the push token - try without projectId first (for development)
+      // Get the push token
+      // Note: On iOS simulator, Expo will automatically return a mock token or fail gracefully
+      // On real devices (even in __DEV__), this will return a real push token
       let token;
       try {
         token = await Notifications.getExpoPushTokenAsync();
-      } catch (error: any) {
-        if (error.message?.includes('projectId')) {
-          console.log('⚠️ Project ID required for production - using development token');
-          // Return a mock token for development without project ID
-          return 'ExponentPushToken[dev-token-no-project-id]';
+        console.log('📱 Push token received:', token.data);
+        
+        // Validate that it's a real token (not a simulator/mock token)
+        if (token.data && token.data.includes('ExponentPushToken[') && !token.data.includes('simulator')) {
+          return token.data;
+        } else {
+          console.warn('⚠️ Received simulator or invalid token:', token.data);
+          return token.data; // Still return it, let the server decide what to do
         }
+      } catch (error: any) {
+        console.error('❌ Error getting push token:', error);
+        
+        // If it's a projectId error, this is expected in development without EAS
+        if (error.message?.includes('projectId')) {
+          console.log('⚠️ Project ID required - this is expected in local development');
+          console.log('💡 For real push notifications, build with EAS or use Expo Go on a real device');
+          return null;
+        }
+        
         throw error;
       }
-
-      console.log('📱 Push token received:', token.data);
-
-      return token.data;
     } catch (error) {
-      console.error('❌ Error getting push token:', error);
-      // Return a fallback token for development
-      return 'ExponentPushToken[fallback-dev-token]';
+      console.error('❌ Error in registerForPushNotifications:', error);
+      return null;
     }
   }
 

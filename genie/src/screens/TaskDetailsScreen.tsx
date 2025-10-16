@@ -559,40 +559,16 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
             </View>
           </Card>
 
-          {/* Action Buttons */}
-          {!taskData.completed && canCompleteTask && (
-            <View style={styles.actionButtons}>
-              <LinearGradient
-                colors={['#FFFF68', '#FFFF68']}
-                style={styles.completedButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <TouchableOpacity
-                  onPress={() => handleToggleTask(true)}
-                  style={styles.completedButton}
-                  disabled={isLoading}
-                >
-                  <Icon name="check" size={18} color="#000000" weight="fill" />
-                  <Text style={styles.completedButtonText}>
-                    Mark as Completed
-                  </Text>
-                </TouchableOpacity>
-              </LinearGradient>
-
-              <TouchableOpacity
-                onPress={() => handleToggleTask(false)}
-                style={styles.notCompletedButton}
-                disabled={isLoading}
-              >
-                <View style={styles.notCompletedButtonContent}>
-                  <Icon name="x" size={18} color="#FFFFFF" weight="fill" />
-                  <Text style={styles.notCompletedButtonText}>
-                    Mark as Not Completed
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
+          {/* Auto-completion message */}
+          {!taskData.completed && taskData.subtasks && taskData.subtasks.length > 0 && (
+            <Card variant="gradient" padding="md" style={{ marginBottom: 16, opacity: 0.7 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Icon name="info" size={16} color="#FFFF68" />
+                <Text variant="caption" color="secondary" style={{ flex: 1 }}>
+                  Complete all subtasks to automatically finish this task
+                </Text>
+              </View>
+            </Card>
           )}
         </ScrollView>
       </View>
@@ -754,48 +730,6 @@ const styles = StyleSheet.create({
   },
   goalTitle: {
     flex: 1,
-  },
-  actionButtons: {
-    gap: 12,
-  },
-  completedButtonGradient: {
-    borderRadius: 16,
-    padding: 2,
-  },
-  completedButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 14,
-    gap: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  },
-  completedButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  notCompletedButton: {
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  notCompletedButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 14,
-    gap: 8,
-    backgroundColor: 'transparent',
-  },
-  notCompletedButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   // Subtasks styles
   subtasksCard: {
