@@ -325,6 +325,71 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     savedForm: typeof formData
   ) => {
     try {
+      // First, check if the plan is already ready
+      const { data: goalData, error: goalError } = await supabase
+        .from('goals')
+        .select('*, goal_tasks(*), rewards(*)')
+        .eq('id', goalId)
+        .single();
+
+      if (!goalError && goalData && goalData.status === 'active') {
+        // Plan is already ready! Load it and show preview
+        console.log('✅ Plan already ready, loading data...');
+        
+        const tasks = goalData.goal_tasks || [];
+        const rewards = goalData.rewards || [];
+        
+        // Generate milestones from existing tasks
+        const milestones = generateMilestonesFromTasks(tasks, savedForm.planDurationDays);
+        
+        const data = {
+          milestones,
+          goalTitle: goalData.title,
+          subcategory: goalData.subcategory || null,
+          marketingDomain: goalData.marketing_domain || null,
+          planOutline: milestones.map((m: any) => ({
+            title: m.title,
+            description: m.description,
+          })),
+        };
+        
+        setPlanData(data);
+        setPlanCategory(goalData.category);
+        setPlanIconName(goalData.icon_name || 'star');
+        setPlanColor(goalData.color || '#FFFF68');
+        setSuccessData({
+          taskCount: tasks.length,
+          rewardCount: rewards.length,
+          iconName: goalData.icon_name || 'star',
+          color: goalData.color || '#FFFF68',
+        });
+        
+        setIsCreatingPlan(false);
+        setShowPlanPreview(true);
+        
+        await persistProgress({
+          state: 'preview',
+          isCreatingPlan: false,
+          showPlanPreview: true,
+          planData: data,
+          createdGoalId: goalId,
+          formData: savedForm,
+          loadingStep: 40,
+          planCategory: goalData.category,
+          planIconName: goalData.icon_name,
+          planColor: goalData.color,
+          successData: {
+            taskCount: tasks.length,
+            rewardCount: rewards.length,
+            iconName: goalData.icon_name || 'star',
+            color: goalData.color || '#FFFF68',
+          },
+        });
+        
+        return;
+      }
+      
+      // If plan is not ready yet, continue with generation polling
       setIsCreatingPlan(true);
       // Recreate the interval progression
       const interval = setInterval(() => {
@@ -861,6 +926,54 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     description: string;
     tasks: number;
   };
+
+  const generateMilestonesFromTasks = (tasks: any[], planDurationDays: number): any[] => {
+    // Generate milestones from existing tasks by grouping them into weeks
+    const totalWeeks = Math.ceil(planDurationDays / 7);
+    const weeks: Record<number, any> = {};
+    
+    // Group tasks by week
+    tasks.forEach((task: any) => {
+      const taskDate = new Date(task.run_at);
+      const dayNumber = Math.floor((taskDate.getTime() - new Date(tasks[0]?.run_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const weekNumber = Math.ceil(dayNumber / 7);
+      
+      if (!weeks[weekNumber]) {
+        weeks[weekNumber] = {
+          week: weekNumber,
+          title: weekNumber === 1 ? 'Foundation & Setup' : 
+                 weekNumber === 2 ? 'Skill Development' : 
+                 'Mastery & Transformation',
+          description: weekNumber === 1 ? 'Establishing core habits and building momentum for your journey.' :
+                       weekNumber === 2 ? 'Advancing your skills and deepening your commitment to the goal.' :
+                       'Achieving mastery and preparing for long-term success.',
+          tasks: 0,
+        };
+      }
+      weeks[weekNumber].tasks++;
+    });
+    
+    // Convert to array and ensure we have at least 3 milestones
+    const milestonesArray = Object.values(weeks);
+    
+    // If we have fewer than 3 milestones, add placeholder ones
+    while (milestonesArray.length < 3) {
+      const nextWeek = milestonesArray.length + 1;
+      milestonesArray.push({
+        week: nextWeek,
+        title: nextWeek === 1 ? 'Foundation & Setup' : 
+               nextWeek === 2 ? 'Skill Development' : 
+               'Mastery & Transformation',
+        description: nextWeek === 1 ? 'Establishing core habits and building momentum for your journey.' :
+                     nextWeek === 2 ? 'Advancing your skills and deepening your commitment to the goal.' :
+                     'Achieving mastery and preparing for long-term success.',
+        tasks: 0,
+      });
+    }
+    
+    return milestonesArray.slice(0, 3); // Return max 3 milestones for preview
+  };
+
   const generateMilestonesFromPlan = (planData: any): Milestone[] => {
     // Extract milestones from the plan data
     const milestones: Milestone[] = [];

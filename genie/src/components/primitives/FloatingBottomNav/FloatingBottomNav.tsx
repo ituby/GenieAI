@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, Animated, Text, Easing } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, Dimensions, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Icon } from '../Icon';
@@ -21,28 +21,6 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
   activeTab = 'home',
 }) => {
   const theme = useTheme();
-  const slideAnimation = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const getTabIndex = (tab: string) => {
-      switch (tab) {
-        case 'home': return 0;
-        case 'plans': return 1;
-        case 'goals': return 2;
-        case 'create': return 3;
-        default: return 0;
-      }
-    };
-
-    const targetPosition = getTabIndex(activeTab);
-    
-    Animated.spring(slideAnimation, {
-      toValue: targetPosition,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 10,
-    }).start();
-  }, [activeTab, slideAnimation]);
 
   const navItems = [
     {
@@ -76,45 +54,28 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
       {/* Outer gradient border wrapper */}
       <LinearGradient
         colors={[
-          'rgba(255, 255, 255, 0.2)',
+          'rgba(255, 255, 255, 0.12)',
           'rgba(255, 255, 255, 0.1)',
-          'rgba(255, 255, 255, 0)',
-          'rgba(255, 255, 255, 0)',
-          'rgba(255, 255, 255, 0)',
+          'rgba(255, 255, 255, 0.07)',
+          'rgba(255, 255, 255, 0.05)',
+          'rgba(255, 255, 255, 0.05)',
+          'rgba(255, 255, 255, 0.07)',
           'rgba(255, 255, 255, 0.1)',
-          'rgba(255, 255, 255, 0.2)',
+          'rgba(255, 255, 255, 0.12)',
         ]}
         start={{ x: 0, y: 1 }}
         end={{ x: 1, y: 0 }}
-        locations={[0, 0.05, 0.15, 0.5, 0.85, 0.95, 1]}
+        locations={[0, 0.15, 0.25, 0.35, 0.65, 0.75, 0.85, 1]}
         style={styles.gradientBorderWrapper}
       >
         <View style={styles.navBarWrapper}>
           <BlurView intensity={60} tint="dark" style={styles.navBar}>
             {navItems.map((item, index) => (
             <View key={item.id} style={styles.navItemContainer}>
-              {/* Animated background indicator for this item */}
-              <Animated.View
-                style={[
-                  styles.activeIndicator,
-                  {
-                    opacity: slideAnimation.interpolate({
-                      inputRange: [index - 0.8, index - 0.3, index, index + 0.3, index + 0.8],
-                      outputRange: [0, 0.3, 1, 0.3, 0],
-                      extrapolate: 'clamp',
-                    }),
-                    transform: [
-                      {
-                        scale: slideAnimation.interpolate({
-                          inputRange: [index - 0.5, index, index + 0.5],
-                          outputRange: [0.7, 1, 0.7],
-                          extrapolate: 'clamp',
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              />
+              {/* Background indicator - only show for active item */}
+              {activeTab === item.id && (
+                <View style={styles.activeIndicator} />
+              )}
               
               <TouchableOpacity
                 onPress={item.onPress}
@@ -182,7 +143,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 48,
   },
   navItemContainer: {
@@ -207,7 +168,7 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: 'absolute',
-    top: -2,
+    top: -3,
     left: '50%',
     marginLeft: -20,
     width: 40,
