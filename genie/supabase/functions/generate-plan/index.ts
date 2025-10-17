@@ -132,6 +132,9 @@ function computeRunAtDeviceAware(
   preferredDays: number[] | undefined
 ): { runAt: string; startDecision: 'today' | 'tomorrow' } {
   const deviceNow = new Date(deviceNowIso);
+  console.log(`[TIMING] Input - Day: ${dayNumber}, TimeOfDay: ${timeOfDay}, DeviceNow: ${deviceNowIso}, Timezone: ${deviceTimezone}`);
+  console.log(`[TIMING] Device time: ${deviceNow.toISOString()}, Local: ${deviceNow.toLocaleString()}`);
+  
   const timeSlots: Record<string, number> = { morning: 8, mid_morning: 10, afternoon: 14, evening: 20 };
   
   let targetHour = 8;
@@ -170,8 +173,11 @@ function computeRunAtDeviceAware(
     const timeLeftToday = (23 * 60) - currentTime; // Minutes left until 23:00
     const requiredTime = 30; // Minimum 30 minutes per task
     
+    console.log(`[TIMING] Day 1 - Current: ${currentHour}:${currentMinute.toString().padStart(2, '0')}, Target: ${targetHour}:00, Time left: ${timeLeftToday}min`);
+    
     // If it's too late in the day or not enough time left, start tomorrow
     if (currentTime >= targetTime || timeLeftToday < requiredTime) {
+      console.log(`[TIMING] Day 1 - Too late or not enough time, starting tomorrow`);
       startDecision = 'tomorrow';
       finalLocalTime = new Date(deviceNow);
       finalLocalTime.setDate(finalLocalTime.getDate() + 1);
@@ -179,19 +185,25 @@ function computeRunAtDeviceAware(
     } else {
       // We have time today, but check if the target time has passed
       if (targetDate <= deviceNow) {
+        console.log(`[TIMING] Day 1 - Target time has passed, finding next slot`);
         // Target time has passed, find next available slot
         const nextSlot = new Date(deviceNow);
         nextSlot.setMinutes(nextSlot.getMinutes() + 15);
         
         // If next slot is too late (after 23:00), start tomorrow
         if (nextSlot.getHours() >= 23) {
+          console.log(`[TIMING] Day 1 - Next slot too late, starting tomorrow`);
           startDecision = 'tomorrow';
           finalLocalTime = new Date(deviceNow);
           finalLocalTime.setDate(finalLocalTime.getDate() + 1);
           finalLocalTime.setHours(targetHour, 0, 0, 0);
         } else {
+          console.log(`[TIMING] Day 1 - Using next available slot: ${nextSlot.toISOString()}`);
           finalLocalTime = nextSlot;
         }
+      } else {
+        console.log(`[TIMING] Day 1 - Using target time: ${targetDate.toISOString()}`);
+        finalLocalTime = targetDate;
       }
     }
   } else if (dayNumber === 2) {
@@ -204,6 +216,17 @@ function computeRunAtDeviceAware(
   // Clamp to 07:00-23:00
   const clampedHour = Math.max(7, Math.min(23, finalLocalTime.getHours()));
   finalLocalTime.setHours(clampedHour, finalLocalTime.getMinutes(), 0, 0);
+
+  // Final safety check - ensure we're not scheduling in the past
+  if (finalLocalTime <= deviceNow) {
+    console.log(`[TIMING] WARNING - Scheduled time is in the past! Moving to tomorrow.`);
+    startDecision = 'tomorrow';
+    finalLocalTime = new Date(deviceNow);
+    finalLocalTime.setDate(finalLocalTime.getDate() + 1);
+    finalLocalTime.setHours(targetHour, 0, 0, 0);
+  }
+  
+  console.log(`[TIMING] Final result - Local: ${finalLocalTime.toISOString()}, Decision: ${startDecision}`);
 
   return {
     runAt: finalLocalTime.toISOString(),
@@ -243,6 +266,10 @@ async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): P
       
       // For non-retryable errors, throw immediately
       if (response.status >= 400 && response.status < 500 && response.status !== 429 && response.status !== 529) {
+        // Special handling for credit balance errors
+        if (errorDetails.includes('credit balance') || errorDetails.includes('too low')) {
+          throw new Error(`CREDIT_BALANCE_TOO_LOW: ${errorDetails}`);
+        }
         throw new Error(`API error ${response.status}${errorDetails}`);
       }
       
@@ -450,8 +477,30 @@ Intensity: ${intensity}`;
 
     let planData;
     try {
-      planData = JSON.parse(cleanedText);
-      console.log(`[AI] Successfully parsed JSON with ${planData.days?.length || 0} days`);
+      // Try to fix common JSON issues
+      let fixedText = cleanedText;
+      
+      // Remove any trailing commas before closing braces/brackets
+      fixedText = fixedText.replace(/,(\s*[}\]])/g, '$1');
+      
+      // Try to find and fix incomplete JSON
+      const lastBrace = fixedText.lastIndexOf('}');
+      const lastBracket = fixedText.lastIndexOf(']');
+      const lastComplete = Math.max(lastBrace, lastBracket);
+      
+      if (lastComplete > 0 && lastComplete < fixedText.length - 10) {
+        // Try to complete the JSON
+        const truncated = fixedText.substring(0, lastComplete + 1);
+        try {
+          planData = JSON.parse(truncated);
+          console.log(`[AI] Successfully parsed truncated JSON with ${planData.days?.length || 0} days`);
+        } catch (truncatedError) {
+          throw parseError; // Fall back to original error
+        }
+      } else {
+        planData = JSON.parse(fixedText);
+        console.log(`[AI] Successfully parsed JSON with ${planData.days?.length || 0} days`);
+      }
     } catch (parseError) {
       console.warn('[AI] JSON parse failed, using template fallback');
       console.error('[AI] Parse error:', parseError);
@@ -635,6 +684,22 @@ async function insertTasks(
   goalId: string,
   tasks: TaskTemplate[]
 ): Promise<any[]> {
+  // First, check if tasks already exist for this goal
+  const { data: existingTasks, error: checkError } = await supabase
+    .from('goal_tasks')
+    .select('id, title, day_offset, time_of_day')
+    .eq('goal_id', goalId);
+
+  if (checkError) {
+    console.error('❌ Failed to check existing tasks:', checkError);
+    throw checkError;
+  }
+
+  if (existingTasks && existingTasks.length > 0) {
+    console.log(`⚠️ Tasks already exist for goal ${goalId}, skipping insertion`);
+    return existingTasks;
+  }
+
   const tasksToInsert = tasks.map(task => ({
     goal_id: goalId,
     title: task.title,
@@ -709,6 +774,29 @@ serve(async (req) => {
       device_now_iso,
       device_timezone
     } = body;
+
+    // Check for duplicate requests (prevent multiple task generation calls)
+    if (stage === 'tasks' && goal_id) {
+      const { data: existingTasks, error: checkError } = await supabase
+        .from('goal_tasks')
+        .select('id')
+        .eq('goal_id', goal_id)
+        .limit(1);
+
+      if (checkError) {
+        console.error(`[${requestId}] Error checking existing tasks:`, checkError);
+      } else if (existingTasks && existingTasks.length > 0) {
+        console.log(`[${requestId}] Tasks already exist for goal ${goal_id}, skipping generation`);
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Tasks already exist',
+          request_id: requestId
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
 
     // Validate
     if (!user_id || !goal_id || !category || !title || !description) {

@@ -1151,6 +1151,46 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const handleApprovePlan = async () => {
     setShowPlanPreview(false);
     
+    // Check if goal is already active (prevent duplicate requests)
+    if (createdGoalId) {
+      const { data: goalData } = await supabase
+        .from('goals')
+        .select('status')
+        .eq('id', createdGoalId)
+        .single();
+      
+      if (goalData?.status === 'active') {
+        console.log('⚠️ Goal is already active, skipping task generation');
+        // Just close the screen and return to dashboard
+        if (onGoalCreated) {
+          onGoalCreated();
+        }
+        await clearProgress();
+        return;
+      }
+    }
+    
+    // Activate the goal FIRST before closing the screen
+    // This ensures the goal shows as loading in dashboard
+    if (createdGoalId) {
+      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+      const finalCategory = formData.category;
+      const finalIcon = planIconName || selectedCategoryConfig?.icon || 'star';
+      const finalColor = planColor || selectedCategoryConfig?.color || '#FFFF68';
+      
+      await supabase
+        .from('goals')
+        .update({
+          status: 'active',
+          category: finalCategory,
+          icon_name: finalIcon,
+          color: finalColor,
+        })
+        .eq('id', createdGoalId);
+      
+      console.log('✅ Goal activated - tasks will be generated in background');
+    }
+    
     // Close the NewGoal screen and return to dashboard
     // The goal will show as loading in dashboard until tasks are ready
     if (onGoalCreated) {
@@ -1188,27 +1228,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         },
       });
       
-      // Activate the goal immediately after approval
-      // Goal will show as loading in dashboard until tasks are ready
-      if (createdGoalId) {
-        const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
-        const finalCategory = formData.category;
-        const finalIcon = planIconName || selectedCategoryConfig?.icon || 'star';
-        const finalColor = planColor || selectedCategoryConfig?.color || '#FFFF68';
-        
-        await supabase
-          .from('goals')
-          .update({
-            status: 'active',
-            category: finalCategory,
-            icon_name: finalIcon,
-            color: finalColor,
-          })
-          .eq('id', createdGoalId);
-        
-        console.log('✅ Goal activated - tasks will be generated in background');
-      }
-      
       // Log the task generation request (no need to wait for completion)
       if (tasksResponse.error) {
         console.error('❌ Tasks generation error:', tasksResponse.error);
@@ -1218,14 +1237,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       
     } catch (error) {
       console.error('❌ Error in Stage 2:', error);
-      
-      // Even if task generation fails, activate the goal so user can see it
-      if (createdGoalId) {
-        await supabase
-          .from('goals')
-          .update({ status: 'active' })
-          .eq('id', createdGoalId);
-      }
+      // Goal is already activated above, so no need to activate again
     }
   };
 
