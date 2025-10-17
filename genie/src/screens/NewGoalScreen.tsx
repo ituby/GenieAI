@@ -1624,25 +1624,31 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             {currentStep === 1 && (
               <View style={styles.stepContent}>
                 <Card style={styles.stepCard}>
-                  <View style={styles.stepNumberCircle}>
-                    <Text
-                      variant="body"
-                      color="primary"
-                      style={styles.stepNumberText}
-                    >
-                      1
-                    </Text>
-                  </View>
                   <View style={styles.stepCardContent}>
-                    <Text variant="h3" color="primary" style={styles.stepTitle}>
-                      What's your goal?
-                    </Text>
+                    <View style={styles.stepHeader}>
+                      <Text
+                        variant="h3"
+                        color="primary"
+                        style={styles.stepTitle}
+                      >
+                        What's your goal?
+                      </Text>
+                      <View style={styles.stepNumberCircle}>
+                        <Text
+                          variant="body"
+                          color="primary"
+                          style={styles.stepNumberText}
+                        >
+                          1
+                        </Text>
+                      </View>
+                    </View>
                     <Text
                       variant="caption"
                       color="secondary"
                       style={styles.stepDescription}
                     >
-                      Tell me what you want to achieve and I'll create a
+                      Tell me what you want to achieve and I'll{'\n'}create a
                       personalized plan for you.
                     </Text>
                   </View>
@@ -1729,27 +1735,33 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             {currentStep === 2 && (
               <View style={styles.stepContent}>
                 <Card style={styles.stepCard}>
-                  <View style={styles.stepNumberCircle}>
-                    <Text
-                      variant="body"
-                      color="primary"
-                      style={styles.stepNumberText}
-                    >
-                      2
-                    </Text>
-                  </View>
                   <View style={styles.stepCardContent}>
-                    <Text variant="h3" color="primary" style={styles.stepTitle}>
-                      Share with developers
-                    </Text>
+                    <View style={styles.stepHeader}>
+                      <Text
+                        variant="h3"
+                        color="primary"
+                        style={styles.stepTitle}
+                      >
+                        Share with developers
+                      </Text>
+                      <View style={styles.stepNumberCircle}>
+                        <Text
+                          variant="body"
+                          color="primary"
+                          style={styles.stepNumberText}
+                        >
+                          2
+                        </Text>
+                      </View>
+                    </View>
                     <Text
                       variant="caption"
                       color="secondary"
                       style={styles.stepDescription}
                     >
-                      Help us improve and promote Genie. Published goals earn
-                      points and unlock rewards & perks. Private goals do not
-                      participate in points and rewards.
+                      Help us improve and promote Genie. Published goals{'\n'}
+                      earn points and unlock rewards & perks. Private{'\n'}goals
+                      do not participate in points and rewards.
                     </Text>
                   </View>
                 </Card>
@@ -2783,13 +2795,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepTitle: {
-    textAlign: 'center',
-    marginBottom: 8,
+    textAlign: 'left',
+    flex: 1,
   },
   stepDescription: {
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 20,
+    textAlign: 'left',
+    lineHeight: 22,
+    maxWidth: '100%',
   },
   // Navigation buttons styles
   navigationButtons: {
@@ -2904,30 +2916,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     marginBottom: 24,
-    position: 'relative',
+  },
+  stepCardContent: {
+    flex: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
   },
   stepNumberCircle: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
     width: 24,
     height: 24,
     borderRadius: 12,
     backgroundColor: '#FFFF68',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
+    marginLeft: 8,
   },
   stepNumberText: {
     color: '#000000',
     fontWeight: '700',
     fontSize: 12,
-  },
-  stepCardContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 20,
   },
   // Create Button Styles (for Send to Genie)
   createButton: {
