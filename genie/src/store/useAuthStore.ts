@@ -18,6 +18,8 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
+  verifyOtp: (phone: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -98,6 +100,128 @@ export const useAuthStore = create<AuthState>()(
             loading: false,
           });
         } catch (error) {
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      sendOtpToUserPhone: async (email: string, password: string) => {
+        set({ loading: true });
+        try {
+          console.log('📱 Sending OTP to user phone for:', email);
+
+          // Call our Edge Function to validate credentials and send OTP
+          const response = await supabase.functions.invoke('send-otp-sms', {
+            body: { email, password },
+          });
+
+          console.log(
+            '📱 Function response:',
+            JSON.stringify(response, null, 2)
+          );
+
+          if (response.error) {
+            console.error('❌ Send OTP error:', response.error);
+
+            // Try to get more details from the response
+            if (response.error.context?._bodyInit) {
+              try {
+                const bodyText = await new Response(
+                  response.error.context._bodyBlob
+                ).text();
+                console.error('❌ Response body:', bodyText);
+                const bodyJson = JSON.parse(bodyText);
+                throw new Error(bodyJson.error || 'Failed to send OTP');
+              } catch (parseError) {
+                console.error('❌ Could not parse error body:', parseError);
+              }
+            }
+
+            throw new Error(response.error.message || 'Failed to send OTP');
+          }
+
+          const data = response.data;
+
+          if (data?.error) {
+            console.error('❌ Function returned error:', data.error);
+            throw new Error(data.error);
+          }
+
+          if (!data?.phone) {
+            console.error('❌ No phone in response:', data);
+            throw new Error('Phone number not found in system');
+          }
+
+          console.log('✅ OTP sent successfully to:', data.phone);
+          set({ loading: false });
+
+          return data.phone;
+        } catch (error: any) {
+          console.error('❌ Send OTP error:', error);
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      verifyOtp: async (phone: string, token: string) => {
+        set({ loading: true });
+        try {
+          console.log('📱 Verifying OTP for:', phone);
+          console.log('📱 Phone type:', typeof phone, 'length:', phone?.length);
+          console.log('📱 Token:', token);
+          console.log('📱 Token type:', typeof token, 'length:', token?.length);
+          console.log('📱 Token as string:', String(token));
+
+          const response = await supabase.functions.invoke('verify-otp', {
+            body: { phone, otp: token },
+          });
+
+          console.log('📱 Response status:', response.error?.context?.status);
+          console.log('📱 Full response:', JSON.stringify(response, null, 2));
+
+          if (response.error) {
+            console.error('❌ Verify OTP error:', response.error);
+
+            // Try to extract the actual error message from the response
+            if (response.error.context?._bodyBlob) {
+              try {
+                const bodyText = await new Response(
+                  response.error.context._bodyBlob
+                ).text();
+                console.error('❌ Error body text:', bodyText);
+                try {
+                  const bodyJson = JSON.parse(bodyText);
+                  console.error('❌ Error details:', bodyJson);
+                  throw new Error(
+                    bodyJson.error || bodyJson.message || 'Failed to verify OTP'
+                  );
+                } catch (parseErr) {
+                  throw new Error(bodyText || 'Failed to verify OTP');
+                }
+              } catch (readErr) {
+                console.error('❌ Could not read error body');
+              }
+            }
+
+            throw new Error(response.error.message || 'Failed to verify OTP');
+          }
+
+          const data = response.data;
+
+          if (data?.error) {
+            console.error('❌ Function returned error:', data.error);
+            throw new Error(data.error);
+          }
+
+          if (!data?.success) {
+            console.error('❌ Verification failed, data:', data);
+            throw new Error('OTP verification failed');
+          }
+
+          console.log('✅ OTP verified successfully for user:', data.userId);
+          set({ loading: false });
+        } catch (error: any) {
+          console.error('❌ Verify OTP caught error:', error);
           set({ loading: false });
           throw error;
         }

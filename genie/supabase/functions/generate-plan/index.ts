@@ -529,6 +529,7 @@ IMPORTANT: You must create ${Math.ceil(planDurationDays / 7)} weeks total - one 
 FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE PLAN OUTLINE BASED ON THE GOAL AND USER PREFERENCES.`;
 
   try {
+    console.log('[AI] Sending outline generation request to Claude...');
     const response = await fetchWithRetry(
       'https://api.anthropic.com/v1/messages',
       {
@@ -548,8 +549,28 @@ FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE PLAN OUTLINE BASED ON TH
       }
     );
 
+    console.log(`[AI] Received response, status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[AI] Claude API error response:', errorText);
+      throw new Error(`Claude API returned ${response.status}: ${errorText}`);
+    }
+
     const data = await response.json();
+    console.log(`[AI] Response parsed, has content: ${!!data.content}`);
+
     const text = data.content?.[0]?.text || '';
+
+    if (!text) {
+      console.error(
+        '[AI] Empty response from Claude:',
+        JSON.stringify(data).substring(0, 500)
+      );
+      throw new Error('Empty response from Claude API');
+    }
+
+    console.log(`[AI] Outline response: ${text.length} characters`);
     const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
 
     console.log(`[AI] Outline raw response: ${text.substring(0, 500)}...`);

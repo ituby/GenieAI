@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, Text } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+  Text,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Icon } from '../Icon';
@@ -71,47 +77,47 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
         <View style={styles.navBarWrapper}>
           <BlurView intensity={60} tint="dark" style={styles.navBar}>
             {navItems.map((item, index) => (
-            <View key={item.id} style={styles.navItemContainer}>
-              {/* Background indicator - only show for active item */}
-              {activeTab === item.id && (
-                <View style={styles.activeIndicator} />
-              )}
-              
-              <TouchableOpacity
-                onPress={item.onPress}
-                style={styles.navItem}
-                activeOpacity={0.7}
-              >
-                <Icon
-                  name={item.icon}
-                  size={20}
-                  color={
-                    item.id === 'create'
-                      ? '#FFFF68'
-                      : activeTab === item.id
-                      ? '#FFFFFF'
-                      : 'rgba(255, 255, 255, 0.3)'
-                  }
-                  weight={activeTab === item.id ? 'regular' : 'regular'}
-                />
-                {activeTab !== item.id && (
-                  <Text
-                    style={[
-                      styles.navItemLabel,
-                      {
-                        color:
-                          item.id === 'create'
-                            ? '#FFFF68'
-                            : 'rgba(255, 255, 255, 0.3)'
-                      }
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
+              <View key={item.id} style={styles.navItemContainer}>
+                {/* Background indicator - only show for active item */}
+                {activeTab === item.id && (
+                  <View style={styles.activeIndicator} />
                 )}
-              </TouchableOpacity>
-            </View>
-          ))}
+
+                <TouchableOpacity
+                  onPress={item.onPress}
+                  style={styles.navItem}
+                  activeOpacity={0.7}
+                >
+                  <Icon
+                    name={item.icon}
+                    size={20}
+                    color={
+                      item.id === 'create'
+                        ? '#FFFF68'
+                        : activeTab === item.id
+                          ? '#FFFFFF'
+                          : 'rgba(255, 255, 255, 0.3)'
+                    }
+                    weight={activeTab === item.id ? 'regular' : 'regular'}
+                  />
+                  {activeTab !== item.id && (
+                    <Text
+                      style={[
+                        styles.navItemLabel,
+                        {
+                          color:
+                            item.id === 'create'
+                              ? '#FFFF68'
+                              : 'rgba(255, 255, 255, 0.3)',
+                        },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ))}
           </BlurView>
         </View>
       </LinearGradient>
@@ -124,7 +130,7 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 30, // Increased bottom padding
     left: 40,
     right: 40,
     zIndex: 1000,
@@ -142,7 +148,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12, // Reduced horizontal padding
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 48,
   },

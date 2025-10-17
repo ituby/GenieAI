@@ -19,7 +19,12 @@ import { colors } from '../theme/colors';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import Svg from 'react-native-svg';
-import { Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import {
+  Rect,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+} from 'react-native-svg';
 import { Text, Card, Icon, Badge, FloatingBottomNav } from '../components';
 import { dataLoadingService } from '../services/dataLoadingService';
 import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
@@ -71,8 +76,14 @@ const STAT_CARD_SIZE = Math.floor(
 export const DashboardScreen: React.FC = () => {
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
-  const { activeGoals, loading, fetchGoals, updateGoal, deleteGoal, refreshGoal } =
-    useGoalStore();
+  const {
+    activeGoals,
+    loading,
+    fetchGoals,
+    updateGoal,
+    deleteGoal,
+    refreshGoal,
+  } = useGoalStore();
   const { unreadCount, refreshCount } = useNotificationCount();
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
   const [showNewGoal, setShowNewGoal] = React.useState(false);
@@ -129,7 +140,8 @@ export const DashboardScreen: React.FC = () => {
   };
   const [showGoalMenu, setShowGoalMenu] = React.useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
-  const [deleteConfirmationText, setDeleteConfirmationText] = React.useState('');
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    React.useState('');
   const [goalToDelete, setGoalToDelete] = React.useState<string | null>(null);
   const [todaysTasksCount, setTodaysTasksCount] = React.useState<number>(0);
   const [todaysTasks, setTodaysTasks] = React.useState<TaskWithGoal[]>([]);
@@ -166,19 +178,19 @@ export const DashboardScreen: React.FC = () => {
       if (user?.id) {
         // First try to use pre-loaded data from splash screen
         const preloadedData = dataLoadingService.getCachedData();
-        
+
         if (preloadedData) {
           console.log('📊 Using pre-loaded data from splash screen');
-          
+
           // Update all stores with pre-loaded data
-          const { 
-            goals, 
-            activeGoals, 
-            todaysTasks, 
-            todaysTasksCount, 
-            totalPoints, 
-            recentRewards, 
-            userTokens 
+          const {
+            goals,
+            activeGoals,
+            todaysTasks,
+            todaysTasksCount,
+            totalPoints,
+            recentRewards,
+            userTokens,
           }: {
             goals: any[];
             activeGoals: any[];
@@ -194,22 +206,22 @@ export const DashboardScreen: React.FC = () => {
               monthlyTokens: number;
             };
           } = preloadedData;
-          
+
           // Update goal store
           useGoalStore.setState({
             goals,
             activeGoals,
             loading: false,
-            error: null
+            error: null,
           });
-          
+
           // Update local state
           setTodaysTasks(todaysTasks);
           setTodaysTasksCount(todaysTasksCount);
           setTotalPoints(totalPoints);
           setRecentRewards(recentRewards);
           setUserTokens(userTokens);
-          
+
           console.log('✅ Dashboard initialized with pre-loaded data');
         } else {
           console.log('📊 No pre-loaded data found, loading fresh data');
@@ -237,7 +249,10 @@ export const DashboardScreen: React.FC = () => {
               .limit(1);
 
             if (!error && pendingGoals && pendingGoals.length > 0) {
-              console.log('📋 Found pending goal waiting for approval:', pendingGoals[0].id);
+              console.log(
+                '📋 Found pending goal waiting for approval:',
+                pendingGoals[0].id
+              );
               // Auto-open NewGoalScreen to show approval modal
               // NewGoalScreen will handle the restoration, not Dashboard
               setShowNewGoal(true);
@@ -248,7 +263,11 @@ export const DashboardScreen: React.FC = () => {
             const raw = await AsyncStorage.getItem(PROGRESS_KEY);
             if (!raw) return;
             const saved = JSON.parse(raw);
-            if (saved && saved.userId === user.id && saved.state !== 'creating') {
+            if (
+              saved &&
+              saved.userId === user.id &&
+              saved.state !== 'creating'
+            ) {
               // Only auto-open for preview/success states, not creating
               // (creating state is handled by NewGoalScreen's restoreProgress)
               setShowNewGoal(true);
@@ -268,20 +287,22 @@ export const DashboardScreen: React.FC = () => {
     if (!user?.id) return;
 
     const checkForLoadingGoals = async () => {
-      const loadingGoals = activeGoals.filter(goal => 
-        goal.status === 'active' && goal.total_tasks === 0
+      const loadingGoals = activeGoals.filter(
+        (goal) => goal.status === 'active' && goal.total_tasks === 0
       );
-      
+
       if (loadingGoals.length > 0) {
-        console.log(`🔄 Found ${loadingGoals.length} loading goals, refreshing...`);
-        
+        console.log(
+          `🔄 Found ${loadingGoals.length} loading goals, refreshing...`
+        );
+
         // Refresh each loading goal
         for (const goal of loadingGoals) {
           await refreshGoal(goal.id);
         }
-        
+
         // Also refresh today's tasks to show new tasks
-        console.log('🔄 Refreshing today\'s tasks after goal update');
+        console.log("🔄 Refreshing today's tasks after goal update");
         fetchTodaysTasks();
       }
     };
@@ -299,7 +320,7 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     if (showRefreshLoader) {
       refreshBreathingAnimation.setValue(1);
-      
+
       const breathing = Animated.loop(
         Animated.sequence([
           Animated.timing(refreshBreathingAnimation, {
@@ -326,7 +347,7 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     // Set initial value to 1
     headerLogoBreathingAnimation.setValue(1);
-    
+
     const headerLogoBreathing = Animated.loop(
       Animated.sequence([
         Animated.timing(headerLogoBreathingAnimation, {
@@ -550,21 +571,21 @@ export const DashboardScreen: React.FC = () => {
         const timeA = new Date(a.run_at).getTime();
         const timeB = new Date(b.run_at).getTime();
         const nowTime = now.getTime();
-        
+
         // If both tasks are in the past, sort by time (closest first)
         if (timeA <= nowTime && timeB <= nowTime) {
           return timeB - timeA; // Closest past time first
         }
-        
+
         // If both tasks are in the future, sort by time (closest first)
         if (timeA > nowTime && timeB > nowTime) {
           return timeA - timeB; // Closest future time first
         }
-        
+
         // If one is past and one is future, past tasks come first
         if (timeA <= nowTime) return -1;
         if (timeB <= nowTime) return 1;
-        
+
         return 0;
       });
 
@@ -580,12 +601,10 @@ export const DashboardScreen: React.FC = () => {
 
   // Function to check if a goal has any tasks that have reached their time
   const hasGoalTasksTimeReached = (goalId: string) => {
-    return todaysTasks.some(task => {
+    return todaysTasks.some((task) => {
       const now = new Date();
       const taskTime = new Date(task.run_at);
-      return task.goal_id === goalId && 
-             now >= taskTime && 
-             !task.completed;
+      return task.goal_id === goalId && now >= taskTime && !task.completed;
     });
   };
 
@@ -661,18 +680,18 @@ export const DashboardScreen: React.FC = () => {
 
   const confirmDeleteGoal = async () => {
     const trimmedText = deleteConfirmationText.toLowerCase().trim();
-    
-    if (trimmedText !== "delete it") {
+
+    if (trimmedText !== 'delete it') {
       return;
     }
-    
+
     if (!goalToDelete) {
       return;
     }
-    
+
     setShowDeleteModal(false);
     setDeleteConfirmationText('');
-    
+
     try {
       await deleteGoal(goalToDelete);
       if (user?.id) {
@@ -890,10 +909,7 @@ export const DashboardScreen: React.FC = () => {
     >
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
-        <BlurView
-          intensity={20}
-          style={StyleSheet.absoluteFillObject}
-        />
+        <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <View style={styles.notificationIconContainer}>
@@ -983,20 +999,21 @@ export const DashboardScreen: React.FC = () => {
         {/* Content Header */}
         <View style={styles.contentHeader}>
           {/* Dashboard Slogan Card */}
-          <Card variant="gradient" padding="md" style={styles.dashboardSloganCard}>
+          <Card
+            variant="gradient"
+            padding="md"
+            style={styles.dashboardSloganCard}
+          >
             <View style={styles.dashboardSloganHeader}>
               <Text variant="h4" style={styles.dashboardSloganText}>
                 What's your wish?
               </Text>
-              <Icon
-                name="sparkle"
-                size={20}
-                color="#FFFF68"
-                weight="fill"
-              />
+              <Icon name="sparkle" size={20} color="#FFFF68" weight="fill" />
             </View>
             <Text variant="body" style={styles.dashboardSloganSubtext}>
-              Tell me what you want to learn, achieve, change, or build. I'll create a personalized plan with daily tasks, rewards, and smart notifications to help you crush it.
+              Tell me what you want to learn, achieve, change, or build. I'll
+              create a personalized plan with daily tasks, rewards, and smart
+              notifications to help you crush it.
             </Text>
           </Card>
 
@@ -1089,7 +1106,8 @@ export const DashboardScreen: React.FC = () => {
                   color="tertiary"
                   style={styles.usageRateProgressText}
                 >
-                  {userTokens.used} of {userTokens.used + userTokens.remaining} total tokens used
+                  {userTokens.used} of {userTokens.used + userTokens.remaining}{' '}
+                  total tokens used
                 </Text>
               </View>
               {!userTokens.isSubscribed && (
@@ -1131,15 +1149,19 @@ export const DashboardScreen: React.FC = () => {
                 activeOpacity={0.8}
                 style={[
                   styles.addGoalButton,
-                  userTokens.remaining <= 0 && userTokens.isSubscribed && styles.addGoalButtonDisabled
+                  userTokens.remaining <= 0 &&
+                    userTokens.isSubscribed &&
+                    styles.addGoalButtonDisabled,
                 ]}
               >
                 <View style={styles.addGoalButtonContent}>
                   <Text
                     style={[
                       styles.addGoalButtonText,
-                      userTokens.remaining <= 0 && !userTokens.isSubscribed && { color: '#FFFFFF' },
-                      userTokens.remaining <= 0 && userTokens.isSubscribed && { opacity: 0.5 },
+                      userTokens.remaining <= 0 &&
+                        !userTokens.isSubscribed && { color: '#FFFFFF' },
+                      userTokens.remaining <= 0 &&
+                        userTokens.isSubscribed && { opacity: 0.5 },
                     ]}
                   >
                     {userTokens.remaining <= 0 && !userTokens.isSubscribed
@@ -1147,14 +1169,18 @@ export const DashboardScreen: React.FC = () => {
                       : 'Talk with Genie'}
                   </Text>
                   <Icon
-                    name={userTokens.remaining <= 0 && !userTokens.isSubscribed ? 'crown' : 'sparkle'}
+                    name={
+                      userTokens.remaining <= 0 && !userTokens.isSubscribed
+                        ? 'crown'
+                        : 'sparkle'
+                    }
                     size={16}
                     color={
                       userTokens.remaining <= 0 && !userTokens.isSubscribed
                         ? '#FFFFFF'
                         : userTokens.remaining <= 0 && userTokens.isSubscribed
-                        ? 'rgba(255, 255, 104, 0.5)'
-                        : '#FFFF68'
+                          ? 'rgba(255, 255, 104, 0.5)'
+                          : '#FFFF68'
                     }
                     weight="fill"
                   />
@@ -1295,7 +1321,9 @@ export const DashboardScreen: React.FC = () => {
                   color="secondary"
                   style={styles.createGoalDescription}
                 >
-                  Tell me what you want to learn, achieve, change, or build. I'll create a personalized plan with daily tasks, rewards, and smart notifications to help you crush it.
+                  Tell me what you want to learn, achieve, change, or build.
+                  I'll create a personalized plan with daily tasks, rewards, and
+                  smart notifications to help you crush it.
                 </Text>
 
                 <Animated.View
@@ -1350,14 +1378,13 @@ export const DashboardScreen: React.FC = () => {
         {/* Active Goals Section - Only show if there are goals */}
         {activeGoals.length > 0 && (
           <View style={styles.section}>
-            <Card variant="gradient" padding="md" style={styles.activePlansCard}>
+            <Card
+              variant="gradient"
+              padding="md"
+              style={styles.activePlansCard}
+            >
               <View style={styles.sectionHeaderWithIcon}>
-                <Icon
-                  name="target"
-                  size={20}
-                  color="#FFFF68"
-                  weight="fill"
-                />
+                <Icon name="target" size={20} color="#FFFF68" weight="fill" />
                 <Text variant="h4">Active Plans</Text>
               </View>
               <View style={styles.goalsList}>
@@ -1374,7 +1401,6 @@ export const DashboardScreen: React.FC = () => {
             </Card>
           </View>
         )}
-
 
         {/* Today's Tasks Section */}
         <View style={[styles.section, styles.todayTasksSection]}>
@@ -1410,7 +1436,11 @@ export const DashboardScreen: React.FC = () => {
               </Text>
             </Card>
           ) : (
-            <Card variant="gradient" padding="md" style={styles.todayTasksListCard}>
+            <Card
+              variant="gradient"
+              padding="md"
+              style={styles.todayTasksListCard}
+            >
               <View style={styles.sectionHeaderWithIcon}>
                 <Icon
                   name="clipboard-text"
@@ -1503,25 +1533,22 @@ export const DashboardScreen: React.FC = () => {
 
       {/* Side Menu */}
       {showSideMenu && (
-        <Animated.View 
+        <Animated.View
           style={[
             styles.sideMenuOverlay,
             {
               opacity: overlayAnimation,
-            }
+            },
           ]}
         >
-          <BlurView
-            intensity={20}
-            style={StyleSheet.absoluteFillObject}
-          />
+          <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
           <TouchableOpacity
             style={styles.sideMenuOverlayTouchable}
             activeOpacity={1}
             onPress={closeSideMenu}
           />
           <View style={styles.sideMenuShadow} />
-          <Animated.View 
+          <Animated.View
             style={[
               styles.sideMenu,
               {
@@ -1731,7 +1758,7 @@ export const DashboardScreen: React.FC = () => {
 
       {/* My Plans Screen */}
       {showMyPlans && (
-        <MyPlansScreen 
+        <MyPlansScreen
           onBack={() => setShowMyPlans(false)}
           onGoalPress={(goal) => {
             setShowMyPlans(false);
@@ -1751,7 +1778,7 @@ export const DashboardScreen: React.FC = () => {
 
       {/* Daily Goals Screen */}
       {showDailyGoals && (
-        <DailyGoalsScreen 
+        <DailyGoalsScreen
           onBack={() => setShowDailyGoals(false)}
           onTaskPress={(task) => {
             setShowDailyGoals(false);
@@ -2138,10 +2165,19 @@ export const DashboardScreen: React.FC = () => {
                 Delete Goal
               </Text>
             </View>
-            <Text variant="body" color="secondary" style={styles.deleteModalDescription}>
-              This action cannot be undone. All tasks and progress will be permanently deleted.
+            <Text
+              variant="body"
+              color="secondary"
+              style={styles.deleteModalDescription}
+            >
+              This action cannot be undone. All tasks and progress will be
+              permanently deleted.
             </Text>
-            <Text variant="body" color="secondary" style={styles.deleteModalWarning}>
+            <Text
+              variant="body"
+              color="secondary"
+              style={styles.deleteModalWarning}
+            >
               Type "Delete It" to confirm deletion:
             </Text>
             <TextInput
@@ -2168,10 +2204,13 @@ export const DashboardScreen: React.FC = () => {
               <Button
                 variant="primary"
                 onPress={confirmDeleteGoal}
-                disabled={deleteConfirmationText.toLowerCase().trim() !== "delete it"}
+                disabled={
+                  deleteConfirmationText.toLowerCase().trim() !== 'delete it'
+                }
                 style={[
                   styles.deleteModalConfirmButton,
-                  deleteConfirmationText.toLowerCase().trim() !== "delete it" && styles.deleteModalConfirmButtonDisabled
+                  deleteConfirmationText.toLowerCase().trim() !== 'delete it' &&
+                    styles.deleteModalConfirmButtonDisabled,
                 ]}
               >
                 Confirm
@@ -2198,7 +2237,7 @@ export const DashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50, // Top safe area padding
+    paddingTop: 60, // Increased top safe area padding
   },
   scrollView: {
     flex: 1,
@@ -2216,7 +2255,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50, // Safe area padding
+    paddingTop: 60, // Increased safe area padding
     paddingBottom: 10, // Added padding below header
     backgroundColor: 'rgba(0, 0, 0, 0.7)', // Less transparent
     minHeight: 110, // Increased minimum height

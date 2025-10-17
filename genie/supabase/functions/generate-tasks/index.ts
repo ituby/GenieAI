@@ -273,6 +273,7 @@ REQUIREMENTS:
 
 OUTPUT VALID JSON ONLY. Start with { and end with }. No markdown, no explanations.`;
 
+    console.log(`[${requestId}] Sending request to Claude API...`);
     const response = await fetchWithRetry(
       'https://api.anthropic.com/v1/messages',
       {
@@ -292,15 +293,38 @@ OUTPUT VALID JSON ONLY. Start with { and end with }. No markdown, no explanation
       }
     );
 
+    console.log(
+      `[${requestId}] Received response from Claude, status: ${response.status}`
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[${requestId}] Claude API error response:`, errorText);
+      throw new Error(`Claude API returned ${response.status}: ${errorText}`);
+    }
+
     const data = await response.json();
+    console.log(
+      `[${requestId}] Response parsed, has content: ${!!data.content}`
+    );
 
     if (!data.content?.[0]?.text) {
-      console.warn(`[${requestId}] Invalid AI response`);
+      console.error(
+        `[${requestId}] Invalid AI response structure:`,
+        JSON.stringify(data).substring(0, 500)
+      );
+      console.warn(
+        `[${requestId}] Using template fallback due to invalid response`
+      );
       return {
         tasks: generateTemplateTasks(goal),
         usedModel: 'template-fallback',
       };
     }
+
+    console.log(
+      `[${requestId}] AI returned ${data.content[0].text.length} characters`
+    );
 
     const text = data.content[0].text;
 

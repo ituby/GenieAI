@@ -5,6 +5,7 @@ import { Button, TextField, Text, Card } from '../../../components';
 import { useTheme } from '../../../theme/index';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { colors } from '../../../theme/colors';
+import { OtpVerificationScreen } from '../../../screens/OtpVerificationScreen';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -13,7 +14,14 @@ interface AuthFormProps {
 
 export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
   const theme = useTheme();
-  const { signIn, signUp, loading } = useAuthStore();
+  const { signIn, signUp, sendOtpToUserPhone, loading } = useAuthStore();
+
+  const [showOtpScreen, setShowOtpScreen] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pendingAuth, setPendingAuth] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -59,21 +67,72 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
 
     try {
       if (mode === 'login') {
-        await signIn(formData.email, formData.password);
+        // שלב 1: שלח OTP למספר הטלפון השמור בדאטהבייס
+        const phone = await sendOtpToUserPhone(
+          formData.email,
+          formData.password
+        );
+
+        // שמור את פרטי ההתחברות לשימוש אחרי אימות OTP
+        setPendingAuth({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        setPhoneNumber(phone);
+        setShowOtpScreen(true);
       } else {
+        // רישום רגיל - אין עדיין OTP
         await signUp(formData.email, formData.password, formData.fullName);
       }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'An error occurred');
+    }
+  };
+
+  const handleOtpVerified = async () => {
+    // אחרי אימות OTP מוצלח, התחבר עם האימייל והסיסמה
+    if (pendingAuth) {
+      try {
+        await signIn(pendingAuth.email, pendingAuth.password);
+        setShowOtpScreen(false);
+        setPendingAuth(null);
+      } catch (error: any) {
+        Alert.alert('Login Error', error.message);
+        setShowOtpScreen(false);
+        setPendingAuth(null);
+      }
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!pendingAuth) return;
+
+    try {
+      await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
+      Alert.alert('Success', 'A new code has been sent');
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
   };
 
   const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+      setErrors((prev) => ({ ...prev, [field]: '' }));
     }
   };
+
+  // Show OTP verification screen if needed
+  if (showOtpScreen) {
+    return (
+      <OtpVerificationScreen
+        phone={phoneNumber}
+        onVerified={handleOtpVerified}
+        onResend={handleResendOtp}
+      />
+    );
+  }
 
   return (
     <Card variant="elevated" padding="lg" style={styles.container}>
@@ -124,6 +183,12 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
             textContentType="password"
           />
         )}
+
+        {mode === 'login' && (
+          <Text variant="caption" color="tertiary" style={styles.otpHint}>
+            A verification code will be sent to your registered phone number
+          </Text>
+        )}
       </View>
 
       <View style={styles.actions}>
@@ -138,10 +203,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
 
         <View style={styles.toggleContainer}>
           <Text variant="body" color="secondary">
-            {mode === 'login' 
-              ? "Don't have an account?" 
-              : 'Already have an account?'
-            }
+            {mode === 'login'
+              ? "Don't have an account?"
+              : 'Already have an account?'}
           </Text>
           <Button
             variant="ghost"
@@ -177,6 +241,10 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
     marginBottom: 32,
+  },
+  otpHint: {
+    textAlign: 'center',
+    marginTop: -8,
   },
   actions: {
     gap: 16,
