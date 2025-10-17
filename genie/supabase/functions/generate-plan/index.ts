@@ -476,18 +476,29 @@ async function generateDetailedTasksWithAI(
   savedOutline: any
 ): Promise<{ tasks: TaskTemplate[]; usedModel: string }> {
   try {
+    console.log('[AI] Starting generateDetailedTasksWithAI...');
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!apiKey?.length) throw new Error('ANTHROPIC_API_KEY is missing');
+    if (!apiKey?.length) {
+      console.error('[AI] ANTHROPIC_API_KEY is missing!');
+      throw new Error('ANTHROPIC_API_KEY is missing');
+    }
+    console.log('[AI] API Key found, proceeding...');
 
     console.log('[AI] Extracting outline from saved data');
+    console.log('[AI] Saved outline keys:', Object.keys(savedOutline));
+    console.log('[AI] Saved outline sample:', JSON.stringify(savedOutline, null, 2).substring(0, 500));
+    
     const outlineArray = extractPlanOutline(savedOutline);
     console.log(`[AI] Found ${outlineArray.length} weeks`);
+    console.log('[AI] Extracted outline:', JSON.stringify(outlineArray, null, 2).substring(0, 500));
 
     if (outlineArray.length === 0) {
       return { tasks: generateTemplateTasks(planDurationDays, preferredTimeRanges, preferredDays), usedModel: 'template-fallback' };
     }
 
     const outlineContext = outlineArray.map(w => `${w.title}: ${w.description}`).join('\n');
+    console.log('[AI] Outline context for AI:', outlineContext.substring(0, 500));
+    
     const tasksPerDay = preferredTimeRanges?.length || 3;
     const daysPerWeek = preferredDays?.length || 7;
     const totalWorkingDays = Math.ceil((planDurationDays / 7) * daysPerWeek);
@@ -496,6 +507,7 @@ async function generateDetailedTasksWithAI(
     console.log(`[AI] Generating ${finalTaskCount} tasks (${tasksPerDay} per day, ${totalWorkingDays} working days)`);
 
     console.log(`[AI] Requesting ${finalTaskCount} tasks from Claude`);
+    console.log(`[AI] About to make API call to Anthropic...`);
 
     const systemPrompt = `You are a task generation expert. Generate exactly ${finalTaskCount} detailed, high-quality tasks in valid JSON format ONLY.
 
@@ -580,6 +592,7 @@ CRITICAL REQUIREMENTS:
 
 FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE TASKS BASED ON THE PLAN OUTLINE AND USER PREFERENCES.`;
 
+    console.log(`[AI] Making API call to Anthropic...`);
     const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -589,13 +602,16 @@ FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE TASKS BASED ON THE PLAN 
             },
             body: JSON.stringify({
         model: 'claude-opus-4-1-20250805',
-              max_tokens: 32768,
+              max_tokens: 30000,
         messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
       })
     });
 
     console.log(`[AI] Response status: ${response.status}`);
+    console.log(`[AI] Response headers:`, Object.fromEntries(response.headers.entries()));
+    
     const data = await response.json();
+    console.log(`[AI] Response data keys:`, Object.keys(data));
 
     if (!data.content?.[0]?.text) {
       console.warn('[AI] Invalid response, using template fallback');
@@ -715,7 +731,10 @@ FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE TASKS BASED ON THE PLAN 
     return { tasks, usedModel: 'claude-opus-4-1-20250805' };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[AI] Critical error: ${msg}`);
+    console.error(`[AI] Critical error in generateDetailedTasksWithAI: ${msg}`);
+    console.error(`[AI] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    console.error(`[AI] Error type:`, typeof error);
+    console.error(`[AI] Full error object:`, JSON.stringify(error, null, 2));
     return { tasks: generateTemplateTasks(planDurationDays, preferredTimeRanges, preferredDays), usedModel: 'template-fallback' };
   }
 }
@@ -1140,6 +1159,9 @@ serve(async (req) => {
 
       let tasksResult;
       try {
+        console.log(`[${requestId}] Starting AI task generation...`);
+        console.log(`[${requestId}] API Key available: ${Deno.env.get('ANTHROPIC_API_KEY') ? 'YES' : 'NO'}`);
+        
         tasksResult = await generateDetailedTasksWithAI(
         category, 
         title, 
@@ -1153,9 +1175,23 @@ serve(async (req) => {
           savedOutline
         );
         console.log(`[${requestId}] Task generation returned ${tasksResult.tasks.length} tasks`);
+        console.log(`[${requestId}] Used model: ${tasksResult.usedModel}`);
       } catch (aiError) {
         const errorMsg = aiError instanceof Error ? aiError.message : String(aiError);
         console.error(`[${requestId}] Task generation failed:`, errorMsg);
+        console.error(`[${requestId}] Error stack:`, aiError instanceof Error ? aiError.stack : 'No stack');
+        
+        // Check for specific error types
+        if (errorMsg.includes('ANTHROPIC_API_KEY is missing')) {
+          console.error(`[${requestId}] CRITICAL: API Key is missing!`);
+        } else if (errorMsg.includes('credit balance') || errorMsg.includes('too low')) {
+          console.error(`[${requestId}] CRITICAL: Credit balance too low!`);
+        } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
+          console.error(`[${requestId}] CRITICAL: Rate limited!`);
+        } else if (errorMsg.includes('timeout')) {
+          console.error(`[${requestId}] CRITICAL: Request timeout!`);
+        }
+        
         // Fallback: generate template tasks instead of failing completely
         console.log(`[${requestId}] Falling back to template tasks...`);
         tasksResult = {
@@ -1178,6 +1214,25 @@ serve(async (req) => {
             finalPreferredDays
           );
           console.log(`[${requestId}] Successfully inserted ${insertedTasks.length} tasks`);
+          
+          // Verify tasks were actually inserted by checking the database
+          const { data: verifyTasks, error: verifyError } = await supabase
+            .from('goal_tasks')
+            .select('id, title')
+            .eq('goal_id', goal_id)
+            .limit(5);
+            
+          if (verifyError) {
+            console.error(`[${requestId}] Error verifying task insertion:`, verifyError);
+            return errorResponse(500, `Failed to verify task insertion: ${verifyError.message}`, requestId);
+          }
+          
+          if (!verifyTasks || verifyTasks.length === 0) {
+            console.error(`[${requestId}] No tasks found in database after insertion`);
+            return errorResponse(500, 'Tasks were not properly inserted into database', requestId);
+          }
+          
+          console.log(`[${requestId}] Verified ${verifyTasks.length} tasks are in database`);
         } catch (insertError) {
           const errorMsg = insertError instanceof Error ? insertError.message : String(insertError);
           console.error(`[${requestId}] Task insertion failed:`, errorMsg);
@@ -1230,33 +1285,49 @@ serve(async (req) => {
           console.log('✅ Push notification sent successfully for outline');
         }
       } else if (stage === 'tasks') {
-        const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: user_id,
-            title: 'Tasks Generated',
-            body: `Your ${title} tasks are ready. ${insertedTasks.length} tasks have been created for your journey.`,
-            data: {
-              type: 'tasks_generated',
-              goal_id: goal_id, 
-              stage: 'tasks', 
-              task_count: insertedTasks.length,
-              screen: 'dashboard'
+        // Double-check that tasks are actually in the database before sending notification
+        const { data: finalTaskCheck, error: finalCheckError } = await supabase
+          .from('goal_tasks')
+          .select('id')
+          .eq('goal_id', goal_id)
+          .limit(1);
+          
+        if (finalCheckError) {
+          console.error(`[${requestId}] Final task check failed:`, finalCheckError);
+          console.warn(`[${requestId}] Skipping notification due to task verification failure`);
+        } else if (!finalTaskCheck || finalTaskCheck.length === 0) {
+          console.error(`[${requestId}] No tasks found in final check, skipping notification`);
+        } else {
+          console.log(`[${requestId}] Final verification passed, sending notification`);
+          
+          const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json',
             },
-            sound: true,
-            badge: 1
-          }),
-        });
+            body: JSON.stringify({
+              user_id: user_id,
+              title: 'Tasks Generated',
+              body: `Your ${title} tasks are ready. ${insertedTasks.length} tasks have been created for your journey.`,
+              data: {
+                type: 'tasks_generated',
+                goal_id: goal_id, 
+                stage: 'tasks', 
+                task_count: insertedTasks.length,
+                screen: 'dashboard'
+              },
+              sound: true,
+              badge: 1
+            }),
+          });
 
-        if (!pushResponse.ok) {
-          const errorText = await pushResponse.text();
-          console.error('❌ Push notification failed for tasks:', errorText);
-      } else {
-          console.log('✅ Push notification sent successfully for tasks');
+          if (!pushResponse.ok) {
+            const errorText = await pushResponse.text();
+            console.error('❌ Push notification failed for tasks:', errorText);
+          } else {
+            console.log('✅ Push notification sent successfully for tasks');
+          }
         }
       }
     } catch (pushError) {
