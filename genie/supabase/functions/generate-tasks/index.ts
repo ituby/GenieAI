@@ -13,6 +13,7 @@ const corsHeaders = {
 interface PreferredTimeRange {
   start_hour: number;
   end_hour: number;
+  label: string;
 }
 
 interface TaskTemplate {
@@ -723,7 +724,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+      console.log(`[${requestId}] Request body:`, JSON.stringify(body, null, 2));
+    } catch (jsonError) {
+      console.error(`[${requestId}] JSON parsing error:`, jsonError);
+      return errorResponse(400, 'Invalid JSON in request body', requestId);
+    }
+
     const {
       user_id,
       goal_id,
@@ -731,8 +740,11 @@ serve(async (req) => {
       device_timezone
     } = body;
 
+    console.log(`[${requestId}] Parsed params: user_id=${user_id}, goal_id=${goal_id}, device_now_iso=${device_now_iso}, device_timezone=${device_timezone}`);
+
     // Validate
     if (!user_id || !goal_id) {
+      console.error(`[${requestId}] Missing required fields: user_id=${user_id}, goal_id=${goal_id}`);
       return errorResponse(400, 'Missing required fields', requestId);
     }
 
@@ -748,15 +760,36 @@ serve(async (req) => {
     console.log(`[${requestId}] Tokens deducted: ${tokensRequired}, remaining: ${tokenCheck.remainingTokens}`);
 
     // Verify goal and get advanced settings
+    console.log(`[${requestId}] Looking for goal with ID: ${goal_id}`);
     const { data: goal, error: goalError } = await supabase
       .from('goals')
-      .select('id, title, description, category, intensity, plan_duration_days, preferred_time_ranges, preferred_days')
+      .select('id, title, description, category, intensity, plan_duration_days, preferred_time_ranges, preferred_days, status, user_id')
       .eq('id', goal_id)
-      .eq('user_id', user_id)
       .single();
 
     if (goalError || !goal) {
+      console.error(`[${requestId}] Goal fetch error:`, goalError);
+      console.error(`[${requestId}] Goal data:`, goal);
       return errorResponse(404, 'Goal not found', requestId);
+    }
+
+    console.log(`[${requestId}] Found goal:`, JSON.stringify(goal, null, 2));
+
+    // Verify user matches the goal owner
+    if (goal.user_id !== user_id) {
+      console.error(`[${requestId}] User ${user_id} does not own goal ${goal_id} (owner: ${goal.user_id})`);
+      return errorResponse(403, 'Access denied: Goal belongs to different user', requestId);
+    }
+
+    // Check if goal is in a valid state for task generation
+    if (goal.status === 'failed') {
+      console.log(`[${requestId}] Goal ${goal_id} is in failed state, cannot generate tasks`);
+      return errorResponse(400, 'Goal is in failed state. Please create a new goal.', requestId);
+    }
+
+    if (goal.status !== 'paused') {
+      console.log(`[${requestId}] Goal ${goal_id} is not in paused state (status: ${goal.status}), cannot generate tasks`);
+      return errorResponse(400, 'Goal is not ready for task generation. Please ensure the plan outline is complete.', requestId);
     }
 
     console.log(`[${requestId}] Generating tasks for: ${goal.title}`);
@@ -873,6 +906,21 @@ serve(async (req) => {
         }
         
         console.log(`[${requestId}] Verified ${verifyTasks.length} tasks are in database`);
+        
+        // Update goal status to active after successful task generation
+        const { error: statusUpdateError } = await supabase
+          .from('goals')
+          .update({ 
+            status: 'active',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', goal_id);
+          
+        if (statusUpdateError) {
+          console.error(`[${requestId}] Error updating goal status:`, statusUpdateError);
+        } else {
+          console.log(`[${requestId}] Goal status updated to active`);
+        }
       } catch (insertError) {
         const errorMsg = insertError instanceof Error ? insertError.message : String(insertError);
         console.error(`[${requestId}] Task insertion failed:`, errorMsg);
@@ -956,6 +1004,31 @@ serve(async (req) => {
     console.error(`[${requestId}] Error: ${message}`);
     console.error(`[${requestId}] Stack: ${stack}`);
     console.error(`[${requestId}] Error object:`, JSON.stringify(error, null, 2));
+    
+    // Mark goal as failed if there's an error
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { error: statusUpdateError } = await supabase
+        .from('goals')
+        .update({ 
+          status: 'failed',
+          error_message: message,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', goal_id);
+        
+      if (statusUpdateError) {
+        console.error(`[${requestId}] Error updating goal status to failed:`, statusUpdateError);
+      } else {
+        console.log(`[${requestId}] Goal status updated to failed`);
+      }
+    } catch (updateError) {
+      console.error(`[${requestId}] Error updating goal status:`, updateError);
+    }
     
     return errorResponse(500, `${message}. Check function logs for details.`, requestId, totalTime);
   }

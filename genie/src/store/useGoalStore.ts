@@ -217,7 +217,21 @@ export const useGoalStore = create<GoalState>((set, get) => ({
         .eq('id', goalId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If goal doesn't exist (PGRST116), remove it from local state
+        if (error.code === 'PGRST116') {
+          console.log(`🧹 Goal ${goalId} not found in database, removing from local state`);
+          const { goals, activeGoals } = get();
+          const updatedGoals = goals.filter((goal) => goal.id !== goalId);
+          const updatedActiveGoals = activeGoals.filter((goal) => goal.id !== goalId);
+          set({
+            goals: updatedGoals,
+            activeGoals: updatedActiveGoals,
+          });
+          return;
+        }
+        throw error;
+      }
 
       const totalTasks = data.goal_tasks?.length || 0;
       const completedTasks =

@@ -1227,7 +1227,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       const deviceNow = new Date();
       const deviceUtcOffset = -deviceNow.getTimezoneOffset();
       
-      // Stage 2: Generate detailed tasks using the new separate function
+      // Stage 2: Generate detailed tasks using the separate generate-tasks function
       const tasksResponse = await supabase.functions.invoke('generate-tasks', {
         body: {
           user_id: user?.id,
@@ -1241,14 +1241,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (tasksResponse.error) {
         console.error('❌ Tasks generation error:', tasksResponse.error);
         
-        // If task generation fails, delete the goal to clean up
+        // If task generation fails, mark goal as failed instead of deleting
         if (createdGoalId) {
           try {
-            console.log('🧹 Cleaning up failed goal:', createdGoalId);
-            await supabase.from('goals').delete().eq('id', createdGoalId);
-            console.log('✅ Failed goal deleted successfully');
-          } catch (deleteError) {
-            console.error('❌ Failed to delete goal after error:', deleteError);
+            console.log('⚠️ Marking goal as failed:', createdGoalId);
+            await supabase
+              .from('goals')
+              .update({ 
+                status: 'failed',
+                error_message: tasksResponse.error.message || 'Task generation failed'
+              })
+              .eq('id', createdGoalId);
+            console.log('✅ Goal marked as failed successfully');
+          } catch (updateError) {
+            console.error('❌ Failed to update goal status:', updateError);
           }
         }
       } else {
@@ -1258,14 +1264,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     } catch (error) {
       console.error('❌ Error in Stage 2:', error);
       
-      // If there's an error, clean up the goal
+      // If there's an error, mark goal as failed instead of deleting
       if (createdGoalId) {
         try {
-          console.log('🧹 Cleaning up failed goal due to error:', createdGoalId);
-          await supabase.from('goals').delete().eq('id', createdGoalId);
-          console.log('✅ Failed goal deleted successfully');
-        } catch (deleteError) {
-          console.error('❌ Failed to delete goal after error:', deleteError);
+          console.log('⚠️ Marking goal as failed due to error:', createdGoalId);
+          await supabase
+            .from('goals')
+            .update({ 
+              status: 'failed',
+              error_message: error instanceof Error ? error.message : 'Unknown error'
+            })
+            .eq('id', createdGoalId);
+          console.log('✅ Goal marked as failed successfully');
+        } catch (updateError) {
+          console.error('❌ Failed to update goal status:', updateError);
         }
       }
     }
