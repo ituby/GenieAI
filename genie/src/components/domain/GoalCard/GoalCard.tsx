@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useTheme } from '../../../theme/index';
 import { Text } from '../../primitives/Text';
@@ -28,6 +28,44 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   const dot1Opacity = useRef(new Animated.Value(0.3)).current;
   const dot2Opacity = useRef(new Animated.Value(0.3)).current;
   const dot3Opacity = useRef(new Animated.Value(0.3)).current;
+  
+  // Timer state
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [estimatedTime, setEstimatedTime] = useState(0);
+  
+  // Calculate estimated time based on goal duration
+  useEffect(() => {
+    if (isLoading && goal.duration_days) {
+      // Estimate: 1-2 minutes per week of plan
+      const weeks = Math.ceil(goal.duration_days / 7);
+      const estimatedMinutes = Math.max(weeks * 1.5, 2); // Minimum 2 minutes
+      setEstimatedTime(estimatedMinutes * 60); // Convert to seconds
+      setTimeRemaining(estimatedMinutes * 60);
+    }
+  }, [isLoading, goal.duration_days]);
+  
+  // Timer countdown
+  useEffect(() => {
+    if (isLoading && estimatedTime > 0) {
+      const timer = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(timer);
+    }
+  }, [isLoading, estimatedTime]);
+  
+  // Format time display
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
   
   useEffect(() => {
     if (isLoading) {
@@ -164,6 +202,13 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 ]} />
               </View>
             </View>
+            
+            {/* Timer */}
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerText}>
+                {formatTime(timeRemaining)}
+              </Text>
+            </View>
           </View>
         ) : (
           /* Normal State */
@@ -171,16 +216,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.titleContainer}>
-                <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
-                  <Icon 
-                    name={getCategoryIcon(goal.category, goal.icon_name) as any}
-                    size={20}
-                    color={getGoalColor(goal.color)}
-                  />
-                </View>
                 <View style={styles.titleText}>
                   <Text variant="h4" numberOfLines={1} style={styles.title}>
-                    {goal.title}
+                    {goal.title.split(' ').slice(0, 6).join(' ')}
+                    {goal.title.split(' ').length > 6 && '...'}
                   </Text>
                   <Text 
                     variant="caption" 
@@ -191,11 +230,13 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 </View>
               </View>
               
-              {onEdit && (
-                <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-                  <Icon name="dots-three" size={16} color={theme.colors.text.tertiary} />
-                </TouchableOpacity>
-              )}
+              <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
+                <Icon 
+                  name={getCategoryIcon(goal.category, goal.icon_name) as any}
+                  size={20}
+                  color={getGoalColor(goal.color)}
+                />
+              </View>
             </View>
 
             {/* Description */}
@@ -242,20 +283,30 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               )}
             </View>
 
-            {/* Status */}
-            <View style={styles.statusContainer}>
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: goal.status === 'active' ? theme.colors.primary[500] + '20' : theme.colors.text.disabled + '20' }
-              ]}>
-                <Text 
-                  variant="caption" 
-                  color={goal.status === 'active' ? 'success' : 'disabled'}
-                  style={styles.statusText}
-                >
-                  {goal.status === 'active' ? 'Active' : goal.status === 'completed' ? 'Completed' : 'Paused'}
-                </Text>
+            {/* Status and Edit Button */}
+            <View style={styles.statusAndEditContainer}>
+              {/* Status - Left side */}
+              <View style={styles.statusContainer}>
+                <View style={[
+                  styles.statusBadge,
+                  { backgroundColor: goal.status === 'active' ? theme.colors.primary[500] + '20' : theme.colors.text.disabled + '20' }
+                ]}>
+                  <Text 
+                    variant="caption" 
+                    color={goal.status === 'active' ? 'success' : 'disabled'}
+                    style={styles.statusText}
+                  >
+                    {goal.status === 'active' ? 'Active' : goal.status === 'completed' ? 'Completed' : 'Paused'}
+                  </Text>
+                </View>
               </View>
+              
+              {/* Edit Button - Right side */}
+              {onEdit && (
+                <TouchableOpacity onPress={onEdit} style={styles.editButton}>
+                  <Icon name="dots-three" size={16} color={theme.colors.text.tertiary} />
+                </TouchableOpacity>
+              )}
             </View>
           </>
         )}
@@ -278,8 +329,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     flex: 1,
   },
   iconContainer: {
@@ -288,13 +337,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   titleText: {
     flex: 1,
   },
   title: {
     marginBottom: 2,
+    fontSize: 20,
+    fontWeight: '600',
   },
   category: {
     fontSize: 10,
@@ -302,7 +352,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   editButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   description: {
     marginBottom: 16,
@@ -335,14 +387,20 @@ const styles = StyleSheet.create({
   streakText: {
     marginLeft: 4,
   },
-  statusContainer: {
+  statusAndEditContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 12,
-    alignItems: 'flex-end',
+  },
+  statusContainer: {
+    flex: 1,
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    alignSelf: 'flex-start',
   },
   statusText: {
     fontSize: 12,
@@ -405,5 +463,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
+  },
+  timerContainer: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  timerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
   },
 });

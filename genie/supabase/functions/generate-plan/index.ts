@@ -301,11 +301,20 @@ async function generatePlanOutlineWithAI(
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey?.length) throw new Error('ANTHROPIC_API_KEY is missing');
 
-  const systemPrompt = `You are Genie, an AI mentor creating professional transformation plans.
+  const systemPrompt = `You are a plan outline generation expert. Generate a detailed transformation plan in valid JSON format ONLY.
 
-URGENT: Generate a detailed plan in 30-45 seconds maximum. Be comprehensive yet efficient.
+CRITICAL INSTRUCTIONS:
+- Return ONLY valid JSON, no markdown, no explanations, no extra text
+- Focus on creating the JSON structure, not introductory text
+- Generate comprehensive plan outline in 30-45 seconds maximum
+- Each week must be separate and detailed
+- Milestones must be comprehensive and specific
+- Plan outline must be actionable and valuable
+- Focus on practical, achievable steps
+- Include specific outcomes and measurements
+- Make each week distinct and progressive
 
-Generate ONLY valid JSON (no markdown, no explanations):
+REQUIRED JSON STRUCTURE:
 {
   "category": "lifestyle|career|mindset|character|custom",
   "icon_name": "star",
@@ -313,7 +322,16 @@ Generate ONLY valid JSON (no markdown, no explanations):
   "plan_outline": [
     {"title": "Week 1: Foundation Phase", "description": "Comprehensive description of week 1 activities, goals, and expected outcomes"},
     {"title": "Week 2: Development Phase", "description": "Comprehensive description of week 2 activities, goals, and expected outcomes"},
-    {"title": "Week 3: Mastery Phase", "description": "Comprehensive description of week 3 activities, goals, and expected outcomes"}
+    {"title": "Week 3: Mastery Phase", "description": "Comprehensive description of week 3 activities, goals, and expected outcomes"},
+    {"title": "Week 4: Advanced Phase", "description": "Comprehensive description of week 4 activities, goals, and expected outcomes"},
+    {"title": "Week 5: Optimization Phase", "description": "Comprehensive description of week 5 activities, goals, and expected outcomes"},
+    {"title": "Week 6: Refinement Phase", "description": "Comprehensive description of week 6 activities, goals, and expected outcomes"},
+    {"title": "Week 7: Expansion Phase", "description": "Comprehensive description of week 7 activities, goals, and expected outcomes"},
+    {"title": "Week 8: Consolidation Phase", "description": "Comprehensive description of week 8 activities, goals, and expected outcomes"},
+    {"title": "Week 9: Innovation Phase", "description": "Comprehensive description of week 9 activities, goals, and expected outcomes"},
+    {"title": "Week 10: Mastery Phase", "description": "Comprehensive description of week 10 activities, goals, and expected outcomes"},
+    {"title": "Week 11: Excellence Phase", "description": "Comprehensive description of week 11 activities, goals, and expected outcomes"},
+    {"title": "Week 12: Achievement Phase", "description": "Comprehensive description of week 12 activities, goals, and expected outcomes"}
   ],
   "deliverables": {
     "overview": {
@@ -331,25 +349,29 @@ Generate ONLY valid JSON (no markdown, no explanations):
 CRITICAL: You MUST choose icon_name from this exact list (no other icons allowed):
 user, user-circle, user-square, users, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, hand-heart, heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube, briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront, handshake, book, book-open, graduation-cap, pencil, calculator, leaf, sun, moon, tree, flower, cloud, rainbow, drop, mountains, wave, fire, bicycle, music-notes, camera, brain, eye, eye-closed, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down, password
 
-DETAILED REQUIREMENTS:
-- Each week must be separate and detailed
-- Milestones must be comprehensive (2-3 sentences each)
-- Plan outline must be specific and actionable
-- Deliverables must be thorough and valuable
-- Focus on practical, achievable steps
-- Include specific outcomes and measurements
-- Make each week distinct and progressive`;
+FOCUS ON:
+- Creating comprehensive, actionable plan outline
+- Ensuring each week has clear value and purpose
+- Making weeks progressive and interconnected
+- Providing detailed, specific descriptions
+- Using professional, descriptive titles
+- Maintaining consistent quality throughout`;
 
-  const userPrompt = `Create a comprehensive ${planDurationDays}-day transformation plan:
+  const userPrompt = `Generate a comprehensive ${planDurationDays}-day transformation plan:
 
 GOAL: ${title}
 DESCRIPTION: ${description}
 CATEGORY: ${category}
 INTENSITY: ${intensity}
+DURATION: ${planDurationDays} days (${Math.ceil(planDurationDays / 7)} weeks)
 
-REQUIREMENTS:
+USER PREFERENCES:
+- Device Timezone: ${deviceTimezone}
+- Current Time: ${deviceNowIso}
+
+CRITICAL REQUIREMENTS:
 - Generate detailed plan in 30-45 seconds
-- Create separate, distinct weeks (not combined)
+- Create EXACTLY ${Math.ceil(planDurationDays / 7)} separate, distinct weeks (one for each week)
 - Each week must have specific goals and outcomes
 - Include practical, actionable steps
 - Focus on measurable progress
@@ -357,7 +379,11 @@ REQUIREMENTS:
 - Provide comprehensive descriptions
 - Include specific deliverables and outcomes
 - Ensure high value and detailed information
-- Return ONLY valid JSON format`;
+- Return ONLY valid JSON format
+
+IMPORTANT: You must create ${Math.ceil(planDurationDays / 7)} weeks total - one week for each week of the ${planDurationDays}-day plan.
+
+FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE PLAN OUTLINE BASED ON THE GOAL AND USER PREFERENCES.`;
 
   try {
     const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
@@ -369,7 +395,7 @@ REQUIREMENTS:
       },
       body: JSON.stringify({
         model: 'claude-opus-4-1-20250805',
-        max_tokens: 8192,
+        max_tokens: 16384,
         messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
       })
     });
@@ -465,60 +491,18 @@ async function generateDetailedTasksWithAI(
     const tasksPerDay = preferredTimeRanges?.length || 3;
     const daysPerWeek = preferredDays?.length || 7;
     const totalWorkingDays = Math.ceil((planDurationDays / 7) * daysPerWeek);
+    const finalTaskCount = totalWorkingDays * tasksPerDay;
+    
+    console.log(`[AI] Generating ${finalTaskCount} tasks (${tasksPerDay} per day, ${totalWorkingDays} working days)`);
 
-    console.log(`[AI] Requesting ${totalWorkingDays * tasksPerDay} tasks from Claude`);
+    console.log(`[AI] Requesting ${finalTaskCount} tasks from Claude`);
 
-    const systemPrompt = `Generate exactly ${totalWorkingDays * tasksPerDay} detailed, high-quality tasks in valid JSON only (no markdown). 
+    const systemPrompt = `You are a task generation expert. Generate exactly ${finalTaskCount} detailed, high-quality tasks in valid JSON format ONLY.
 
-CRITICAL: Return ONLY valid JSON, no markdown, no explanations, no extra text.
-
-Example format:
-{
-  "days": [
-    {
-      "day": 1,
-      "summary": "Comprehensive foundation and research phase with specific market analysis and opportunity identification",
-      "tasks": [
-        {
-          "time": "09:00",
-          "title": "Advanced market research and trend analysis",
-          "description": "Conduct comprehensive market research to identify high-potential opportunities, analyze current trends, and document key insights for strategic decision-making",
-          "subtasks": [
-            {"title": "Review latest industry reports and market data", "estimated_minutes": 25},
-            {"title": "Analyze competitor strategies and positioning", "estimated_minutes": 20},
-            {"title": "Document key market opportunities and gaps", "estimated_minutes": 15}
-          ],
-          "time_allocation_minutes": 60
-        },
-        {
-          "time": "14:00", 
-          "title": "Strategic problem identification and validation",
-          "description": "Systematically identify and validate real-world problems through user research, market analysis, and solution gap identification",
-          "subtasks": [
-            {"title": "Conduct user interviews and surveys", "estimated_minutes": 30},
-            {"title": "Analyze customer feedback and pain points", "estimated_minutes": 20},
-            {"title": "Document validated problems and opportunities", "estimated_minutes": 10}
-          ],
-          "time_allocation_minutes": 60
-        },
-        {
-          "time": "19:00",
-          "title": "Competitive landscape mapping and analysis",
-          "description": "Create comprehensive competitive analysis framework to understand market positioning and identify strategic advantages",
-          "subtasks": [
-            {"title": "Map key competitors and their offerings", "estimated_minutes": 25},
-            {"title": "Analyze competitive strengths and weaknesses", "estimated_minutes": 20},
-            {"title": "Identify market positioning opportunities", "estimated_minutes": 15}
-          ],
-          "time_allocation_minutes": 60
-        }
-      ]
-    }
-  ]
-}
-
-DETAILED REQUIREMENTS:
-- Each task must be comprehensive and valuable
+CRITICAL INSTRUCTIONS:
+- Return ONLY valid JSON, no markdown, no explanations, no extra text
+- Focus on creating the JSON structure, not introductory text
+- Each task must be comprehensive, actionable, and valuable
 - Task titles must be unique, descriptive, and professional (NO "Day X, Task X" format)
 - Descriptions must be detailed and actionable (50-100 characters)
 - Subtasks must be specific and measurable
@@ -527,29 +511,74 @@ DETAILED REQUIREMENTS:
 - Make tasks progressive and building upon each other
 - Focus on high-value, practical activities
 - Ensure JSON is complete and valid
-- Generate exactly ${totalWorkingDays * tasksPerDay} tasks total`;
+- Generate exactly ${totalWorkingDays * tasksPerDay} tasks total
 
-    const userPrompt = `Create ${totalWorkingDays * tasksPerDay} comprehensive, high-quality tasks for "${title}" over ${planDurationDays} days, ${tasksPerDay} tasks per day on ${preferredDays?.length ? 'selected' : 'all'} days.
+REQUIRED JSON STRUCTURE:
+{
+  "days": [
+    {
+      "day": 1,
+      "summary": "Brief daily summary",
+      "tasks": [
+        {
+          "time": "09:00",
+          "title": "Specific task title",
+          "description": "Detailed task description",
+          "subtasks": [
+            {"title": "Subtask 1", "estimated_minutes": 25},
+            {"title": "Subtask 2", "estimated_minutes": 20},
+            {"title": "Subtask 3", "estimated_minutes": 15}
+          ],
+          "time_allocation_minutes": 60
+        }
+      ]
+    }
+  ]
+}
+
+FOCUS ON:
+- Creating comprehensive, actionable tasks
+- Ensuring each task has clear value and purpose
+- Making tasks progressive and interconnected
+- Providing detailed, specific subtasks
+- Using professional, descriptive titles
+- Maintaining consistent quality throughout`;
+
+    const userPrompt = `Generate ${finalTaskCount} detailed tasks for: "${title}"
 
 GOAL: ${title}
 DESCRIPTION: ${description}
 CATEGORY: ${category}
 INTENSITY: ${intensity}
+DURATION: ${planDurationDays} days
+TASKS PER DAY: ${tasksPerDay}
+WORKING DAYS: ${preferredDays?.length ? 'selected days' : 'all days'}
 
-DETAILED REQUIREMENTS:
-- Generate exactly ${totalWorkingDays * tasksPerDay} tasks total
+PLAN OUTLINE CONTEXT:
+${outlineContext}
+
+USER PREFERENCES:
+- Time Ranges: ${preferredTimeRanges?.map(r => `${r.label} (${r.start_hour}:00-${r.end_hour}:00)`).join(', ') || 'Default'}
+- Preferred Days: ${preferredDays?.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ') || 'All days'}
+- Device Timezone: ${deviceTimezone}
+- Current Time: ${deviceNowIso}
+
+CRITICAL REQUIREMENTS:
+- Generate exactly ${finalTaskCount} tasks total
 - ${tasksPerDay} tasks per day
 - Use time slots: 09:00, 14:00, 19:00
 - Each task needs 2-4 detailed subtasks
 - Task titles must be unique, descriptive, and professional (NO "Day X, Task X" format)
-- Descriptions must be comprehensive (50-100 characters)
-- Make tasks highly actionable and specific
+- Descriptions must be comprehensive and actionable
+- Make tasks highly specific and valuable
 - Focus on high-value, practical activities
 - Ensure tasks are progressive and build upon each other
 - Include measurable outcomes and deliverables
 - Make each day distinct and valuable
 - Return ONLY valid JSON, no markdown formatting
-- Generate detailed, professional-quality tasks`;
+- Generate detailed, professional-quality tasks
+
+FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE TASKS BASED ON THE PLAN OUTLINE AND USER PREFERENCES.`;
 
     const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -560,7 +589,7 @@ DETAILED REQUIREMENTS:
             },
             body: JSON.stringify({
         model: 'claude-opus-4-1-20250805',
-              max_tokens: 16384,
+              max_tokens: 32768,
         messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
       })
     });
