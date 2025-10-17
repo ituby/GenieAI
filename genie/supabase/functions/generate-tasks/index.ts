@@ -279,7 +279,7 @@ Requirements:
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-opus-4-1-20250805',
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 16384,
           messages: [
             { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` },
@@ -351,7 +351,7 @@ Requirements:
     }
 
     console.log(`[${requestId}] Generated ${tasks.length} tasks from AI`);
-    return { tasks, usedModel: 'claude-opus-4-1-20250805' };
+    return { tasks, usedModel: 'claude-haiku-4-5-20251001' };
   } catch (error) {
     console.error(`[${requestId}] AI generation error:`, error);
     return {

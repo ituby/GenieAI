@@ -204,6 +204,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const [publishWithDevelopers, setPublishWithDevelopers] =
     useState<boolean>(true);
 
+  // Surprise Me feature
+  const [isSurprisingMe, setIsSurprisingMe] = useState(false);
+
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
 
@@ -1144,6 +1147,58 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     }
   };
 
+  const handleSurpriseMe = async () => {
+    try {
+      setIsSurprisingMe(true);
+
+      // Call the Supabase Edge Function with selected category
+      const { data, error } = await supabase.functions.invoke('suggest-goal', {
+        body: {
+          category: formData.category,
+          userContext: '',
+        },
+      });
+
+      if (error) {
+        console.error('Error getting goal suggestion:', error);
+        Alert.alert(
+          'Oops!',
+          'Could not generate a surprise goal. Please try again.'
+        );
+        return;
+      }
+
+      if (data?.success && data?.data) {
+        const suggestion = data.data;
+
+        // Update form with the suggestion
+        setFormData((prev) => ({
+          ...prev,
+          title: suggestion.title,
+          description: suggestion.description,
+          category: suggestion.category as GoalCategory,
+        }));
+
+        // Clear any errors
+        setErrors({});
+
+        // Show a nice feedback
+        setTimeout(() => {
+          Alert.alert(
+            '✨ Surprise!',
+            `How about this goal: "${suggestion.title}"?\n\nFeel free to edit it to make it your own!`,
+            [{ text: 'Got it!', style: 'default' }]
+          );
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Error in handleSurpriseMe:', error);
+      Alert.alert('Oops!', 'Something went wrong. Please try again.');
+    } finally {
+      setIsSurprisingMe(false);
+    }
+  };
+
   const nextStep = () => {
     if (currentStep < 2) {
       setCurrentStep(currentStep + 1);
@@ -1666,10 +1721,42 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   />
                 </View>
 
-                {/* Title */}
+                {/* Title with Surprise Me Button */}
                 <View style={styles.fieldSpacing}>
+                  {/* Label Row with Surprise Me Button */}
+                  <View style={styles.labelWithButtonRow}>
+                    <Text
+                      variant="body"
+                      color="secondary"
+                      style={styles.fieldLabel}
+                    >
+                      What exactly do you want to achieve?
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.surpriseMeButton}
+                      onPress={handleSurpriseMe}
+                      disabled={isSurprisingMe}
+                      activeOpacity={0.7}
+                    >
+                      {isSurprisingMe ? (
+                        <ActivityIndicator size="small" color="#FFFF68" />
+                      ) : (
+                        <>
+                          <Text variant="caption" style={styles.surpriseMeText}>
+                            Surprise Me
+                          </Text>
+                          <Icon
+                            name="sparkle"
+                            size={14}
+                            color="#FFFF68"
+                            weight="fill"
+                          />
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
                   <TextField
-                    label="What exactly do you want to achieve?"
                     value={formData.title}
                     onChangeText={(value) => updateField('title', value)}
                     error={errors.title}
@@ -2632,6 +2719,32 @@ const styles = StyleSheet.create({
   },
   fieldSpacing: {
     marginBottom: 20,
+  },
+  labelWithButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  surpriseMeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#FFFF68',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 7,
+  },
+  surpriseMeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFF68',
   },
   durationDropdown: {
     marginTop: 12,
