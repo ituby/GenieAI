@@ -30,10 +30,11 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [resendTimer, setResendTimer] = useState(60);
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  const hiddenInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    // Focus first input on mount
-    inputRefs.current[0]?.focus();
+    // Focus hidden input for autofill on mount
+    hiddenInputRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -62,6 +63,28 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     // Auto-submit when all digits are entered
     if (value && index === OTP_LENGTH - 1 && newOtp.every((digit) => digit)) {
       handleVerify(newOtp.join(''));
+    }
+  };
+
+  // Handle autofill from SMS
+  const handleAutofillChange = (value: string) => {
+    // Extract only digits
+    const digits = value.replace(/\D/g, '');
+
+    if (digits.length === OTP_LENGTH) {
+      // Split into array
+      const newOtp = digits.split('');
+      setOtp(newOtp);
+
+      // Auto-submit
+      handleVerify(digits);
+    } else if (digits.length > 0 && digits.length < OTP_LENGTH) {
+      // Partial input - fill what we have
+      const newOtp = Array(OTP_LENGTH).fill('');
+      digits.split('').forEach((digit, i) => {
+        if (i < OTP_LENGTH) newOtp[i] = digit;
+      });
+      setOtp(newOtp);
     }
   };
 
@@ -122,19 +145,31 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
           {phone}
         </Text>
 
+        {/* Hidden TextInput for SMS autofill */}
+        <TextInput
+          ref={hiddenInputRef}
+          style={styles.hiddenInput}
+          value={otp.join('')}
+          onChangeText={handleAutofillChange}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+          maxLength={OTP_LENGTH}
+        />
+
         <View style={styles.otpContainer}>
           {otp.map((digit, index) => (
             <TextInput
               key={index}
-              ref={(ref) => (inputRefs.current[index] = ref)}
+              ref={(ref) => {
+                inputRefs.current[index] = ref;
+              }}
               style={[
                 styles.otpInput,
                 {
-                  borderColor: digit
-                    ? colors.primary
-                    : theme.colors.border.primary,
-                  backgroundColor: theme.colors.background.secondary,
-                  color: theme.colors.text.primary,
+                  borderColor: digit ? '#FFFF68' : '#404040',
+                  backgroundColor: '#101215',
+                  color: '#FFFFFF',
                 },
               ]}
               value={digit}
@@ -145,7 +180,6 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
               keyboardType="number-pad"
               maxLength={1}
               selectTextOnFocus
-              textContentType="oneTimeCode"
             />
           ))}
         </View>
@@ -201,6 +235,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
     direction: 'ltr',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    opacity: 0,
+    height: 0,
+    width: 0,
   },
   otpContainer: {
     flexDirection: 'row',
