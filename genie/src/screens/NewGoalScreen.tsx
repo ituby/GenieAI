@@ -1227,24 +1227,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       const deviceNow = new Date();
       const deviceUtcOffset = -deviceNow.getTimezoneOffset();
       
-      // Stage 2: Generate detailed tasks (runs in background)
-      const tasksResponse = await supabase.functions.invoke('generate-plan', {
+      // Stage 2: Generate detailed tasks using the new separate function
+      const tasksResponse = await supabase.functions.invoke('generate-tasks', {
         body: {
           user_id: user?.id,
           goal_id: createdGoalId,
-          category: formData.category,
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          intensity: 'medium',
-          timezone: deviceTimezone,
           device_now_iso: deviceNow.toISOString(),
           device_timezone: deviceTimezone,
-          device_utc_offset_minutes: deviceUtcOffset,
-          language: 'en',
-          stage: 'tasks', // Request detailed task generation
-          plan_duration_days: formData.planDurationDays,
-          preferred_time_ranges: formData.preferredTimeRanges,
-          preferred_days: formData.preferredDays.length > 0 ? formData.preferredDays : undefined,
         },
       });
       

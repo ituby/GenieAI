@@ -460,342 +460,15 @@ FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE PLAN OUTLINE BASED ON TH
 }
 
 // ============================================================================
-// AI GENERATION - STAGE 2: DETAILED TASKS
+// STAGE 2: TASK GENERATION (MOVED TO SEPARATE FUNCTION)
 // ============================================================================
-
-async function generateDetailedTasksWithAI(
-  category: string,
-  title: string,
-  description: string,
-  intensity: string,
-  deviceNowIso: string,
-  deviceTimezone: string,
-  planDurationDays: number,
-  preferredTimeRanges: PreferredTimeRange[] | undefined,
-  preferredDays: number[] | undefined,
-  savedOutline: any
-): Promise<{ tasks: TaskTemplate[]; usedModel: string }> {
-  try {
-    console.log('[AI] Starting generateDetailedTasksWithAI...');
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!apiKey?.length) {
-      console.error('[AI] ANTHROPIC_API_KEY is missing!');
-      throw new Error('ANTHROPIC_API_KEY is missing');
-    }
-    console.log('[AI] API Key found, proceeding...');
-
-    console.log('[AI] Extracting outline from saved data');
-    console.log('[AI] Saved outline keys:', Object.keys(savedOutline));
-    console.log('[AI] Saved outline sample:', JSON.stringify(savedOutline, null, 2).substring(0, 500));
-    
-    const outlineArray = extractPlanOutline(savedOutline);
-    console.log(`[AI] Found ${outlineArray.length} weeks`);
-    console.log('[AI] Extracted outline:', JSON.stringify(outlineArray, null, 2).substring(0, 500));
-
-    if (outlineArray.length === 0) {
-      return { tasks: generateTemplateTasks(planDurationDays, preferredTimeRanges, preferredDays), usedModel: 'template-fallback' };
-    }
-
-    const outlineContext = outlineArray.map(w => `${w.title}: ${w.description}`).join('\n');
-    console.log('[AI] Outline context for AI:', outlineContext.substring(0, 500));
-    
-    const tasksPerDay = preferredTimeRanges?.length || 3;
-    const daysPerWeek = preferredDays?.length || 7;
-    const totalWorkingDays = Math.ceil((planDurationDays / 7) * daysPerWeek);
-    const finalTaskCount = totalWorkingDays * tasksPerDay;
-    
-    console.log(`[AI] Generating ${finalTaskCount} tasks (${tasksPerDay} per day, ${totalWorkingDays} working days)`);
-
-    console.log(`[AI] Requesting ${finalTaskCount} tasks from Claude`);
-    console.log(`[AI] About to make API call to Anthropic...`);
-
-    const systemPrompt = `You are a task generation expert. Generate exactly ${finalTaskCount} detailed, high-quality tasks in valid JSON format ONLY.
-
-CRITICAL INSTRUCTIONS:
-- Return ONLY valid JSON, no markdown, no explanations, no extra text
-- Focus on creating the JSON structure, not introductory text
-- Each task must be comprehensive, actionable, and valuable
-- Task titles must be unique, descriptive, and professional (NO "Day X, Task X" format)
-- Descriptions must be detailed and actionable (50-100 characters)
-- Subtasks must be specific and measurable
-- Use realistic time slots (09:00, 14:00, 19:00)
-- Include 2-4 subtasks per task
-- Make tasks progressive and building upon each other
-- Focus on high-value, practical activities
-- Ensure JSON is complete and valid
-- Generate exactly ${totalWorkingDays * tasksPerDay} tasks total
-
-REQUIRED JSON STRUCTURE:
-{
-  "days": [
-    {
-      "day": 1,
-      "summary": "Brief daily summary",
-      "tasks": [
-        {
-          "time": "09:00",
-          "title": "Specific task title",
-          "description": "Detailed task description",
-          "subtasks": [
-            {"title": "Subtask 1", "estimated_minutes": 25},
-            {"title": "Subtask 2", "estimated_minutes": 20},
-            {"title": "Subtask 3", "estimated_minutes": 15}
-          ],
-          "time_allocation_minutes": 60
-        }
-      ]
-    }
-  ]
-}
-
-FOCUS ON:
-- Creating comprehensive, actionable tasks
-- Ensuring each task has clear value and purpose
-- Making tasks progressive and interconnected
-- Providing detailed, specific subtasks
-- Using professional, descriptive titles
-- Maintaining consistent quality throughout`;
-
-    const userPrompt = `Generate ${finalTaskCount} detailed tasks for: "${title}"
-
-GOAL: ${title}
-DESCRIPTION: ${description}
-CATEGORY: ${category}
-INTENSITY: ${intensity}
-DURATION: ${planDurationDays} days
-TASKS PER DAY: ${tasksPerDay}
-WORKING DAYS: ${preferredDays?.length ? 'selected days' : 'all days'}
-
-PLAN OUTLINE CONTEXT:
-${outlineContext}
-
-USER PREFERENCES:
-- Time Ranges: ${preferredTimeRanges?.map(r => `${r.label} (${r.start_hour}:00-${r.end_hour}:00)`).join(', ') || 'Default'}
-- Preferred Days: ${preferredDays?.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ') || 'All days'}
-- Device Timezone: ${deviceTimezone}
-- Current Time: ${deviceNowIso}
-
-CRITICAL REQUIREMENTS:
-- Generate exactly ${finalTaskCount} tasks total
-- ${tasksPerDay} tasks per day
-- Use time slots: 09:00, 14:00, 19:00
-- Each task needs 2-4 detailed subtasks
-- Task titles must be unique, descriptive, and professional (NO "Day X, Task X" format)
-- Descriptions must be comprehensive and actionable
-- Make tasks highly specific and valuable
-- Focus on high-value, practical activities
-- Ensure tasks are progressive and build upon each other
-- Include measurable outcomes and deliverables
-- Make each day distinct and valuable
-- Return ONLY valid JSON, no markdown formatting
-- Generate detailed, professional-quality tasks
-
-FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE TASKS BASED ON THE PLAN OUTLINE AND USER PREFERENCES.`;
-
-    console.log(`[AI] Making API call to Anthropic...`);
-    const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-        model: 'claude-opus-4-1-20250805',
-              max_tokens: 30000,
-        messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
-      })
-    });
-
-    console.log(`[AI] Response status: ${response.status}`);
-    console.log(`[AI] Response headers:`, Object.fromEntries(response.headers.entries()));
-    
-    const data = await response.json();
-    console.log(`[AI] Response data keys:`, Object.keys(data));
-
-    if (!data.content?.[0]?.text) {
-      console.warn('[AI] Invalid response, using template fallback');
-      return { tasks: generateTemplateTasks(planDurationDays, preferredTimeRanges, preferredDays), usedModel: 'template-fallback' };
-    }
-
-    const text = data.content[0].text;
-    const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-
-    console.log(`[AI] Raw response text: ${text.substring(0, 500)}...`);
-    console.log(`[AI] Cleaned text: ${cleanedText.substring(0, 500)}...`);
-
-    let planData;
-    try {
-      // Try to fix common JSON issues
-      let fixedText = cleanedText;
-      
-      // Remove any trailing commas before closing braces/brackets
-      fixedText = fixedText.replace(/,(\s*[}\]])/g, '$1');
-      
-      // Try to find and fix incomplete JSON
-      const lastBrace = fixedText.lastIndexOf('}');
-      const lastBracket = fixedText.lastIndexOf(']');
-      const lastComplete = Math.max(lastBrace, lastBracket);
-      
-      if (lastComplete > 0 && lastComplete < fixedText.length - 10) {
-        // Try to complete the JSON
-        const truncated = fixedText.substring(0, lastComplete + 1);
-        try {
-          planData = JSON.parse(truncated);
-          console.log(`[AI] Successfully parsed truncated JSON with ${planData.days?.length || 0} days`);
-        } catch (truncatedError) {
-          throw new Error('JSON parsing failed'); // Fall back to original error
-        }
-      } else {
-        planData = JSON.parse(fixedText);
-        console.log(`[AI] Successfully parsed JSON with ${planData.days?.length || 0} days`);
-      }
-    } catch (parseError) {
-      console.warn('[AI] JSON parse failed, using template fallback');
-      console.error('[AI] Parse error:', parseError);
-      console.error('[AI] Failed to parse text:', cleanedText.substring(0, 1000));
-      return { tasks: generateTemplateTasks(planDurationDays, preferredTimeRanges, preferredDays), usedModel: 'template-fallback' };
-    }
-
-    const tasks: TaskTemplate[] = [];
-    const usedTimeSlots = new Map<string, Set<string>>();
-
-    for (const day of planData.days || []) {
-      const dayNumber = day.day;
-
-      if (preferredDays?.length) {
-        const dayOfWeek = (dayNumber - 1) % 7;
-        if (!preferredDays.includes(dayOfWeek)) continue;
-      }
-
-      for (const task of day.tasks?.slice(0, tasksPerDay) || []) {
-        try {
-          const timeOfDay = convertHHMMToTimeOfDay(task.time);
-          const timing = computeRunAtDeviceAware(
-            dayNumber,
-            timeOfDay,
-            deviceNowIso,
-            deviceTimezone,
-            preferredTimeRanges,
-            preferredDays
-          );
-
-          let finalTime = new Date(timing.runAt);
-          const dayKey = finalTime.toDateString();
-
-          if (!usedTimeSlots.has(dayKey)) {
-            usedTimeSlots.set(dayKey, new Set());
-          }
-
-          const timeSlot = `${finalTime.getHours().toString().padStart(2, '0')}:${finalTime.getMinutes().toString().padStart(2, '0')}`;
-          const daySlots = usedTimeSlots.get(dayKey)!;
-
-          let attempts = 0;
-          while (daySlots.has(timeSlot) && attempts < 50) {
-            finalTime.setMinutes(finalTime.getMinutes() + 15);
-            if (finalTime.getHours() >= 23) {
-              finalTime.setDate(finalTime.getDate() + 1);
-              finalTime.setHours(7, 0, 0, 0);
-            }
-            attempts++;
-          }
-
-          const newTimeSlot = `${finalTime.getHours().toString().padStart(2, '0')}:${finalTime.getMinutes().toString().padStart(2, '0')}`;
-          daySlots.add(newTimeSlot);
-
-          const duration = task.time_allocation_minutes || 30;
-          const reservedSlots = Math.ceil(duration / 15);
-          for (let i = 1; i < reservedSlots; i++) {
-            const reserved = new Date(finalTime.getTime() + i * 15 * 60 * 1000);
-            daySlots.add(
-              `${reserved.getHours().toString().padStart(2, '0')}:${reserved.getMinutes().toString().padStart(2, '0')}`
-            );
-          }
-
-          tasks.push({
-            title: task.title || `Task for ${timeOfDay}`,
-            description: task.description || 'Complete this task as part of your daily progress.',
-            day_offset: dayNumber - 1,
-            time_of_day: timeOfDay,
-                subtasks: task.subtasks || [],
-            time_allocation_minutes: duration,
-            custom_time: task.time
-          });
-        } catch (taskError) {
-          console.warn(`[AI] Error processing task on day ${dayNumber}:`, taskError);
-        }
-      }
-    }
-
-    console.log(`[AI] Generated ${tasks.length} tasks successfully`);
-    return { tasks, usedModel: 'claude-opus-4-1-20250805' };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[AI] Critical error in generateDetailedTasksWithAI: ${msg}`);
-    console.error(`[AI] Error stack:`, error instanceof Error ? error.stack : 'No stack');
-    console.error(`[AI] Error type:`, typeof error);
-    console.error(`[AI] Full error object:`, JSON.stringify(error, null, 2));
-    return { tasks: generateTemplateTasks(planDurationDays, preferredTimeRanges, preferredDays), usedModel: 'template-fallback' };
-  }
-}
+// Task generation has been moved to a separate function: generate-tasks
+// This allows for better performance and timeout management
 
 // ============================================================================
-// TEMPLATE TASK GENERATION (FALLBACK)
+// TEMPLATE TASK GENERATION (MOVED TO SEPARATE FUNCTION)
 // ============================================================================
-
-function generateTemplateTasks(
-  planDurationDays: number,
-  preferredTimeRanges: PreferredTimeRange[] | undefined,
-  preferredDays: number[] | undefined
-): TaskTemplate[] {
-      const tasks: TaskTemplate[] = [];
-  const tasksPerDay = preferredTimeRanges?.length || 3;
-  const timeOfDays = ['morning', 'afternoon', 'evening'];
-
-  for (let day = 1; day <= planDurationDays; day++) {
-    // Check if this day is in preferred days
-    if (preferredDays?.length) {
-      const dayOfWeek = (day - 1) % 7;
-              if (!preferredDays.includes(dayOfWeek)) {
-            continue;
-      }
-    }
-
-    for (let taskIdx = 0; taskIdx < tasksPerDay; taskIdx++) {
-      const timeOfDay = timeOfDays[taskIdx] || 'morning';
-      
-      tasks.push({
-        title: `Day ${day}: Task ${taskIdx + 1} - ${['Foundation', 'Development', 'Practice'][taskIdx] || 'Progress'}`,
-        description: `Complete your ${timeOfDay} focused work session. Break down the task into smaller subtasks and track your progress.`,
-        day_offset: day - 1,
-        time_of_day: timeOfDay,
-        subtasks: [
-          { title: 'Start with a 5-minute warm-up', estimated_minutes: 5 },
-          { title: 'Complete main task activities', estimated_minutes: 20 },
-          { title: 'Document your progress and learnings', estimated_minutes: 5 }
-        ],
-        time_allocation_minutes: 30,
-        custom_time: undefined
-      });
-    }
-  }
-
-  return tasks;
-}
-
-function extractPlanOutline(savedOutline: any): any[] {
-  const outline: any[] = [];
-  for (let i = 1; i <= 24; i++) {
-    const title = savedOutline[`week_${i}_title`];
-    const description = savedOutline[`week_${i}_description`];
-    if (title && description) {
-      outline.push({ title, description });
-    } else if (title || description) {
-      break;
-    }
-  }
-  return outline;
-}
+// Template task generation has been moved to the generate-tasks function
 
 async function savePlanOutline(
   supabase: any,
@@ -831,70 +504,10 @@ async function savePlanOutline(
   console.log(`✅ Saved outline with ${result.planOutline.length} weeks`);
 }
 
-async function insertTasks(
-  supabase: any,
-  goalId: string,
-  tasks: TaskTemplate[],
-  deviceNowIso: string,
-  deviceTimezone: string,
-  preferredTimeRanges: PreferredTimeRange[] | undefined,
-  preferredDays: number[] | undefined
-): Promise<any[]> {
-  // First, check if tasks already exist for this goal
-  const { data: existingTasks, error: checkError } = await supabase
-    .from('goal_tasks')
-    .select('id, title, day_offset, time_of_day')
-    .eq('goal_id', goalId);
-
-  if (checkError) {
-    console.error('❌ Failed to check existing tasks:', checkError);
-    throw checkError;
-  }
-
-  if (existingTasks && existingTasks.length > 0) {
-    console.log(`⚠️ Tasks already exist for goal ${goalId}, skipping insertion`);
-    return existingTasks;
-  }
-
-  const tasksToInsert = tasks.map(task => {
-    // Calculate proper run_at and local_run_at using the timing function
-    const timing = computeRunAtDeviceAware(
-      task.day_offset + 1, // day_offset is 0-based, but function expects 1-based
-      task.time_of_day,
-      deviceNowIso,
-      deviceTimezone,
-      preferredTimeRanges,
-      preferredDays
-    );
-
-      return {
-      goal_id: goalId,
-                title: task.title,
-                description: task.description,
-      day_offset: task.day_offset,
-      time_of_day: task.time_of_day,
-                subtasks: task.subtasks || [],
-                time_allocation_minutes: task.time_allocation_minutes || 30,
-      total_subtasks: task.subtasks?.length || 0,
-                subtasks_completed: 0,
-      custom_time: task.custom_time,
-      run_at: timing.runAt,
-      local_run_at: timing.runAt // Use the same time for both
-    };
-  });
-
-  const { data, error } = await supabase
-    .from('goal_tasks')
-    .insert(tasksToInsert)
-    .select();
-
-  if (error) {
-    console.error('❌ Failed to insert tasks:', error);
-    throw error;
-  }
-  console.log(`✅ Inserted ${data?.length || 0} tasks`);
-  return data || [];
-}
+// ============================================================================
+// TASK INSERTION (MOVED TO SEPARATE FUNCTION)
+// ============================================================================
+// Task insertion has been moved to the generate-tasks function
 
 function errorResponse(status: number, message: string, requestId: string, processingTime = 0) {
   return new Response(
@@ -1030,36 +643,16 @@ serve(async (req) => {
       device_timezone
     } = body;
 
-    // Check for duplicate requests (prevent multiple task generation calls)
-    if (stage === 'tasks' && goal_id) {
-      const { data: existingTasks, error: checkError } = await supabase
-        .from('goal_tasks')
-        .select('id')
-        .eq('goal_id', goal_id)
-        .limit(1);
-
-      if (checkError) {
-        console.error(`[${requestId}] Error checking existing tasks:`, checkError);
-      } else if (existingTasks && existingTasks.length > 0) {
-        console.log(`[${requestId}] Tasks already exist for goal ${goal_id}, skipping generation`);
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'Tasks already exist',
-          request_id: requestId
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-    }
+    // This function now only handles stage 1 (outline generation)
+    // Stage 2 (task generation) is handled by the separate generate-tasks function
 
     // Validate
     if (!user_id || !goal_id || !category || !title || !description) {
       return errorResponse(400, 'Missing required fields', requestId);
     }
 
-    // Check and deduct tokens based on stage
-    const tokensRequired = stage === 'outline' ? 1 : 1; // Outline: 1 token, Tasks: 1 token
+    // Check and deduct tokens for outline generation
+    const tokensRequired = 1; // 1 token for outline generation
     const tokenCheck = await checkAndDeductTokens(supabase, user_id, tokensRequired, requestId);
     
     if (!tokenCheck.success) {
@@ -1089,7 +682,7 @@ serve(async (req) => {
       return errorResponse(404, 'Goal not found', requestId);
     }
 
-    console.log(`[${requestId}] Generating ${stage} for: ${title}`);
+    console.log(`[${requestId}] Generating outline for: ${title}`);
 
     // Use goal's advanced settings if available, otherwise use request parameters
     const finalPlanDuration = goal.plan_duration_days || plan_duration_days;
@@ -1098,12 +691,8 @@ serve(async (req) => {
 
     console.log(`[${requestId}] Using settings: duration=${finalPlanDuration}, timeRanges=${JSON.stringify(finalTimeRanges)}, preferredDays=${JSON.stringify(finalPreferredDays)}`);
 
-    let result: AIResult | null = null;
-    let insertedTasks: any[] = [];
-
-    if (stage === 'outline') {
       // STAGE 1: Generate and save outline
-      result = await generatePlanOutlineWithAI(
+    const result = await generatePlanOutlineWithAI(
         category,
         title,
         description,
@@ -1128,135 +717,8 @@ serve(async (req) => {
         })
         .eq('id', goal_id);
 
-    } else if (stage === 'tasks') {
-      // STAGE 2: Load outline and generate tasks
-      console.log(`[${requestId}] Stage 2: Loading outline from plan_outlines table...`);
-      
-      const { data: savedOutline, error: outlineError } = await supabase
-        .from('plan_outlines')
-        .select('*')
-        .eq('goal_id', goal_id)
-        .single();
-
-      if (outlineError) {
-        console.error(`[${requestId}] Outline fetch error:`, outlineError);
-        
-        // If it's a "no rows" error, the outline doesn't exist yet
-        if (outlineError.code === 'PGRST116') {
-          console.error(`[${requestId}] No outline found for goal ${goal_id} - outline may not be ready yet`);
-          return errorResponse(400, 'Outline not found. The plan outline may still be generating. Please try again in a few moments.', requestId);
-        }
-        
-        return errorResponse(400, `Failed to load outline: ${outlineError.message}`, requestId);
-      }
-
-      if (!savedOutline) {
-        console.error(`[${requestId}] No outline found for goal ${goal_id}`);
-        return errorResponse(400, 'Outline not found. Run stage=outline first.', requestId);
-      }
-
-      console.log(`[${requestId}] Outline loaded successfully. Generating tasks...`);
-
-      let tasksResult;
-      try {
-        console.log(`[${requestId}] Starting AI task generation...`);
-        console.log(`[${requestId}] API Key available: ${Deno.env.get('ANTHROPIC_API_KEY') ? 'YES' : 'NO'}`);
-        
-        tasksResult = await generateDetailedTasksWithAI(
-        category, 
-        title, 
-        description, 
-        intensity, 
-          device_now_iso || new Date().toISOString(),
-          device_timezone || 'UTC',
-          finalPlanDuration,
-          finalTimeRanges,
-          finalPreferredDays,
-          savedOutline
-        );
-        console.log(`[${requestId}] Task generation returned ${tasksResult.tasks.length} tasks`);
-        console.log(`[${requestId}] Used model: ${tasksResult.usedModel}`);
-      } catch (aiError) {
-        const errorMsg = aiError instanceof Error ? aiError.message : String(aiError);
-        console.error(`[${requestId}] Task generation failed:`, errorMsg);
-        console.error(`[${requestId}] Error stack:`, aiError instanceof Error ? aiError.stack : 'No stack');
-        
-        // Check for specific error types
-        if (errorMsg.includes('ANTHROPIC_API_KEY is missing')) {
-          console.error(`[${requestId}] CRITICAL: API Key is missing!`);
-        } else if (errorMsg.includes('credit balance') || errorMsg.includes('too low')) {
-          console.error(`[${requestId}] CRITICAL: Credit balance too low!`);
-        } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
-          console.error(`[${requestId}] CRITICAL: Rate limited!`);
-        } else if (errorMsg.includes('timeout')) {
-          console.error(`[${requestId}] CRITICAL: Request timeout!`);
-        }
-        
-        // Fallback: generate template tasks instead of failing completely
-        console.log(`[${requestId}] Falling back to template tasks...`);
-        tasksResult = {
-          tasks: generateTemplateTasks(finalPlanDuration, finalTimeRanges, finalPreferredDays),
-          usedModel: 'template-fallback'
-        };
-        console.log(`[${requestId}] Generated ${tasksResult.tasks.length} template tasks as fallback`);
-      }
-
-      if (tasksResult.tasks.length > 0) {
-        console.log(`[${requestId}] Inserting ${tasksResult.tasks.length} tasks into database...`);
-        try {
-          insertedTasks = await insertTasks(
-            supabase, 
-            goal_id, 
-            tasksResult.tasks,
-        device_now_iso, 
-        device_timezone, 
-            finalTimeRanges,
-            finalPreferredDays
-          );
-          console.log(`[${requestId}] Successfully inserted ${insertedTasks.length} tasks`);
-          
-          // Verify tasks were actually inserted by checking the database
-          const { data: verifyTasks, error: verifyError } = await supabase
-            .from('goal_tasks')
-            .select('id, title')
-            .eq('goal_id', goal_id)
-            .limit(5);
-            
-          if (verifyError) {
-            console.error(`[${requestId}] Error verifying task insertion:`, verifyError);
-            return errorResponse(500, `Failed to verify task insertion: ${verifyError.message}`, requestId);
-          }
-          
-          if (!verifyTasks || verifyTasks.length === 0) {
-            console.error(`[${requestId}] No tasks found in database after insertion`);
-            return errorResponse(500, 'Tasks were not properly inserted into database', requestId);
-          }
-          
-          console.log(`[${requestId}] Verified ${verifyTasks.length} tasks are in database`);
-        } catch (insertError) {
-          const errorMsg = insertError instanceof Error ? insertError.message : String(insertError);
-          console.error(`[${requestId}] Task insertion failed:`, errorMsg);
-          return errorResponse(500, `Failed to insert tasks: ${errorMsg}`, requestId);
-        }
-      } else {
-        console.warn(`[${requestId}] No tasks generated. Returning error.`);
-        return errorResponse(400, 'No tasks could be generated. Please try again.', requestId);
-      }
-
-      result = {
-        iconName: savedOutline.icon_name || 'star',
-        color: savedOutline.color || CATEGORY_COLOR_MAP[category] || 'yellow',
-        milestones: savedOutline.milestones || [],
-        planOutline: extractPlanOutline(savedOutline),
-        category,
-        deliverables: savedOutline.deliverables || { overview: { chosen_topic: '', rationale: '', synopsis: '' }, sections: [] },
-        usedModel: tasksResult.usedModel
-      };
-    }
-
-    // Send push notification for plan approval (stage 1) or task completion (stage 2)
+    // Send push notification for plan approval
     try {
-      if (stage === 'outline') {
         const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
           method: 'POST',
           headers: {
@@ -1283,52 +745,6 @@ serve(async (req) => {
           console.error('❌ Push notification failed for outline:', errorText);
       } else {
           console.log('✅ Push notification sent successfully for outline');
-        }
-      } else if (stage === 'tasks') {
-        // Double-check that tasks are actually in the database before sending notification
-        const { data: finalTaskCheck, error: finalCheckError } = await supabase
-          .from('goal_tasks')
-          .select('id')
-          .eq('goal_id', goal_id)
-          .limit(1);
-          
-        if (finalCheckError) {
-          console.error(`[${requestId}] Final task check failed:`, finalCheckError);
-          console.warn(`[${requestId}] Skipping notification due to task verification failure`);
-        } else if (!finalTaskCheck || finalTaskCheck.length === 0) {
-          console.error(`[${requestId}] No tasks found in final check, skipping notification`);
-        } else {
-          console.log(`[${requestId}] Final verification passed, sending notification`);
-          
-          const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              user_id: user_id,
-              title: 'Tasks Generated',
-              body: `Your ${title} tasks are ready. ${insertedTasks.length} tasks have been created for your journey.`,
-              data: {
-                type: 'tasks_generated',
-                goal_id: goal_id, 
-                stage: 'tasks', 
-                task_count: insertedTasks.length,
-                screen: 'dashboard'
-              },
-              sound: true,
-              badge: 1
-            }),
-          });
-
-          if (!pushResponse.ok) {
-            const errorText = await pushResponse.text();
-            console.error('❌ Push notification failed for tasks:', errorText);
-          } else {
-            console.log('✅ Push notification sent successfully for tasks');
-          }
-        }
       }
     } catch (pushError) {
       console.warn('Failed to send push notification:', pushError);
@@ -1339,19 +755,18 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        stage,
+        stage: 'outline',
         request_id: requestId,
         processing_time_ms: totalTime,
         tokens_used: tokensRequired,
         tokens_remaining: tokenCheck.remainingTokens,
-        icon_name: result?.iconName,
-        color: result?.color,
-        category: result?.category,
-        milestones: result?.milestones,
-        plan_outline: result?.planOutline,
-        deliverables: result?.deliverables,
-        tasks: insertedTasks.length > 0 ? insertedTasks : undefined,
-        tasks_count: insertedTasks.length
+        icon_name: result.iconName,
+        color: result.color,
+        category: result.category,
+        milestones: result.milestones,
+        plan_outline: result.planOutline,
+        deliverables: result.deliverables,
+        used_model: result.usedModel
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
@@ -1364,23 +779,7 @@ serve(async (req) => {
     console.error(`[${requestId}] Stack: ${stack}`);
     console.error(`[${requestId}] Error object:`, JSON.stringify(error, null, 2));
     
-    // If this is a task generation failure, delete the goal to clean up
-    if (stage === 'tasks' && goal_id) {
-      try {
-        console.log(`[${requestId}] Task generation failed, cleaning up goal: ${goal_id}`);
-        
-        // Delete the goal and all related data
-        await supabase.from('goals').delete().eq('id', goal_id);
-        console.log(`[${requestId}] Goal deleted successfully`);
-        
-        // Also delete any plan outline if it exists
-        await supabase.from('plan_outlines').delete().eq('goal_id', goal_id);
-        console.log(`[${requestId}] Plan outline deleted successfully`);
-        
-      } catch (cleanupError) {
-        console.error(`[${requestId}] Failed to cleanup goal after error:`, cleanupError);
-      }
-    }
+    // This function only handles outline generation, so no cleanup needed
     
     return errorResponse(500, `${message}. Check function logs for details.`, requestId, totalTime);
   }
