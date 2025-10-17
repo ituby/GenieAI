@@ -1231,13 +1231,34 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       // Log the task generation request (no need to wait for completion)
       if (tasksResponse.error) {
         console.error('❌ Tasks generation error:', tasksResponse.error);
+        
+        // If task generation fails, delete the goal to clean up
+        if (createdGoalId) {
+          try {
+            console.log('🧹 Cleaning up failed goal:', createdGoalId);
+            await supabase.from('goals').delete().eq('id', createdGoalId);
+            console.log('✅ Failed goal deleted successfully');
+          } catch (deleteError) {
+            console.error('❌ Failed to delete goal after error:', deleteError);
+          }
+        }
       } else {
         console.log('✅ Task generation started successfully');
       }
       
     } catch (error) {
       console.error('❌ Error in Stage 2:', error);
-      // Goal is already activated above, so no need to activate again
+      
+      // If there's an error, clean up the goal
+      if (createdGoalId) {
+        try {
+          console.log('🧹 Cleaning up failed goal due to error:', createdGoalId);
+          await supabase.from('goals').delete().eq('id', createdGoalId);
+          console.log('✅ Failed goal deleted successfully');
+        } catch (deleteError) {
+          console.error('❌ Failed to delete goal after error:', deleteError);
+        }
+      }
     }
   };
 

@@ -301,31 +301,63 @@ async function generatePlanOutlineWithAI(
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey?.length) throw new Error('ANTHROPIC_API_KEY is missing');
 
-  const systemPrompt = `You are Genie, an AI mentor creating professional 21-day transformation plans.
+  const systemPrompt = `You are Genie, an AI mentor creating professional transformation plans.
+
+URGENT: Generate a detailed plan in 30-45 seconds maximum. Be comprehensive yet efficient.
+
 Generate ONLY valid JSON (no markdown, no explanations):
 {
   "category": "lifestyle|career|mindset|character|custom",
   "icon_name": "star",
-  "milestones": [{"week": 1, "title": "...", "description": "...", "tasks": 21}],
-  "plan_outline": [{"title": "Week 1...", "description": "..."}],
-  "deliverables": {"overview": {"chosen_topic": "", "rationale": "", "synopsis": ""}, "sections": []}
+  "milestones": [{"week": 1, "title": "Week 1: Foundation", "description": "Detailed week description with specific goals and outcomes", "tasks": 21}],
+  "plan_outline": [
+    {"title": "Week 1: Foundation Phase", "description": "Comprehensive description of week 1 activities, goals, and expected outcomes"},
+    {"title": "Week 2: Development Phase", "description": "Comprehensive description of week 2 activities, goals, and expected outcomes"},
+    {"title": "Week 3: Mastery Phase", "description": "Comprehensive description of week 3 activities, goals, and expected outcomes"}
+  ],
+  "deliverables": {
+    "overview": {
+      "chosen_topic": "Specific topic chosen for this goal",
+      "rationale": "Why this approach is optimal for achieving the goal",
+      "synopsis": "Complete summary of the transformation plan"
+    },
+    "sections": [
+      {"title": "Section 1", "description": "Detailed section description"},
+      {"title": "Section 2", "description": "Detailed section description"}
+    ]
+  }
 }
 
 CRITICAL: You MUST choose icon_name from this exact list (no other icons allowed):
 user, user-circle, user-square, users, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, hand-heart, heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube, briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront, handshake, book, book-open, graduation-cap, pencil, calculator, leaf, sun, moon, tree, flower, cloud, rainbow, drop, mountains, wave, fire, bicycle, music-notes, camera, brain, eye, eye-closed, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down, password
 
-Example icon selections:
-- Fitness/health goals → person-simple-run, heart, leaf
-- Career/business → briefcase, rocket, chart-line
-- Learning/education → book, graduation-cap, brain
-- Personal development → sparkle, target, compass
-- Money/finance → money, wallet, chart-pie`;
+DETAILED REQUIREMENTS:
+- Each week must be separate and detailed
+- Milestones must be comprehensive (2-3 sentences each)
+- Plan outline must be specific and actionable
+- Deliverables must be thorough and valuable
+- Focus on practical, achievable steps
+- Include specific outcomes and measurements
+- Make each week distinct and progressive`;
 
-  const userPrompt = `Create a ${planDurationDays}-day plan:
-Title: ${title}
-Description: ${description}
-Category: ${category}
-Intensity: ${intensity}`;
+  const userPrompt = `Create a comprehensive ${planDurationDays}-day transformation plan:
+
+GOAL: ${title}
+DESCRIPTION: ${description}
+CATEGORY: ${category}
+INTENSITY: ${intensity}
+
+REQUIREMENTS:
+- Generate detailed plan in 30-45 seconds
+- Create separate, distinct weeks (not combined)
+- Each week must have specific goals and outcomes
+- Include practical, actionable steps
+- Focus on measurable progress
+- Make each week build upon the previous
+- Provide comprehensive descriptions
+- Include specific deliverables and outcomes
+- Ensure high value and detailed information
+- Return ONLY valid JSON format`;
 
   try {
     const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
@@ -337,7 +369,7 @@ Intensity: ${intensity}`;
       },
       body: JSON.stringify({
         model: 'claude-opus-4-1-20250805',
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
       })
     });
@@ -436,16 +468,88 @@ async function generateDetailedTasksWithAI(
 
     console.log(`[AI] Requesting ${totalWorkingDays * tasksPerDay} tasks from Claude`);
 
-    const systemPrompt = `Generate exactly ${totalWorkingDays * tasksPerDay} tasks in valid JSON only (no markdown):
+    const systemPrompt = `Generate exactly ${totalWorkingDays * tasksPerDay} detailed, high-quality tasks in valid JSON only (no markdown). 
+
+CRITICAL: Return ONLY valid JSON, no markdown, no explanations, no extra text.
+
+Example format:
 {
-  "days": [{"day": 1, "summary": "...", "tasks": [{"time": "09:00", "title": "...", "description": "...", "subtasks": [{"title": "...", "estimated_minutes": 15}], "time_allocation_minutes": 30}]}]
-}`;
+  "days": [
+    {
+      "day": 1,
+      "summary": "Comprehensive foundation and research phase with specific market analysis and opportunity identification",
+      "tasks": [
+        {
+          "time": "09:00",
+          "title": "Advanced market research and trend analysis",
+          "description": "Conduct comprehensive market research to identify high-potential opportunities, analyze current trends, and document key insights for strategic decision-making",
+          "subtasks": [
+            {"title": "Review latest industry reports and market data", "estimated_minutes": 25},
+            {"title": "Analyze competitor strategies and positioning", "estimated_minutes": 20},
+            {"title": "Document key market opportunities and gaps", "estimated_minutes": 15}
+          ],
+          "time_allocation_minutes": 60
+        },
+        {
+          "time": "14:00", 
+          "title": "Strategic problem identification and validation",
+          "description": "Systematically identify and validate real-world problems through user research, market analysis, and solution gap identification",
+          "subtasks": [
+            {"title": "Conduct user interviews and surveys", "estimated_minutes": 30},
+            {"title": "Analyze customer feedback and pain points", "estimated_minutes": 20},
+            {"title": "Document validated problems and opportunities", "estimated_minutes": 10}
+          ],
+          "time_allocation_minutes": 60
+        },
+        {
+          "time": "19:00",
+          "title": "Competitive landscape mapping and analysis",
+          "description": "Create comprehensive competitive analysis framework to understand market positioning and identify strategic advantages",
+          "subtasks": [
+            {"title": "Map key competitors and their offerings", "estimated_minutes": 25},
+            {"title": "Analyze competitive strengths and weaknesses", "estimated_minutes": 20},
+            {"title": "Identify market positioning opportunities", "estimated_minutes": 15}
+          ],
+          "time_allocation_minutes": 60
+        }
+      ]
+    }
+  ]
+}
 
-    const userPrompt = `Create ${totalWorkingDays * tasksPerDay} tasks for "${title}" over ${planDurationDays} days, ${tasksPerDay} tasks per day on ${preferredDays?.length ? 'selected' : 'all'} days.
+DETAILED REQUIREMENTS:
+- Each task must be comprehensive and valuable
+- Task titles must be unique, descriptive, and professional (NO "Day X, Task X" format)
+- Descriptions must be detailed and actionable (50-100 characters)
+- Subtasks must be specific and measurable
+- Use realistic time slots (09:00, 14:00, 19:00)
+- Include 2-4 subtasks per task
+- Make tasks progressive and building upon each other
+- Focus on high-value, practical activities
+- Ensure JSON is complete and valid
+- Generate exactly ${totalWorkingDays * tasksPerDay} tasks total`;
 
-Goal Description: ${description}
-Category: ${category}
-Intensity: ${intensity}`;
+    const userPrompt = `Create ${totalWorkingDays * tasksPerDay} comprehensive, high-quality tasks for "${title}" over ${planDurationDays} days, ${tasksPerDay} tasks per day on ${preferredDays?.length ? 'selected' : 'all'} days.
+
+GOAL: ${title}
+DESCRIPTION: ${description}
+CATEGORY: ${category}
+INTENSITY: ${intensity}
+
+DETAILED REQUIREMENTS:
+- Generate exactly ${totalWorkingDays * tasksPerDay} tasks total
+- ${tasksPerDay} tasks per day
+- Use time slots: 09:00, 14:00, 19:00
+- Each task needs 2-4 detailed subtasks
+- Task titles must be unique, descriptive, and professional (NO "Day X, Task X" format)
+- Descriptions must be comprehensive (50-100 characters)
+- Make tasks highly actionable and specific
+- Focus on high-value, practical activities
+- Ensure tasks are progressive and build upon each other
+- Include measurable outcomes and deliverables
+- Make each day distinct and valuable
+- Return ONLY valid JSON, no markdown formatting
+- Generate detailed, professional-quality tasks`;
 
     const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -456,7 +560,7 @@ Intensity: ${intensity}`;
             },
             body: JSON.stringify({
         model: 'claude-opus-4-1-20250805',
-              max_tokens: 8192,
+              max_tokens: 16384,
         messages: [{ role: 'user', content: `${systemPrompt}\n${userPrompt}` }]
       })
     });
@@ -495,7 +599,7 @@ Intensity: ${intensity}`;
           planData = JSON.parse(truncated);
           console.log(`[AI] Successfully parsed truncated JSON with ${planData.days?.length || 0} days`);
         } catch (truncatedError) {
-          throw parseError; // Fall back to original error
+          throw new Error('JSON parsing failed'); // Fall back to original error
         }
       } else {
         planData = JSON.parse(fixedText);
@@ -596,7 +700,7 @@ function generateTemplateTasks(
   preferredTimeRanges: PreferredTimeRange[] | undefined,
   preferredDays: number[] | undefined
 ): TaskTemplate[] {
-  const tasks: TaskTemplate[] = [];
+      const tasks: TaskTemplate[] = [];
   const tasksPerDay = preferredTimeRanges?.length || 3;
   const timeOfDays = ['morning', 'afternoon', 'evening'];
 
@@ -604,8 +708,8 @@ function generateTemplateTasks(
     // Check if this day is in preferred days
     if (preferredDays?.length) {
       const dayOfWeek = (day - 1) % 7;
-      if (!preferredDays.includes(dayOfWeek)) {
-        continue;
+              if (!preferredDays.includes(dayOfWeek)) {
+            continue;
       }
     }
 
@@ -682,7 +786,11 @@ async function savePlanOutline(
 async function insertTasks(
   supabase: any,
   goalId: string,
-  tasks: TaskTemplate[]
+  tasks: TaskTemplate[],
+  deviceNowIso: string,
+  deviceTimezone: string,
+  preferredTimeRanges: PreferredTimeRange[] | undefined,
+  preferredDays: number[] | undefined
 ): Promise<any[]> {
   // First, check if tasks already exist for this goal
   const { data: existingTasks, error: checkError } = await supabase
@@ -700,21 +808,32 @@ async function insertTasks(
     return existingTasks;
   }
 
-  const tasksToInsert = tasks.map(task => ({
-    goal_id: goalId,
-    title: task.title,
-    description: task.description,
-    day_offset: task.day_offset,
-    time_of_day: task.time_of_day,
-    subtasks: task.subtasks || [],
-    time_allocation_minutes: task.time_allocation_minutes || 30,
-    total_subtasks: task.subtasks?.length || 0,
-    subtasks_completed: 0,
-    custom_time: task.custom_time,
-    // Set default run_at and local_run_at based on day_offset
-    run_at: new Date(Date.now() + (task.day_offset * 24 * 60 * 60 * 1000)).toISOString(),
-    local_run_at: new Date(Date.now() + (task.day_offset * 24 * 60 * 60 * 1000)).toISOString()
-  }));
+  const tasksToInsert = tasks.map(task => {
+    // Calculate proper run_at and local_run_at using the timing function
+    const timing = computeRunAtDeviceAware(
+      task.day_offset + 1, // day_offset is 0-based, but function expects 1-based
+      task.time_of_day,
+      deviceNowIso,
+      deviceTimezone,
+      preferredTimeRanges,
+      preferredDays
+    );
+
+      return {
+      goal_id: goalId,
+                title: task.title,
+                description: task.description,
+      day_offset: task.day_offset,
+      time_of_day: task.time_of_day,
+                subtasks: task.subtasks || [],
+                time_allocation_minutes: task.time_allocation_minutes || 30,
+      total_subtasks: task.subtasks?.length || 0,
+                subtasks_completed: 0,
+      custom_time: task.custom_time,
+      run_at: timing.runAt,
+      local_run_at: timing.runAt // Use the same time for both
+    };
+  });
 
   const { data, error } = await supabase
     .from('goal_tasks')
@@ -739,6 +858,94 @@ function errorResponse(status: number, message: string, requestId: string, proce
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status }
   );
+}
+
+// ============================================================================
+// TOKEN MANAGEMENT
+// ============================================================================
+
+async function checkAndDeductTokens(
+  supabase: any,
+  user_id: string,
+  tokensRequired: number,
+  requestId: string
+): Promise<{ success: boolean; remainingTokens: number; message?: string }> {
+  try {
+    // Get user's current token balance from user_tokens table
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('user_tokens')
+      .select('tokens_remaining, tokens_used, is_subscribed, monthly_tokens')
+      .eq('user_id', user_id)
+      .single();
+
+    if (tokenError) {
+      console.error(`[${requestId}] Error fetching user tokens:`, tokenError);
+      return { success: false, remainingTokens: 0, message: 'Failed to fetch user token balance' };
+    }
+
+    if (!tokenData) {
+      console.error(`[${requestId}] User tokens not found:`, user_id);
+      return { success: false, remainingTokens: 0, message: 'User tokens not found' };
+    }
+
+    let currentTokens = tokenData.tokens_remaining || 0;
+    const isSubscribed = tokenData.is_subscribed || false;
+    const monthlyTokens = tokenData.monthly_tokens || 0;
+
+    // If user is subscribed and has monthly tokens, add them to balance
+    if (isSubscribed && monthlyTokens > 0) {
+      console.log(`[${requestId}] Subscribed user detected, adding ${monthlyTokens} monthly tokens`);
+      currentTokens += monthlyTokens;
+      
+      // Update the user's token balance with monthly tokens
+      const { error: updateMonthlyError } = await supabase
+        .from('user_tokens')
+        .update({ 
+          tokens_remaining: currentTokens,
+          monthly_tokens: 0 // Reset monthly tokens after adding them
+        })
+        .eq('user_id', user_id);
+
+      if (updateMonthlyError) {
+        console.error(`[${requestId}] Error updating monthly tokens:`, updateMonthlyError);
+      }
+    }
+
+    if (currentTokens < tokensRequired) {
+      console.log(`[${requestId}] Insufficient tokens: ${currentTokens} < ${tokensRequired}`);
+    return {
+        success: false,
+        remainingTokens: currentTokens,
+        message: `Insufficient tokens. You have ${currentTokens} tokens but need ${tokensRequired}`
+      };
+    }
+
+    // Deduct tokens and update usage
+    const newTokenBalance = currentTokens - tokensRequired;
+    const newTokensUsed = (tokenData.tokens_used || 0) + tokensRequired;
+    
+    const { error: updateError } = await supabase
+      .from('user_tokens')
+      .update({ 
+        tokens_remaining: newTokenBalance,
+        tokens_used: newTokensUsed,
+        last_used_at: new Date().toISOString(),
+        usage_count: (tokenData.usage_count || 0) + 1
+      })
+      .eq('user_id', user_id);
+
+    if (updateError) {
+      console.error(`[${requestId}] Error updating tokens:`, updateError);
+      return { success: false, remainingTokens: currentTokens, message: 'Failed to update token balance' };
+    }
+
+    console.log(`[${requestId}] Tokens deducted: ${tokensRequired}, remaining: ${newTokenBalance}`);
+    return { success: true, remainingTokens: newTokenBalance };
+
+  } catch (error) {
+    console.error(`[${requestId}] Token management error:`, error);
+    return { success: false, remainingTokens: 0, message: 'Token management error' };
+  }
 }
 
 // ============================================================================
@@ -802,6 +1009,17 @@ serve(async (req) => {
     if (!user_id || !goal_id || !category || !title || !description) {
       return errorResponse(400, 'Missing required fields', requestId);
     }
+
+    // Check and deduct tokens based on stage
+    const tokensRequired = stage === 'outline' ? 1 : 1; // Outline: 1 token, Tasks: 1 token
+    const tokenCheck = await checkAndDeductTokens(supabase, user_id, tokensRequired, requestId);
+    
+    if (!tokenCheck.success) {
+      console.log(`[${requestId}] Token check failed: ${tokenCheck.message}`);
+      return errorResponse(402, tokenCheck.message || 'Insufficient tokens', requestId, Date.now() - startTime);
+    }
+
+    console.log(`[${requestId}] Tokens deducted: ${tokensRequired}, remaining: ${tokenCheck.remainingTokens}`);
 
     if (!VALID_CATEGORIES.includes(category)) {
       return errorResponse(400, `Invalid category: ${category}`, requestId);
@@ -921,7 +1139,15 @@ serve(async (req) => {
       if (tasksResult.tasks.length > 0) {
         console.log(`[${requestId}] Inserting ${tasksResult.tasks.length} tasks into database...`);
         try {
-          insertedTasks = await insertTasks(supabase, goal_id, tasksResult.tasks);
+          insertedTasks = await insertTasks(
+            supabase, 
+            goal_id, 
+            tasksResult.tasks,
+        device_now_iso, 
+        device_timezone, 
+            finalTimeRanges,
+            finalPreferredDays
+          );
           console.log(`[${requestId}] Successfully inserted ${insertedTasks.length} tasks`);
         } catch (insertError) {
           const errorMsg = insertError instanceof Error ? insertError.message : String(insertError);
@@ -971,7 +1197,7 @@ serve(async (req) => {
         if (!pushResponse.ok) {
           const errorText = await pushResponse.text();
           console.error('❌ Push notification failed for outline:', errorText);
-    } else {
+      } else {
           console.log('✅ Push notification sent successfully for outline');
         }
       } else if (stage === 'tasks') {
@@ -1016,6 +1242,8 @@ serve(async (req) => {
         stage,
         request_id: requestId,
         processing_time_ms: totalTime,
+        tokens_used: tokensRequired,
+        tokens_remaining: tokenCheck.remainingTokens,
         icon_name: result?.iconName,
         color: result?.color,
         category: result?.category,
@@ -1035,6 +1263,25 @@ serve(async (req) => {
     console.error(`[${requestId}] Error: ${message}`);
     console.error(`[${requestId}] Stack: ${stack}`);
     console.error(`[${requestId}] Error object:`, JSON.stringify(error, null, 2));
+    
+    // If this is a task generation failure, delete the goal to clean up
+    if (stage === 'tasks' && goal_id) {
+      try {
+        console.log(`[${requestId}] Task generation failed, cleaning up goal: ${goal_id}`);
+        
+        // Delete the goal and all related data
+        await supabase.from('goals').delete().eq('id', goal_id);
+        console.log(`[${requestId}] Goal deleted successfully`);
+        
+        // Also delete any plan outline if it exists
+        await supabase.from('plan_outlines').delete().eq('goal_id', goal_id);
+        console.log(`[${requestId}] Plan outline deleted successfully`);
+        
+      } catch (cleanupError) {
+        console.error(`[${requestId}] Failed to cleanup goal after error:`, cleanupError);
+      }
+    }
+    
     return errorResponse(500, `${message}. Check function logs for details.`, requestId, totalTime);
   }
 });

@@ -92,57 +92,27 @@ serve(async (req) => {
       );
     }
 
-    // Check if user already has a token for this platform (different token, same platform)
-    const existingPlatformToken = existingTokens?.find(token => token.platform === platform);
-    
-    if (existingPlatformToken) {
-      console.log(`🔄 User already has a token for ${platform}, updating it`);
-      
-      // Update the existing token for this platform
-      const { error: updateError } = await supabaseClient
-        .from('push_tokens')
-        .update({ 
-          expo_token,
-          created_at: new Date().toISOString()
-        })
-        .eq('id', existingPlatformToken.id);
-
-      if (updateError) throw updateError;
-
-      console.log('✅ Updated existing token for platform', isDevToken ? '(dev token)' : '');
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Push token updated for this platform',
-          action: 'updated',
-          is_dev_token: isDevToken
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    // Allow multiple tokens per user (up to 2 total, regardless of platform)
+    // No need to check for platform-specific tokens or update existing ones
+    // Just check if we've reached the limit of 2 tokens total
 
     // Check if user has reached the limit of 2 tokens
     if (existingTokens && existingTokens.length >= 2) {
-      // Remove the oldest token (first in the sorted array)
-      const oldestToken = existingTokens[0];
+      console.log(`⚠️ User already has ${existingTokens.length} tokens (limit: 2). Cannot add more tokens.`);
       
-      console.log(`🔄 User has ${existingTokens.length} tokens, removing oldest: ${oldestToken.id}`);
-      
-      const { error: deleteError } = await supabaseClient
-        .from('push_tokens')
-        .delete()
-        .eq('id', oldestToken.id);
-
-      if (deleteError) {
-        console.error('❌ Failed to delete oldest token:', deleteError);
-        throw deleteError;
-      }
-
-      console.log('✅ Removed oldest token to make room for new one');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'User has reached the maximum limit of 2 push tokens. Please remove an existing token first.',
+          action: 'limit_reached',
+          current_tokens: existingTokens.length,
+          max_tokens: 2
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     // Insert new token
