@@ -1383,6 +1383,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       const deviceUtcOffset = -deviceNow.getTimezoneOffset();
 
       // Stage 2: Generate detailed tasks using the separate generate-tasks function
+      // Note: This may timeout on the client side, but the function continues running on the server
       const tasksResponse = await supabase.functions.invoke('generate-tasks', {
         body: {
           user_id: user?.id,
@@ -1392,48 +1393,87 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         },
       });
 
-      // Log the task generation request (no need to wait for completion)
+      // Log the task generation request
       if (tasksResponse.error) {
-        console.error('❌ Tasks generation error:', tasksResponse.error);
+        const errorMessage = tasksResponse.error.message || '';
 
-        // If task generation fails, mark goal as failed instead of deleting
+        // Check if it's a timeout error (which is expected for long-running tasks)
+        const isTimeoutError =
+          errorMessage.includes('FunctionsHttpError') ||
+          errorMessage.includes('non-2xx status code') ||
+          errorMessage.includes('timeout') ||
+          errorMessage.includes('aborted');
+
+        if (isTimeoutError) {
+          // This is expected - the function is still running in the background
+          console.log(
+            '⏳ Task generation is running in background (client timeout - this is normal)'
+          );
+          console.log(
+            '📝 Tasks will appear in the card once generation is complete'
+          );
+        } else {
+          // Real error - mark goal as failed
+          console.error('❌ Tasks generation error:', tasksResponse.error);
+
+          if (createdGoalId) {
+            try {
+              console.log('⚠️ Marking goal as failed:', createdGoalId);
+              await supabase
+                .from('goals')
+                .update({
+                  status: 'failed',
+                  error_message: errorMessage || 'Task generation failed',
+                })
+                .eq('id', createdGoalId);
+              console.log('✅ Goal marked as failed successfully');
+            } catch (updateError) {
+              console.error('❌ Failed to update goal status:', updateError);
+            }
+          }
+        }
+      } else {
+        console.log('✅ Task generation completed successfully');
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // Check if it's a timeout error
+      const isTimeoutError =
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('aborted') ||
+        errorMessage.includes('FunctionsHttpError');
+
+      if (isTimeoutError) {
+        // This is expected - the function is still running in the background
+        console.log(
+          '⏳ Task generation is running in background (client timeout - this is normal)'
+        );
+        console.log(
+          '📝 Tasks will appear in the card once generation is complete'
+        );
+      } else {
+        // Real error - mark goal as failed
+        console.error('❌ Error in Stage 2:', error);
+
         if (createdGoalId) {
           try {
-            console.log('⚠️ Marking goal as failed:', createdGoalId);
+            console.log(
+              '⚠️ Marking goal as failed due to error:',
+              createdGoalId
+            );
             await supabase
               .from('goals')
               .update({
                 status: 'failed',
-                error_message:
-                  tasksResponse.error.message || 'Task generation failed',
+                error_message: errorMessage,
               })
               .eq('id', createdGoalId);
             console.log('✅ Goal marked as failed successfully');
           } catch (updateError) {
             console.error('❌ Failed to update goal status:', updateError);
           }
-        }
-      } else {
-        console.log('✅ Task generation started successfully');
-      }
-    } catch (error) {
-      console.error('❌ Error in Stage 2:', error);
-
-      // If there's an error, mark goal as failed instead of deleting
-      if (createdGoalId) {
-        try {
-          console.log('⚠️ Marking goal as failed due to error:', createdGoalId);
-          await supabase
-            .from('goals')
-            .update({
-              status: 'failed',
-              error_message:
-                error instanceof Error ? error.message : 'Unknown error',
-            })
-            .eq('id', createdGoalId);
-          console.log('✅ Goal marked as failed successfully');
-        } catch (updateError) {
-          console.error('❌ Failed to update goal status:', updateError);
         }
       }
     }
