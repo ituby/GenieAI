@@ -245,6 +245,8 @@ const styles = StyleSheet.create({
   otpHint: {
     textAlign: 'center',
     marginTop: -8,
+    fontSize: 10,
+    opacity: 0.7,
   },
   actions: {
     gap: 16,

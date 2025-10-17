@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
+  Animated,
+} from 'react-native';
 // i18n removed
 // import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '../components';
@@ -9,14 +17,40 @@ import { useTheme } from '../theme/index';
 export const LoginScreen: React.FC = () => {
   const theme = useTheme();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const breathingAnimation = useRef(new Animated.Value(1)).current;
 
   const toggleAuthMode = () => {
-    setAuthMode(prev => prev === 'login' ? 'register' : 'login');
+    setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'));
   };
 
+  useEffect(() => {
+    // Breathing animation for logo symbol
+    const breathing = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathingAnimation, {
+          toValue: 1.1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(breathingAnimation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    breathing.start();
+
+    return () => breathing.stop();
+  }, []);
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
-      
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background.primary },
+      ]}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
@@ -26,19 +60,17 @@ export const LoginScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Image 
-              source={require('../../assets/LogoSymbol.webp')} 
-              style={styles.logoSymbol}
-              resizeMode="contain"
-            />
-            <Image 
-              source={require('../../assets/LogoType.webp')} 
-              style={styles.logoType}
-              resizeMode="contain"
-            />
-            <Text variant="caption" style={styles.subtitle}>
-              Your AI-powered goal companion
-            </Text>
+            <Animated.View
+              style={{
+                transform: [{ scale: breathingAnimation }],
+              }}
+            >
+              <Image
+                source={require('../../assets/LogoSymbol.webp')}
+                style={styles.logoSymbol}
+                resizeMode="contain"
+              />
+            </Animated.View>
           </View>
 
           <View style={styles.formContainer}>
@@ -46,9 +78,11 @@ export const LoginScreen: React.FC = () => {
           </View>
 
           <View style={styles.footer}>
-            <Text variant="caption" color="tertiary" style={styles.footerText}>
-              Create goals and get a personalized 21-day plan
-            </Text>
+            <Image
+              source={require('../../assets/LogoType.webp')}
+              style={styles.logoType}
+              resizeMode="contain"
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -74,31 +108,19 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoSymbol: {
-    width: 80,
-    height: 80,
-    marginBottom: 12,
+    width: 60, // Reduced from 80
+    height: 60, // Reduced from 80
   },
   logoType: {
-    width: 120,
-    height: 32,
-    marginBottom: 4,
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#FFFFFF',
-    opacity: 0.7,
-    fontSize: 12,
+    width: 70, // Further reduced
+    height: 18, // Further reduced
   },
   formContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 24, // Reduced to make space for footer logo
   },
   footer: {
     alignItems: 'center',
-  },
-  footerText: {
-    textAlign: 'center',
-    maxWidth: 300,
+    marginTop: 8,
   },
 });
