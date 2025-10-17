@@ -12,19 +12,36 @@ export const supabase = createClient(
       detectSessionInUrl: false,
       storage: AsyncStorage,
     },
+    global: {
+      fetch: (url, options = {}) => {
+        // Create custom timeout for Edge Functions (5 minutes for AI generation)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
+
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId));
+      },
+    },
   }
 );
 
 // Helper function to get current user
 export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error) throw error;
   return user;
 };
 
 // Helper function to check if user is authenticated
 export const isAuthenticated = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return !!session;
 };
 

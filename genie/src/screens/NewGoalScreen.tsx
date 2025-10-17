@@ -160,20 +160,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     description: '',
     category: 'custom' as GoalCategory,
     planDurationDays: 21,
-    tasksPerDayRange: { min: 3, max: 5 } as { min: number, max: number },
+    tasksPerDayRange: { min: 3, max: 5 } as { min: number; max: number },
     preferredTimeRanges: [
       { start_hour: 8, end_hour: 12, label: 'Morning' },
       { start_hour: 14, end_hour: 18, label: 'Afternoon' },
-      { start_hour: 19, end_hour: 23, label: 'Evening' }
-    ] as Array<{start_hour: number, end_hour: number, label: string}>,
+      { start_hour: 19, end_hour: 23, label: 'Evening' },
+    ] as Array<{ start_hour: number; end_hour: number; label: string }>,
     preferredDays: [1, 2, 3, 4, 5, 6] as number[], // All days except Sunday (0)
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [loadingStep, setLoadingStep] = useState(1);
-  const [loadingInterval, setLoadingInterval] = useState<NodeJS.Timeout | null>(
-    null
-  );
+  const [loadingInterval, setLoadingInterval] = useState<ReturnType<
+    typeof setInterval
+  > | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPlanPreview, setShowPlanPreview] = useState(false);
   const [isResuming, setIsResuming] = useState(false); // Prevent duplicate resume calls
@@ -240,7 +240,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (user?.id) {
         const { data: pendingGoals, error: dbError } = await supabase
           .from('goals')
-          .select('id, title, description, category, icon_name, color, plan_duration_days, preferred_time_ranges, preferred_days')
+          .select(
+            'id, title, description, category, icon_name, color, plan_duration_days, preferred_time_ranges, preferred_days'
+          )
           .eq('user_id', user.id)
           .eq('status', 'paused')
           .order('created_at', { ascending: false })
@@ -248,8 +250,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
         if (!dbError && pendingGoals && pendingGoals.length > 0) {
           const pendingGoal = pendingGoals[0];
-          console.log('📋 Found paused goal in DB:', pendingGoal.id, '- resuming...');
-          
+          console.log(
+            '📋 Found paused goal in DB:',
+            pendingGoal.id,
+            '- resuming...'
+          );
+
           // Restore form data from goal
           setFormData({
             title: pendingGoal.title,
@@ -260,13 +266,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             preferredTimeRanges: pendingGoal.preferred_time_ranges || [
               { start_hour: 8, end_hour: 12, label: 'Morning' },
               { start_hour: 14, end_hour: 18, label: 'Afternoon' },
-              { start_hour: 19, end_hour: 23, label: 'Evening' }
+              { start_hour: 19, end_hour: 23, label: 'Evening' },
             ],
             preferredDays: pendingGoal.preferred_days || [1, 2, 3, 4, 5, 6],
           });
-          
+
           setCreatedGoalId(pendingGoal.id);
-          
+
           // Resume plan generation (will check plan_outlines table)
           resumePlanGeneration(pendingGoal.id, {
             title: pendingGoal.title,
@@ -277,15 +283,15 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             preferredTimeRanges: pendingGoal.preferred_time_ranges || [
               { start_hour: 8, end_hour: 12, label: 'Morning' },
               { start_hour: 14, end_hour: 18, label: 'Afternoon' },
-              { start_hour: 19, end_hour: 23, label: 'Evening' }
+              { start_hour: 19, end_hour: 23, label: 'Evening' },
             ],
             preferredDays: pendingGoal.preferred_days || [1, 2, 3, 4, 5, 6],
           });
-          
+
           return; // Exit early - database takes priority
         }
       }
-      
+
       // If no paused goals in DB, check AsyncStorage
       const raw = await AsyncStorage.getItem(PROGRESS_KEY);
       if (!raw) return;
@@ -299,7 +305,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           .select('status')
           .eq('id', saved.createdGoalId)
           .single();
-        
+
         // If goal is no longer paused, clear the progress
         if (!goalData || goalData.status !== 'paused') {
           console.log('🧹 Clearing stale progress - goal is no longer paused');
@@ -321,21 +327,25 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (saved.planCategory) setPlanCategory(saved.planCategory);
       if (saved.planIconName) setPlanIconName(saved.planIconName);
       if (saved.planColor) setPlanColor(saved.planColor);
-      
+
       // Restore success data if available
       if (saved.successData) {
         setSuccessData(saved.successData);
       } else if (saved.planData) {
         // Generate success data from plan data if not saved
-        const taskCount = saved.planData.milestones?.reduce(
-          (sum: number, milestone: any) => sum + (milestone.tasks || 0),
-          0
-        ) || 21;
-        const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === saved.formData?.category);
+        const taskCount =
+          saved.planData.milestones?.reduce(
+            (sum: number, milestone: any) => sum + (milestone.tasks || 0),
+            0
+          ) || 21;
+        const selectedCategoryConfig = CATEGORY_CONFIG.find(
+          (cat) => cat.value === saved.formData?.category
+        );
         setSuccessData({
           taskCount,
           rewardCount: 5,
-          iconName: saved.planIconName || selectedCategoryConfig?.icon || 'star',
+          iconName:
+            saved.planIconName || selectedCategoryConfig?.icon || 'star',
           color: saved.planColor || selectedCategoryConfig?.color || '#FFFF68',
         });
       }
@@ -344,7 +354,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (saved.state === 'creating' && saved.createdGoalId && saved.formData) {
         resumePlanGeneration(saved.createdGoalId, saved.formData);
       }
-      
+
       // If we were in preview state, show the plan preview modal
       // But only if the goal is still paused (not active)
       if (saved.state === 'preview' && saved.planData && saved.createdGoalId) {
@@ -353,7 +363,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           .select('status')
           .eq('id', saved.createdGoalId)
           .single();
-        
+
         // Only show preview if goal is still paused
         if (goalData?.status === 'paused') {
           setShowPlanPreview(true);
@@ -362,7 +372,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           await clearProgress();
         }
       }
-      
+
       // If we were in success state, show the success modal
       if (saved.state === 'success' && saved.successData) {
         setShowSuccessModal(true);
@@ -379,18 +389,18 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   // Clean up orphaned goals (paused goals older than 24 hours with no progress)
   const cleanupOrphanedGoals = async () => {
     if (!user?.id) return;
-    
+
     try {
       const oneDayAgo = new Date();
       oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-      
+
       const { error } = await supabase
         .from('goals')
         .delete()
         .eq('user_id', user.id)
         .eq('status', 'paused')
         .lt('created_at', oneDayAgo.toISOString());
-      
+
       if (error) {
         console.warn('⚠️ Error cleaning up orphaned goals:', error);
       } else {
@@ -407,26 +417,120 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   ) => {
     // Prevent duplicate calls
     if (isResuming) {
-      console.log('⚠️ Already resuming plan generation, skipping duplicate call');
+      console.log(
+        '⚠️ Already resuming plan generation, skipping duplicate call'
+      );
       return;
     }
-    
+
     try {
       setIsResuming(true);
       console.log('🔄 Resuming plan generation for goal:', goalId);
-      
-      // Start loading animation
+
+      // First, check immediately if plan outline already exists (fast check)
+      console.log('🔍 Quick check - looking for existing plan outline...');
+      const { data: quickCheckData, error: quickCheckError } = await supabase
+        .from('plan_outlines')
+        .select('*')
+        .eq('goal_id', goalId)
+        .single();
+
+      if (!quickCheckError && quickCheckData) {
+        // Plan outline exists! Load it immediately and show preview without loading animation
+        console.log('✅ Plan outline found immediately - loading data...');
+
+        // Reconstruct plan_outline array from week columns
+        const reconstructedOutline: Array<{
+          title: string;
+          description: string;
+        }> = [];
+        for (let i = 1; i <= 24; i++) {
+          const titleKey = `week_${i}_title` as keyof typeof quickCheckData;
+          const descKey =
+            `week_${i}_description` as keyof typeof quickCheckData;
+
+          if (quickCheckData[titleKey] && quickCheckData[descKey]) {
+            reconstructedOutline.push({
+              title: quickCheckData[titleKey] as string,
+              description: quickCheckData[descKey] as string,
+            });
+          } else {
+            break; // No more weeks
+          }
+        }
+
+        // Get goal data for additional info
+        const { data: goalData } = await supabase
+          .from('goals')
+          .select('*, goal_tasks(id)')
+          .eq('id', goalId)
+          .single();
+
+        const taskCount = goalData?.goal_tasks?.length || 0;
+
+        const data = {
+          milestones: quickCheckData.milestones || [],
+          goalTitle: goalData?.title || savedForm.title,
+          subcategory: null,
+          marketingDomain: null,
+          planOutline: reconstructedOutline,
+          deliverables: quickCheckData.deliverables || {},
+        };
+
+        setPlanData(data);
+        setPlanCategory(goalData?.category || savedForm.category);
+        setPlanIconName(goalData?.icon_name || 'star');
+        setPlanColor(goalData?.color || '#FFFF68');
+        setSuccessData({
+          taskCount,
+          rewardCount: 5,
+          iconName: goalData?.icon_name || 'star',
+          color: goalData?.color || '#FFFF68',
+        });
+
+        // Show preview immediately without loading animation
+        setShowPlanPreview(true);
+
+        await persistProgress({
+          state: 'preview',
+          isCreatingPlan: false,
+          showPlanPreview: true,
+          planData: data,
+          createdGoalId: goalId,
+          formData: savedForm,
+          loadingStep: 40,
+          planCategory: goalData?.category,
+          planIconName: goalData?.icon_name,
+          planColor: goalData?.color,
+          successData: {
+            taskCount,
+            rewardCount: 5,
+            iconName: goalData?.icon_name || 'star',
+            color: goalData?.color || '#FFFF68',
+          },
+        });
+
+        setIsResuming(false);
+        return;
+      }
+
+      // Plan outline doesn't exist yet - start loading animation and poll
+      console.log(
+        '⏳ Plan outline not ready yet - starting loading animation...'
+      );
       setIsCreatingPlan(true);
       const interval = setInterval(() => {
         setLoadingStep((prev) => (prev >= 39 ? 39 : prev + 1));
       }, 800);
       setLoadingInterval(interval);
-      
-      // Poll the database to check if plan outline was created (previous request completed)
+
+      // Poll the database to check if plan outline was created (previous request completing)
       const pollForPlanOutline = async (maxAttempts = 60): Promise<boolean> => {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          console.log(`🔍 Polling attempt ${attempt}/${maxAttempts} - checking if plan outline exists...`);
-          
+          console.log(
+            `🔍 Polling attempt ${attempt}/${maxAttempts} - checking if plan outline exists...`
+          );
+
           const { data: planOutlineData, error: outlineError } = await supabase
             .from('plan_outlines')
             .select('*')
@@ -436,32 +540,37 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           if (!outlineError && planOutlineData) {
             // Plan outline exists! Load it and show preview
             console.log('✅ Plan outline found - loading data...');
-            
+
             // Reconstruct plan_outline array from week columns
-            const reconstructedOutline = [];
+            const reconstructedOutline: Array<{
+              title: string;
+              description: string;
+            }> = [];
             for (let i = 1; i <= 24; i++) {
-              const titleKey = `week_${i}_title` as keyof typeof planOutlineData;
-              const descKey = `week_${i}_description` as keyof typeof planOutlineData;
-              
+              const titleKey =
+                `week_${i}_title` as keyof typeof planOutlineData;
+              const descKey =
+                `week_${i}_description` as keyof typeof planOutlineData;
+
               if (planOutlineData[titleKey] && planOutlineData[descKey]) {
                 reconstructedOutline.push({
-                  title: planOutlineData[titleKey],
-                  description: planOutlineData[descKey],
+                  title: planOutlineData[titleKey] as string,
+                  description: planOutlineData[descKey] as string,
                 });
               } else {
                 break; // No more weeks
               }
             }
-            
+
             // Get goal data for additional info
             const { data: goalData } = await supabase
               .from('goals')
               .select('*, goal_tasks(id)')
               .eq('id', goalId)
               .single();
-            
+
             const taskCount = goalData?.goal_tasks?.length || 0;
-            
+
             const data = {
               milestones: planOutlineData.milestones || [],
               goalTitle: goalData?.title || savedForm.title,
@@ -470,7 +579,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               planOutline: reconstructedOutline,
               deliverables: planOutlineData.deliverables || {},
             };
-            
+
             setPlanData(data);
             setPlanCategory(goalData?.category || savedForm.category);
             setPlanIconName(goalData?.icon_name || 'star');
@@ -481,12 +590,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               iconName: goalData?.icon_name || 'star',
               color: goalData?.color || '#FFFF68',
             });
-            
+
             if (interval) clearInterval(interval);
             setLoadingInterval(null);
             setIsCreatingPlan(false);
             setShowPlanPreview(true);
-            
+
             await persistProgress({
               state: 'preview',
               isCreatingPlan: false,
@@ -505,26 +614,30 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 color: goalData?.color || '#FFFF68',
               },
             });
-            
+
             return true;
           }
-          
+
           // Wait 3 seconds before next poll
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise((resolve) => setTimeout(resolve, 3000));
         }
-        
-        console.log('⏱️ Polling timeout - no plan outline found after', maxAttempts, 'attempts');
+
+        console.log(
+          '⏱️ Polling timeout - no plan outline found after',
+          maxAttempts,
+          'attempts'
+        );
         return false;
       };
-      
-      // Try polling first (wait up to 3 minutes for previous request to complete)
+
+      // Try polling (wait up to 3 minutes for previous request to complete)
       const planFound = await pollForPlanOutline(60);
-      
+
       if (planFound) {
         // Plan was found via polling, we're done!
         return;
       }
-      
+
       // If polling failed, the previous request probably failed - send a new request
       console.log('🆕 Previous request likely failed, sending new request...');
 
@@ -533,7 +646,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       const deviceTimezone = calendars[0]?.timeZone || 'UTC'; // e.g., "Asia/Jerusalem"
       const deviceNow = new Date(); // Local device time
       const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
-      
+
       const response = await supabase.functions.invoke('generate-plan', {
         body: {
           user_id: user?.id,
@@ -550,7 +663,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           detailed_plan: true,
           plan_duration_days: savedForm.planDurationDays,
           preferred_time_ranges: savedForm.preferredTimeRanges,
-          preferred_days: savedForm.preferredDays.length > 0 ? savedForm.preferredDays : undefined,
+          preferred_days:
+            savedForm.preferredDays.length > 0
+              ? savedForm.preferredDays
+              : undefined,
         },
       });
 
@@ -743,8 +859,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       setLoadingInterval(interval);
 
       // Get selected category config
-      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
-      
+      const selectedCategoryConfig = CATEGORY_CONFIG.find(
+        (cat) => cat.value === formData.category
+      );
+
       // First create the goal
       const goal = await createGoal({
         user_id: user.id,
@@ -782,30 +900,39 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         const deviceTimezone = calendars[0]?.timeZone || 'UTC'; // e.g., "Asia/Jerusalem"
         const deviceNow = new Date(); // Local device time
         const deviceUtcOffset = -deviceNow.getTimezoneOffset(); // Note: getTimezoneOffset returns negative of actual offset
-        
+
         // Stage 1: Generate plan outline
-        const outlineResponse = await supabase.functions.invoke('generate-plan', {
-          body: {
-            user_id: user.id,
-            goal_id: goal.id,
-            category: formData.category,
-            title: formData.title.trim(),
-            description: formData.description.trim(),
-            intensity: 'medium', // Default intensity based on tasks per day range
-            timezone: deviceTimezone, // Legacy field for backward compatibility
-            device_now_iso: deviceNow.toISOString(),
-            device_timezone: deviceTimezone,
-            device_utc_offset_minutes: deviceUtcOffset,
-            language: 'en', // Default to English
-            stage: 'outline', // Request outline generation only
-            plan_duration_days: formData.planDurationDays,
-            preferred_time_ranges: formData.preferredTimeRanges,
-            preferred_days: formData.preferredDays.length > 0 ? formData.preferredDays : undefined,
-          },
-        });
+        const outlineResponse = await supabase.functions.invoke(
+          'generate-plan',
+          {
+            body: {
+              user_id: user.id,
+              goal_id: goal.id,
+              category: formData.category,
+              title: formData.title.trim(),
+              description: formData.description.trim(),
+              intensity: 'medium', // Default intensity based on tasks per day range
+              timezone: deviceTimezone, // Legacy field for backward compatibility
+              device_now_iso: deviceNow.toISOString(),
+              device_timezone: deviceTimezone,
+              device_utc_offset_minutes: deviceUtcOffset,
+              language: 'en', // Default to English
+              stage: 'outline', // Request outline generation only
+              plan_duration_days: formData.planDurationDays,
+              preferred_time_ranges: formData.preferredTimeRanges,
+              preferred_days:
+                formData.preferredDays.length > 0
+                  ? formData.preferredDays
+                  : undefined,
+            },
+          }
+        );
 
         if (outlineResponse.error) {
-          console.error('❌ Plan outline generation error:', outlineResponse.error);
+          console.error(
+            '❌ Plan outline generation error:',
+            outlineResponse.error
+          );
           // Ensure we reach the final step before showing plan preview
           setLoadingStep(40);
 
@@ -869,10 +996,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         } else {
           // Stage 1 successful - we got the outline
           const iconName = outlineResponse.data?.icon_name || 'star';
-          const aiColor = (outlineResponse.data?.color as string | undefined) || undefined;
+          const aiColor =
+            (outlineResponse.data?.color as string | undefined) || undefined;
           const category = outlineResponse.data?.category || 'custom';
           const subcategory = outlineResponse.data?.subcategory || null;
-          const marketingDomain = outlineResponse.data?.marketing_domain || null;
+          const marketingDomain =
+            outlineResponse.data?.marketing_domain || null;
           const milestones = outlineResponse.data?.milestones || [];
           const planOutline = outlineResponse.data?.plan_outline || [];
 
@@ -887,7 +1016,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           setPlanCategory(category);
           setPlanIconName(iconName);
           setPlanColor(aiColor || mapCategoryToColor(category));
-          
+
           // Ensure we reach the final step before showing plan preview
           setLoadingStep(40);
 
@@ -1030,14 +1159,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const canProceedToNextStep = () => {
     switch (currentStep) {
       case 1:
-        return formData.title.trim() && formData.description.trim() && formData.category;
+        return (
+          formData.title.trim() &&
+          formData.description.trim() &&
+          formData.category
+        );
       case 2:
         return true;
       default:
         return false;
     }
   };
-
 
   type Milestone = {
     week: number;
@@ -1046,50 +1178,70 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     tasks: number;
   };
 
-  const generateMilestonesFromTasks = (tasks: any[], planDurationDays: number): any[] => {
+  const generateMilestonesFromTasks = (
+    tasks: any[],
+    planDurationDays: number
+  ): any[] => {
     // Generate milestones from existing tasks by grouping them into weeks
     const totalWeeks = Math.ceil(planDurationDays / 7);
     const weeks: Record<number, any> = {};
-    
+
     // Group tasks by week
     tasks.forEach((task: any) => {
       const taskDate = new Date(task.run_at);
-      const dayNumber = Math.floor((taskDate.getTime() - new Date(tasks[0]?.run_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const dayNumber =
+        Math.floor(
+          (taskDate.getTime() -
+            new Date(tasks[0]?.run_at || Date.now()).getTime()) /
+            (1000 * 60 * 60 * 24)
+        ) + 1;
       const weekNumber = Math.ceil(dayNumber / 7);
-      
+
       if (!weeks[weekNumber]) {
         weeks[weekNumber] = {
           week: weekNumber,
-          title: weekNumber === 1 ? 'Foundation & Setup' : 
-                 weekNumber === 2 ? 'Skill Development' : 
-                 'Mastery & Transformation',
-          description: weekNumber === 1 ? 'Establishing core habits and building momentum for your journey.' :
-                       weekNumber === 2 ? 'Advancing your skills and deepening your commitment to the goal.' :
-                       'Achieving mastery and preparing for long-term success.',
+          title:
+            weekNumber === 1
+              ? 'Foundation & Setup'
+              : weekNumber === 2
+                ? 'Skill Development'
+                : 'Mastery & Transformation',
+          description:
+            weekNumber === 1
+              ? 'Establishing core habits and building momentum for your journey.'
+              : weekNumber === 2
+                ? 'Advancing your skills and deepening your commitment to the goal.'
+                : 'Achieving mastery and preparing for long-term success.',
           tasks: 0,
         };
       }
       weeks[weekNumber].tasks++;
     });
-    
+
     // Convert to array and ensure we have at least 3 milestones
     const milestonesArray = Object.values(weeks);
-    
+
     // If we have fewer than 3 milestones, add placeholder ones
     while (milestonesArray.length < 3) {
       const nextWeek = milestonesArray.length + 1;
       milestonesArray.push({
         week: nextWeek,
-        title: nextWeek === 1 ? 'Foundation & Setup' : 
-               nextWeek === 2 ? 'Skill Development' : 
-               'Mastery & Transformation',
-        description: nextWeek === 1 ? 'Establishing core habits and building momentum for your journey.' :
-                     nextWeek === 2 ? 'Advancing your skills and deepening your commitment to the goal.' :
-                     'Achieving mastery and preparing for long-term success.',
+        title:
+          nextWeek === 1
+            ? 'Foundation & Setup'
+            : nextWeek === 2
+              ? 'Skill Development'
+              : 'Mastery & Transformation',
+        description:
+          nextWeek === 1
+            ? 'Establishing core habits and building momentum for your journey.'
+            : nextWeek === 2
+              ? 'Advancing your skills and deepening your commitment to the goal.'
+              : 'Achieving mastery and preparing for long-term success.',
         tasks: 0,
       });
     }
-    
+
     return milestonesArray.slice(0, 3); // Return max 3 milestones for preview
   };
 
@@ -1163,7 +1315,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   const handleApprovePlan = async () => {
     setShowPlanPreview(false);
-    
+
     // Check if goal is already active (prevent duplicate requests)
     if (createdGoalId) {
       const { data: goalData } = await supabase
@@ -1171,7 +1323,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         .select('status')
         .eq('id', createdGoalId)
         .single();
-      
+
       if (goalData?.status === 'active') {
         console.log('⚠️ Goal is already active, skipping task generation');
         // Just close the screen and return to dashboard
@@ -1182,18 +1334,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         return;
       }
     }
-    
+
     // Immediately clear any persisted progress to prevent modal from reopening
     await clearProgress();
-    
+
     // Activate the goal FIRST before closing the screen
     // This ensures the goal shows as loading in dashboard
     if (createdGoalId) {
-      const selectedCategoryConfig = CATEGORY_CONFIG.find(cat => cat.value === formData.category);
+      const selectedCategoryConfig = CATEGORY_CONFIG.find(
+        (cat) => cat.value === formData.category
+      );
       const finalCategory = formData.category;
       const finalIcon = planIconName || selectedCategoryConfig?.icon || 'star';
-      const finalColor = planColor || selectedCategoryConfig?.color || '#FFFF68';
-      
+      const finalColor =
+        planColor || selectedCategoryConfig?.color || '#FFFF68';
+
       await supabase
         .from('goals')
         .update({
@@ -1203,30 +1358,30 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           color: finalColor,
         })
         .eq('id', createdGoalId);
-      
+
       console.log('✅ Goal activated - tasks will be generated in background');
     }
-    
+
     // Close the NewGoal screen and return to dashboard
     // The goal will show as loading in dashboard until tasks are ready
     if (onGoalCreated) {
       onGoalCreated();
     }
-    
+
     // Clear progress and close modals
     await clearProgress();
-    
+
     // Reset all modal states to prevent reopening
     setShowPlanPreview(false);
     setShowSuccessModal(false);
-    
+
     try {
       // Get device timezone and current time using expo-localization
       const calendars = Localization.getCalendars();
       const deviceTimezone = calendars[0]?.timeZone || 'UTC';
       const deviceNow = new Date();
       const deviceUtcOffset = -deviceNow.getTimezoneOffset();
-      
+
       // Stage 2: Generate detailed tasks using the separate generate-tasks function
       const tasksResponse = await supabase.functions.invoke('generate-tasks', {
         body: {
@@ -1236,20 +1391,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           device_timezone: deviceTimezone,
         },
       });
-      
+
       // Log the task generation request (no need to wait for completion)
       if (tasksResponse.error) {
         console.error('❌ Tasks generation error:', tasksResponse.error);
-        
+
         // If task generation fails, mark goal as failed instead of deleting
         if (createdGoalId) {
           try {
             console.log('⚠️ Marking goal as failed:', createdGoalId);
             await supabase
               .from('goals')
-              .update({ 
+              .update({
                 status: 'failed',
-                error_message: tasksResponse.error.message || 'Task generation failed'
+                error_message:
+                  tasksResponse.error.message || 'Task generation failed',
               })
               .eq('id', createdGoalId);
             console.log('✅ Goal marked as failed successfully');
@@ -1260,19 +1416,19 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       } else {
         console.log('✅ Task generation started successfully');
       }
-      
     } catch (error) {
       console.error('❌ Error in Stage 2:', error);
-      
+
       // If there's an error, mark goal as failed instead of deleting
       if (createdGoalId) {
         try {
           console.log('⚠️ Marking goal as failed due to error:', createdGoalId);
           await supabase
             .from('goals')
-            .update({ 
+            .update({
               status: 'failed',
-              error_message: error instanceof Error ? error.message : 'Unknown error'
+              error_message:
+                error instanceof Error ? error.message : 'Unknown error',
             })
             .eq('id', createdGoalId);
           console.log('✅ Goal marked as failed successfully');
@@ -1307,7 +1463,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       // If a goal was created, delete it completely
       if (createdGoalId) {
         console.log('🗑️ Deleting goal and all related data:', createdGoalId);
-        
+
         // Delete the goal - CASCADE will handle tasks, notifications, rewards, etc.
         const { error: deleteError } = await supabase
           .from('goals')
@@ -1327,7 +1483,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       // Reset UI state
       setShowPlanPreview(false);
       setCurrentStep(1);
-      
+
       // Reset form to defaults
       setFormData({
         title: '',
@@ -1338,11 +1494,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         preferredTimeRanges: [
           { start_hour: 8, end_hour: 12, label: 'Morning' },
           { start_hour: 14, end_hour: 18, label: 'Afternoon' },
-          { start_hour: 19, end_hour: 23, label: 'Evening' }
+          { start_hour: 19, end_hour: 23, label: 'Evening' },
         ],
         preferredDays: [1, 2, 3, 4, 5, 6],
       });
-      
+
       setErrors({});
       setPlanData({
         milestones: [],
@@ -1351,10 +1507,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         marketingDomain: null,
         planOutline: [],
       });
-      
+
       // Clear persisted progress
       clearProgress();
-      
+
       console.log('✅ UI reset complete - ready for new goal');
     } catch (error) {
       console.error('❌ Error in handleTryAgain:', error);
@@ -1391,7 +1547,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     <Animated.View
       style={[
         styles.container,
-        { 
+        {
           backgroundColor: theme.colors.background.primary,
           opacity: fadeAnimation,
           transform: [{ translateY: slideAnimation }],
@@ -1424,13 +1580,16 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         >
           {/* Multi-Step Form */}
           <View style={styles.form}>
-
             {/* Step Content */}
             {currentStep === 1 && (
               <View style={styles.stepContent}>
                 <Card style={styles.stepCard}>
                   <View style={styles.stepNumberCircle}>
-                    <Text variant="body" color="primary" style={styles.stepNumberText}>
+                    <Text
+                      variant="body"
+                      color="primary"
+                      style={styles.stepNumberText}
+                    >
                       1
                     </Text>
                   </View>
@@ -1438,8 +1597,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     <Text variant="h3" color="primary" style={styles.stepTitle}>
                       What's your goal?
                     </Text>
-                    <Text variant="caption" color="secondary" style={styles.stepDescription}>
-                      Tell me what you want to achieve and I'll create a personalized plan for you.
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.stepDescription}
+                    >
+                      Tell me what you want to achieve and I'll create a
+                      personalized plan for you.
                     </Text>
                   </View>
                 </Card>
@@ -1482,7 +1646,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     multiline
                     numberOfLines={6}
                     maxLength={500}
-                    containerStyle={[styles.darkInputContainer, styles.descriptionContainer]}
+                    containerStyle={[
+                      styles.darkInputContainer,
+                      styles.descriptionContainer,
+                    ]}
                     inputStyle={styles.rightAlignedInput}
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                   />
@@ -1495,11 +1662,25 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     onPress={() => setShowAdvancedSettings(true)}
                     activeOpacity={0.8}
                   >
-                    <Icon name="sliders" size={20} color="#FFFF68" weight="bold" />
-                    <Text variant="body" color="primary" style={styles.advancedSettingsText}>
+                    <Icon
+                      name="sliders"
+                      size={20}
+                      color="#FFFF68"
+                      weight="bold"
+                    />
+                    <Text
+                      variant="body"
+                      color="primary"
+                      style={styles.advancedSettingsText}
+                    >
                       Advanced Settings
                     </Text>
-                    <Icon name="caret-right" size={16} color="#FFFF68" weight="bold" />
+                    <Icon
+                      name="caret-right"
+                      size={16}
+                      color="#FFFF68"
+                      weight="bold"
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1509,7 +1690,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               <View style={styles.stepContent}>
                 <Card style={styles.stepCard}>
                   <View style={styles.stepNumberCircle}>
-                    <Text variant="body" color="primary" style={styles.stepNumberText}>
+                    <Text
+                      variant="body"
+                      color="primary"
+                      style={styles.stepNumberText}
+                    >
                       2
                     </Text>
                   </View>
@@ -1517,10 +1702,14 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     <Text variant="h3" color="primary" style={styles.stepTitle}>
                       Share with developers
                     </Text>
-                    <Text variant="caption" color="secondary" style={styles.stepDescription}>
-                      Help us improve and promote Genie. Published goals earn points
-                      and unlock rewards & perks. Private goals do not participate
-                      in points and rewards.
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.stepDescription}
+                    >
+                      Help us improve and promote Genie. Published goals earn
+                      points and unlock rewards & perks. Private goals do not
+                      participate in points and rewards.
                     </Text>
                   </View>
                 </Card>
@@ -1538,7 +1727,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     <Switch
                       value={publishWithDevelopers}
                       onValueChange={setPublishWithDevelopers}
-                      trackColor={{ false: 'rgba(255, 255, 255, 0.2)', true: '#FFFF68' }}
+                      trackColor={{
+                        false: 'rgba(255, 255, 255, 0.2)',
+                        true: '#FFFF68',
+                      }}
                       thumbColor={publishWithDevelopers ? '#000000' : '#FFFFFF'}
                     />
                   </View>
@@ -1551,7 +1743,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
                   <View style={styles.modalHeader}>
-                    <Text variant="h3" color="primary" style={styles.modalTitle}>
+                    <Text
+                      variant="h3"
+                      color="primary"
+                      style={styles.modalTitle}
+                    >
                       Advanced Settings
                     </Text>
                     <TouchableOpacity
@@ -1562,14 +1758,25 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                       <Icon name="x" size={24} color="#FFFF68" weight="bold" />
                     </TouchableOpacity>
                   </View>
-                  
-                  <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+
+                  <ScrollView
+                    style={styles.modalContent}
+                    showsVerticalScrollIndicator={false}
+                  >
                     {/* Plan Duration */}
                     <View style={styles.section}>
-                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                      <Text
+                        variant="h4"
+                        color="primary"
+                        style={styles.sectionTitle}
+                      >
                         Plan duration
                       </Text>
-                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.sectionSubtitle}
+                      >
                         How long should your plan last?
                       </Text>
                       <Dropdown
@@ -1585,7 +1792,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                           { label: '1 year', value: '365' },
                         ]}
                         value={formData.planDurationDays.toString()}
-                        onValueChange={(value) => updateField('planDurationDays', parseInt(value))}
+                        onValueChange={(value) =>
+                          updateField('planDurationDays', parseInt(value))
+                        }
                         placeholder="Select duration"
                         style={styles.durationDropdown}
                         label="Duration"
@@ -1594,11 +1803,20 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
                     {/* Preferred Days */}
                     <View style={styles.section}>
-                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                      <Text
+                        variant="h4"
+                        color="primary"
+                        style={styles.sectionTitle}
+                      >
                         Preferred days
                       </Text>
-                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
-                        Select your available days (or leave blank for every day)
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.sectionSubtitle}
+                      >
+                        Select your available days (or leave blank for every
+                        day)
                       </Text>
                       <View style={styles.daysGrid}>
                         {[
@@ -1614,11 +1832,16 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                             key={day.value}
                             style={[
                               styles.dayOption,
-                              formData.preferredDays.includes(day.value) && styles.dayOptionActive,
+                              formData.preferredDays.includes(day.value) &&
+                                styles.dayOptionActive,
                             ]}
                             onPress={() => {
-                              const newDays = formData.preferredDays.includes(day.value)
-                                ? formData.preferredDays.filter(d => d !== day.value)
+                              const newDays = formData.preferredDays.includes(
+                                day.value
+                              )
+                                ? formData.preferredDays.filter(
+                                    (d) => d !== day.value
+                                  )
                                 : [...formData.preferredDays, day.value];
                               updateField('preferredDays', newDays);
                             }}
@@ -1626,10 +1849,15 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                           >
                             <Text
                               variant="body"
-                              color={formData.preferredDays.includes(day.value) ? 'primary' : 'secondary'}
+                              color={
+                                formData.preferredDays.includes(day.value)
+                                  ? 'primary'
+                                  : 'secondary'
+                              }
                               style={[
                                 styles.dayOptionText,
-                                formData.preferredDays.includes(day.value) && styles.dayOptionTextActive
+                                formData.preferredDays.includes(day.value) &&
+                                  styles.dayOptionTextActive,
                               ]}
                             >
                               {day.label}
@@ -1641,91 +1869,181 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
                     {/* Preferred Time Ranges */}
                     <View style={styles.section}>
-                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                      <Text
+                        variant="h4"
+                        color="primary"
+                        style={styles.sectionTitle}
+                      >
                         Preferred times
                       </Text>
-                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.sectionSubtitle}
+                      >
                         Choose up to 3 time ranges that work for you
                       </Text>
                       {formData.preferredTimeRanges.map((range, index) => (
                         <View key={index} style={styles.timeRangeCard}>
                           <View style={styles.timeRangeHeader}>
-                            <Text variant="caption" color="secondary" style={styles.timeRangeLabel}>
-                              {index === 0 ? "Morning" : index === 1 ? "Afternoon" : "Evening"}
+                            <Text
+                              variant="caption"
+                              color="secondary"
+                              style={styles.timeRangeLabel}
+                            >
+                              {index === 0
+                                ? 'Morning'
+                                : index === 1
+                                  ? 'Afternoon'
+                                  : 'Evening'}
                             </Text>
-                            <Icon 
-                              name={index === 0 ? "sun" : index === 1 ? "sun-horizon" : "moon"} 
-                              size={20} 
-                              color="#FFFF68" 
-                              weight="fill" 
+                            <Icon
+                              name={
+                                index === 0
+                                  ? 'sun'
+                                  : index === 1
+                                    ? 'sun-horizon'
+                                    : 'moon'
+                              }
+                              size={20}
+                              color="#FFFF68"
+                              weight="fill"
                             />
                           </View>
                           <View style={styles.timeInputs}>
                             <View style={styles.timeInput}>
-                              <Text variant="caption" color="secondary" style={styles.timeLabel}>From:</Text>
+                              <Text
+                                variant="caption"
+                                color="secondary"
+                                style={styles.timeLabel}
+                              >
+                                From:
+                              </Text>
                               <View style={styles.timePickerContainer}>
                                 <TouchableOpacity
                                   style={styles.timePickerButton}
                                   onPress={() => {
                                     if (range.start_hour > 0) {
-                                      const newRanges = [...formData.preferredTimeRanges];
-                                      newRanges[index].start_hour = range.start_hour - 1;
-                                      updateField('preferredTimeRanges', newRanges);
+                                      const newRanges = [
+                                        ...formData.preferredTimeRanges,
+                                      ];
+                                      newRanges[index].start_hour =
+                                        range.start_hour - 1;
+                                      updateField(
+                                        'preferredTimeRanges',
+                                        newRanges
+                                      );
                                     }
                                   }}
                                 >
-                                  <Icon name="minus" size={14} color="#FFFF68" weight="bold" />
+                                  <Icon
+                                    name="minus"
+                                    size={14}
+                                    color="#FFFF68"
+                                    weight="bold"
+                                  />
                                 </TouchableOpacity>
                                 <View style={styles.timeDisplay}>
-                                  <Text variant="h4" color="primary" style={styles.timeText}>
-                                    {range.start_hour.toString().padStart(2, '0')}:00
+                                  <Text
+                                    variant="h4"
+                                    color="primary"
+                                    style={styles.timeText}
+                                  >
+                                    {range.start_hour
+                                      .toString()
+                                      .padStart(2, '0')}
+                                    :00
                                   </Text>
                                 </View>
                                 <TouchableOpacity
                                   style={styles.timePickerButton}
                                   onPress={() => {
                                     if (range.start_hour < range.end_hour - 1) {
-                                      const newRanges = [...formData.preferredTimeRanges];
-                                      newRanges[index].start_hour = range.start_hour + 1;
-                                      updateField('preferredTimeRanges', newRanges);
+                                      const newRanges = [
+                                        ...formData.preferredTimeRanges,
+                                      ];
+                                      newRanges[index].start_hour =
+                                        range.start_hour + 1;
+                                      updateField(
+                                        'preferredTimeRanges',
+                                        newRanges
+                                      );
                                     }
                                   }}
                                 >
-                                  <Icon name="plus" size={14} color="#FFFF68" weight="bold" />
+                                  <Icon
+                                    name="plus"
+                                    size={14}
+                                    color="#FFFF68"
+                                    weight="bold"
+                                  />
                                 </TouchableOpacity>
                               </View>
                             </View>
                             <View style={styles.timeInput}>
-                              <Text variant="caption" color="secondary" style={styles.timeLabel}>To:</Text>
+                              <Text
+                                variant="caption"
+                                color="secondary"
+                                style={styles.timeLabel}
+                              >
+                                To:
+                              </Text>
                               <View style={styles.timePickerContainer}>
                                 <TouchableOpacity
                                   style={styles.timePickerButton}
                                   onPress={() => {
                                     if (range.end_hour > range.start_hour + 1) {
-                                      const newRanges = [...formData.preferredTimeRanges];
-                                      newRanges[index].end_hour = range.end_hour - 1;
-                                      updateField('preferredTimeRanges', newRanges);
+                                      const newRanges = [
+                                        ...formData.preferredTimeRanges,
+                                      ];
+                                      newRanges[index].end_hour =
+                                        range.end_hour - 1;
+                                      updateField(
+                                        'preferredTimeRanges',
+                                        newRanges
+                                      );
                                     }
                                   }}
                                 >
-                                  <Icon name="minus" size={14} color="#FFFF68" weight="bold" />
+                                  <Icon
+                                    name="minus"
+                                    size={14}
+                                    color="#FFFF68"
+                                    weight="bold"
+                                  />
                                 </TouchableOpacity>
                                 <View style={styles.timeDisplay}>
-                                  <Text variant="h4" color="primary" style={styles.timeText}>
-                                    {range.end_hour.toString().padStart(2, '0')}:00
+                                  <Text
+                                    variant="h4"
+                                    color="primary"
+                                    style={styles.timeText}
+                                  >
+                                    {range.end_hour.toString().padStart(2, '0')}
+                                    :00
                                   </Text>
                                 </View>
                                 <TouchableOpacity
                                   style={styles.timePickerButton}
                                   onPress={() => {
                                     if (range.end_hour < 23) {
-                                      const newRanges = [...formData.preferredTimeRanges];
-                                      newRanges[index].end_hour = range.end_hour + 1;
-                                      updateField('preferredTimeRanges', newRanges);
+                                      const newRanges = [
+                                        ...formData.preferredTimeRanges,
+                                      ];
+                                      newRanges[index].end_hour =
+                                        range.end_hour + 1;
+                                      updateField(
+                                        'preferredTimeRanges',
+                                        newRanges
+                                      );
                                     }
                                   }}
                                 >
-                                  <Icon name="plus" size={14} color="#FFFF68" weight="bold" />
+                                  <Icon
+                                    name="plus"
+                                    size={14}
+                                    color="#FFFF68"
+                                    weight="bold"
+                                  />
                                 </TouchableOpacity>
                               </View>
                             </View>
@@ -1740,13 +2058,22 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                             newRanges.push({
                               start_hour: 9,
                               end_hour: 17,
-                              label: `Range ${newRanges.length + 1}`
+                              label: `Range ${newRanges.length + 1}`,
                             });
                             updateField('preferredTimeRanges', newRanges);
                           }}
                         >
-                          <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
-                          <Text variant="body" color="primary" style={styles.addTimeRangeText}>
+                          <Icon
+                            name="plus"
+                            size={16}
+                            color="#FFFF68"
+                            weight="bold"
+                          />
+                          <Text
+                            variant="body"
+                            color="primary"
+                            style={styles.addTimeRangeText}
+                          >
                             Add Time Range
                           </Text>
                         </TouchableOpacity>
@@ -1755,16 +2082,30 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
                     {/* Tasks Per Day Range */}
                     <View style={styles.section}>
-                      <Text variant="h4" color="primary" style={styles.sectionTitle}>
+                      <Text
+                        variant="h4"
+                        color="primary"
+                        style={styles.sectionTitle}
+                      >
                         Tasks per day
                       </Text>
-                      <Text variant="caption" color="secondary" style={styles.sectionSubtitle}>
+                      <Text
+                        variant="caption"
+                        color="secondary"
+                        style={styles.sectionSubtitle}
+                      >
                         Choose your daily task range
                       </Text>
                       <View style={styles.tasksRangeCard}>
                         <View style={styles.tasksRangeContainer}>
                           <View style={styles.tasksRangeInput}>
-                            <Text variant="caption" color="secondary" style={styles.rangeLabel}>From:</Text>
+                            <Text
+                              variant="caption"
+                              color="secondary"
+                              style={styles.rangeLabel}
+                            >
+                              From:
+                            </Text>
                             <View style={styles.numberPickerContainer}>
                               <TouchableOpacity
                                 style={styles.numberPickerButton}
@@ -1772,51 +2113,86 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                                   if (formData.tasksPerDayRange.min > 1) {
                                     updateField('tasksPerDayRange', {
                                       ...formData.tasksPerDayRange,
-                                      min: formData.tasksPerDayRange.min - 1
+                                      min: formData.tasksPerDayRange.min - 1,
                                     });
                                   }
                                 }}
                               >
-                                <Icon name="minus" size={16} color="#FFFF68" weight="bold" />
+                                <Icon
+                                  name="minus"
+                                  size={16}
+                                  color="#FFFF68"
+                                  weight="bold"
+                                />
                               </TouchableOpacity>
                               <View style={styles.numberDisplay}>
-                                <Text variant="h4" color="primary" style={styles.numberText}>
+                                <Text
+                                  variant="h4"
+                                  color="primary"
+                                  style={styles.numberText}
+                                >
                                   {formData.tasksPerDayRange.min}
                                 </Text>
                               </View>
                               <TouchableOpacity
                                 style={styles.numberPickerButton}
                                 onPress={() => {
-                                  if (formData.tasksPerDayRange.min < formData.tasksPerDayRange.max - 1) {
+                                  if (
+                                    formData.tasksPerDayRange.min <
+                                    formData.tasksPerDayRange.max - 1
+                                  ) {
                                     updateField('tasksPerDayRange', {
                                       ...formData.tasksPerDayRange,
-                                      min: formData.tasksPerDayRange.min + 1
+                                      min: formData.tasksPerDayRange.min + 1,
                                     });
                                   }
                                 }}
                               >
-                                <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
+                                <Icon
+                                  name="plus"
+                                  size={16}
+                                  color="#FFFF68"
+                                  weight="bold"
+                                />
                               </TouchableOpacity>
                             </View>
                           </View>
                           <View style={styles.tasksRangeInput}>
-                            <Text variant="caption" color="secondary" style={styles.rangeLabel}>To:</Text>
+                            <Text
+                              variant="caption"
+                              color="secondary"
+                              style={styles.rangeLabel}
+                            >
+                              To:
+                            </Text>
                             <View style={styles.numberPickerContainer}>
                               <TouchableOpacity
                                 style={styles.numberPickerButton}
                                 onPress={() => {
-                                  if (formData.tasksPerDayRange.max > formData.tasksPerDayRange.min + 1) {
+                                  if (
+                                    formData.tasksPerDayRange.max >
+                                    formData.tasksPerDayRange.min + 1
+                                  ) {
                                     updateField('tasksPerDayRange', {
                                       ...formData.tasksPerDayRange,
-                                      max: formData.tasksPerDayRange.max - 1
+                                      max: formData.tasksPerDayRange.max - 1,
                                     });
                                   }
                                 }}
                               >
-                                <Icon name="minus" size={16} color="#FFFF68" weight="bold" />
+                                <Icon
+                                  name="minus"
+                                  size={16}
+                                  color="#FFFF68"
+                                  weight="bold"
+                                />
                               </TouchableOpacity>
                               <View style={styles.numberDisplay}>
-                                <Text variant="h4" color="primary" style={styles.numberText}>
+                                <Text
+                                  variant="h4"
+                                  color="primary"
+                                  style={styles.numberText}
+                                >
                                   {formData.tasksPerDayRange.max}
                                 </Text>
                               </View>
@@ -1826,12 +2202,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                                   if (formData.tasksPerDayRange.max < 10) {
                                     updateField('tasksPerDayRange', {
                                       ...formData.tasksPerDayRange,
-                                      max: formData.tasksPerDayRange.max + 1
+                                      max: formData.tasksPerDayRange.max + 1,
                                     });
                                   }
                                 }}
                               >
-                                <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
+                                <Icon
+                                  name="plus"
+                                  size={16}
+                                  color="#FFFF68"
+                                  weight="bold"
+                                />
                               </TouchableOpacity>
                             </View>
                           </View>
@@ -1847,7 +2228,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                       onPress={() => setShowAdvancedSettings(false)}
                       activeOpacity={0.8}
                     >
-                      <Text variant="body" color="primary" style={styles.modalCancelButtonText}>
+                      <Text
+                        variant="body"
+                        color="primary"
+                        style={styles.modalCancelButtonText}
+                      >
                         Cancel
                       </Text>
                     </TouchableOpacity>
@@ -1856,7 +2241,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                       onPress={() => setShowAdvancedSettings(false)}
                       activeOpacity={0.8}
                     >
-                      <Text variant="body" color="primary" style={styles.modalSaveButtonText}>
+                      <Text
+                        variant="body"
+                        color="primary"
+                        style={styles.modalSaveButtonText}
+                      >
                         Save
                       </Text>
                     </TouchableOpacity>
@@ -1879,10 +2268,23 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   disabled={!canProceedToNextStep()}
                   activeOpacity={0.8}
                 >
-                  <Text variant="body" color="primary" style={[styles.navButtonText, styles.navButtonTextBlack, { textAlign: 'center' }]}>
+                  <Text
+                    variant="body"
+                    color="primary"
+                    style={[
+                      styles.navButtonText,
+                      styles.navButtonTextBlack,
+                      { textAlign: 'center' },
+                    ]}
+                  >
                     Continue
                   </Text>
-                  <Icon name="arrow-right" size={20} color="#000000" weight="bold" />
+                  <Icon
+                    name="arrow-right"
+                    size={20}
+                    color="#000000"
+                    weight="bold"
+                  />
                 </TouchableOpacity>
               ) : (
                 <Animated.View
@@ -1942,22 +2344,30 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   </TouchableOpacity>
                 </Animated.View>
               )}
-              
+
               {currentStep > 1 && (
                 <TouchableOpacity
                   style={styles.stepBackButton}
                   onPress={prevStep}
                   activeOpacity={0.8}
                 >
-                  <Icon name="arrow-left" size={20} color="#FFFFFF" weight="bold" />
-                  <Text variant="body" color="primary" style={styles.stepBackButtonText}>
+                  <Icon
+                    name="arrow-left"
+                    size={20}
+                    color="#FFFFFF"
+                    weight="bold"
+                  />
+                  <Text
+                    variant="body"
+                    color="primary"
+                    style={styles.stepBackButtonText}
+                  >
                     Back
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
-
 
           {/* AI Loading Modal */}
           <AILoadingModal
@@ -1978,10 +2388,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               }
               setIsCreatingPlan(false);
               setLoadingStep(1);
-              
+
               // If we have a created goal, we can optionally delete it or keep it paused
               if (createdGoalId) {
-                console.log('🛑 User stopped plan generation for goal:', createdGoalId);
+                console.log(
+                  '🛑 User stopped plan generation for goal:',
+                  createdGoalId
+                );
                 // Keep the goal in paused state for potential resume
               }
             }}
@@ -2006,7 +2419,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             color={successData.color || '#FFFF68'} // Fallback to yellow if no data
             onStartJourney={handleStartJourney}
           />
-
         </ScrollView>
       </KeyboardAvoidingView>
     </Animated.View>

@@ -20,15 +20,16 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   hasTimeReachedTasks = false,
 }) => {
   const theme = useTheme();
-  
+
   // Check if goal is still loading (active but no tasks yet)
   const isLoading = goal.status === 'active' && goal.total_tasks === 0;
-  
+
   // Animation for loading dots
   const dot1Opacity = useRef(new Animated.Value(0.3)).current;
   const dot2Opacity = useRef(new Animated.Value(0.3)).current;
   const dot3Opacity = useRef(new Animated.Value(0.3)).current;
-  
+  const textOpacity = useRef(new Animated.Value(0.5)).current;
+
   useEffect(() => {
     if (isLoading) {
       const animateDots = () => {
@@ -65,10 +66,26 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           }),
         ]).start(() => animateDots());
       };
-      
+
+      const animateText = () => {
+        Animated.sequence([
+          Animated.timing(textOpacity, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(textOpacity, {
+            toValue: 0.5,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]).start(() => animateText());
+      };
+
       animateDots();
+      animateText();
     }
-  }, [isLoading, dot1Opacity, dot2Opacity, dot3Opacity]);
+  }, [isLoading, dot1Opacity, dot2Opacity, dot3Opacity, textOpacity]);
 
   const getGoalColor = (goalColor?: string) => {
     // Use AI-selected color if available
@@ -77,7 +94,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       if (goalColor.startsWith('#')) {
         return goalColor;
       }
-      
+
       // Map color names to hex values
       const colorMap = {
         yellow: '#FFFF68',
@@ -93,7 +110,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
       };
       return colorMap[goalColor as keyof typeof colorMap] || colorMap.yellow;
     }
-    
+
     // Fallback to neutral colors when no AI color is provided
     return theme.colors.text.secondary;
   };
@@ -103,7 +120,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
     if (iconName) {
       return iconName;
     }
-    
+
     // Fallback to category-based icons
     const icons = {
       lifestyle: 'heart',
@@ -117,12 +134,12 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Card 
-        variant="gradient" 
-        padding="md" 
+      <Card
+        variant="gradient"
+        padding="md"
         style={[
           styles.container,
-          hasTimeReachedTasks && styles.timeReachedContainer
+          hasTimeReachedTasks && styles.timeReachedContainer,
         ]}
       >
         {isLoading ? (
@@ -132,39 +149,59 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <View style={styles.loadingHeader}>
               <View style={styles.loadingTitleContainer}>
                 <View style={styles.placeholderTitle} />
-                <View style={[styles.placeholderTitle, { width: '40%', height: 12 }]} />
+                <View
+                  style={[
+                    styles.placeholderTitle,
+                    { width: '40%', height: 12 },
+                  ]}
+                />
               </View>
               <View style={styles.placeholderIcon} />
             </View>
-            
+
             {/* Placeholder for description */}
             <View style={styles.placeholderDescription} />
             <View style={[styles.placeholderDescription, { width: '70%' }]} />
-            
-            {/* Animated loading dots */}
+
+            {/* Animated loading dots and text */}
             <View style={styles.loadingDotsContainer}>
               <View style={styles.loadingDots}>
-                <Animated.View style={[
-                  styles.loadingDot, 
-                  { 
-                    backgroundColor: theme.colors.text.tertiary,
-                    opacity: dot1Opacity
-                  }
-                ]} />
-                <Animated.View style={[
-                  styles.loadingDot, 
-                  { 
-                    backgroundColor: theme.colors.text.tertiary,
-                    opacity: dot2Opacity
-                  }
-                ]} />
-                <Animated.View style={[
-                  styles.loadingDot, 
-                  { 
-                    backgroundColor: theme.colors.text.tertiary,
-                    opacity: dot3Opacity
-                  }
-                ]} />
+                <Animated.View
+                  style={[
+                    styles.loadingDot,
+                    {
+                      backgroundColor: theme.colors.text.tertiary,
+                      opacity: dot1Opacity,
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.loadingDot,
+                    {
+                      backgroundColor: theme.colors.text.tertiary,
+                      opacity: dot2Opacity,
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.loadingDot,
+                    {
+                      backgroundColor: theme.colors.text.tertiary,
+                      opacity: dot3Opacity,
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Animated text on the same row */}
+              <View style={styles.loadingTextContainer}>
+                <Animated.Text
+                  style={[styles.loadingTextAnimated, { opacity: textOpacity }]}
+                >
+                  Genie is creating your plan...
+                </Animated.Text>
               </View>
             </View>
           </View>
@@ -178,17 +215,25 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                   <Text variant="h4" numberOfLines={1} style={styles.title}>
                     {goal.title}
                   </Text>
-                  <Text 
-                    variant="caption" 
-                    style={[styles.category, { color: getGoalColor(goal.color) }]}
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.category,
+                      { color: getGoalColor(goal.color) },
+                    ]}
                   >
                     {goal.category.toUpperCase()}
                   </Text>
                 </View>
               </View>
-              
-              <View style={[styles.iconContainer, { backgroundColor: getGoalColor(goal.color) + '20' }]}>
-                <Icon 
+
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: getGoalColor(goal.color) + '20' },
+                ]}
+              >
+                <Icon
                   name={getCategoryIcon(goal.category, goal.icon_name) as any}
                   size={20}
                   color={getGoalColor(goal.color)}
@@ -197,10 +242,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             </View>
 
             {/* Description */}
-            <Text 
-              variant="body" 
-              color="secondary" 
-              numberOfLines={2} 
+            <Text
+              variant="body"
+              color="secondary"
+              numberOfLines={2}
               style={styles.description}
             >
               {goal.description}
@@ -216,7 +261,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                   {Math.round(goal.completion_percentage)}%
                 </Text>
               </View>
-              
+
               <View style={styles.progressBar}>
                 <View
                   style={[
@@ -232,8 +277,16 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               {/* Streak */}
               {goal.current_streak > 0 && (
                 <View style={styles.streakContainer}>
-                  <Icon name="fire" size={12} color={theme.colors.status.success} />
-                  <Text variant="caption" color="success" style={styles.streakText}>
+                  <Icon
+                    name="fire"
+                    size={12}
+                    color={theme.colors.status.success}
+                  />
+                  <Text
+                    variant="caption"
+                    color="success"
+                    style={styles.streakText}
+                  >
                     {goal.current_streak} day streak
                   </Text>
                 </View>
@@ -242,22 +295,37 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
             {/* Status and Actions */}
             <View style={styles.statusAndActionsContainer}>
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: goal.status === 'active' ? theme.colors.primary[500] + '20' : theme.colors.text.disabled + '20' }
-              ]}>
-                <Text 
-                  variant="caption" 
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor:
+                      goal.status === 'active'
+                        ? theme.colors.primary[500] + '20'
+                        : theme.colors.text.disabled + '20',
+                  },
+                ]}
+              >
+                <Text
+                  variant="caption"
                   color={goal.status === 'active' ? 'success' : 'disabled'}
                   style={styles.statusText}
                 >
-                  {goal.status === 'active' ? 'Active' : goal.status === 'completed' ? 'Completed' : 'Paused'}
+                  {goal.status === 'active'
+                    ? 'Active'
+                    : goal.status === 'completed'
+                      ? 'Completed'
+                      : 'Paused'}
                 </Text>
               </View>
-              
+
               {onEdit && (
                 <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-                  <Icon name="dots-three" size={16} color={theme.colors.text.tertiary} />
+                  <Icon
+                    name="dots-three"
+                    size={16}
+                    color={theme.colors.text.tertiary}
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -411,12 +479,24 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   loadingDotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 20,
+    width: '100%',
   },
   loadingDots: {
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
+  },
+  loadingTextContainer: {
+    paddingLeft: 8,
+  },
+  loadingTextAnimated: {
+    fontSize: 13,
+    color: '#FFFF68',
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
 });
