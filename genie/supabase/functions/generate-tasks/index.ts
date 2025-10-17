@@ -223,51 +223,55 @@ async function generateTasksWithAI(
 
     console.log(`[${requestId}] Requesting ${finalTaskCount} tasks from AI`);
 
-    const systemPrompt = `You are a task generation expert. Generate exactly ${finalTaskCount} detailed, high-quality tasks in valid JSON format ONLY.
+    const systemPrompt = `You are a JSON task generator. Your ONLY job is to output valid JSON. No explanations, no markdown, no text before or after the JSON.
 
-CRITICAL: Return ONLY valid JSON, no markdown, no explanations.
+CRITICAL RULES:
+1. Output MUST start with { and end with }
+2. Use double quotes for all strings
+3. No comments in JSON
+4. No trailing commas
+5. All strings must be properly escaped
 
-REQUIRED JSON STRUCTURE:
+REQUIRED JSON STRUCTURE (copy this exactly):
 {
   "days": [
     {
       "day": 1,
-      "summary": "Brief daily summary",
+      "summary": "Daily focus",
       "tasks": [
         {
           "time": "09:00",
-          "title": "Specific task title",
-          "description": "Detailed description",
+          "title": "Task title",
+          "description": "Task description",
           "subtasks": [
-            {"title": "Subtask 1", "estimated_minutes": 25},
-            {"title": "Subtask 2", "estimated_minutes": 20}
+            {"title": "Step 1", "estimated_minutes": 15},
+            {"title": "Step 2", "estimated_minutes": 15}
           ],
-          "time_allocation_minutes": 45
+          "time_allocation_minutes": 30
         }
       ]
     }
   ]
 }`;
 
-    const userPrompt = `Generate ${finalTaskCount} tasks for: "${goal.title}"
+    const userPrompt = `Generate ${finalTaskCount} tasks for this goal.
 
 GOAL: ${goal.title}
 DESCRIPTION: ${goal.description}
 CATEGORY: ${goal.category}
-DURATION: ${goal.plan_duration_days} days
-TASKS PER DAY: ${tasksPerDay}
 
 PLAN OUTLINE:
 ${outlineContext}
 
-Requirements:
-- ${finalTaskCount} tasks total
+REQUIREMENTS:
+- Create ${Math.ceil(goal.plan_duration_days)} days
 - ${tasksPerDay} tasks per day
-- Use times: 09:00, 14:00, 19:00
-- 2-4 subtasks per task
-- Professional titles
-- Actionable descriptions
-- Return ONLY valid JSON`;
+- Times: 09:00 (morning), 14:00 (afternoon), 19:00 (evening)
+- Each task: 2-3 subtasks, 25-45 minutes total
+- Make tasks specific and actionable
+- Follow the plan outline structure
+
+OUTPUT VALID JSON ONLY. Start with { and end with }. No markdown, no explanations.`;
 
     const response = await fetchWithRetry(
       'https://api.anthropic.com/v1/messages',
@@ -299,13 +303,47 @@ Requirements:
     }
 
     const text = data.content[0].text;
-    const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+
+    // Try multiple cleaning strategies
+    let cleanedText = text.trim();
+
+    // Remove markdown code blocks
+    cleanedText = cleanedText.replace(/```json\n?/g, '');
+    cleanedText = cleanedText.replace(/```\n?/g, '');
+
+    // Remove any text before the first {
+    const firstBrace = cleanedText.indexOf('{');
+    if (firstBrace > 0) {
+      cleanedText = cleanedText.substring(firstBrace);
+    }
+
+    // Remove any text after the last }
+    const lastBrace = cleanedText.lastIndexOf('}');
+    if (lastBrace > 0 && lastBrace < cleanedText.length - 1) {
+      cleanedText = cleanedText.substring(0, lastBrace + 1);
+    }
+
+    cleanedText = cleanedText.trim();
 
     let planData;
     try {
       planData = JSON.parse(cleanedText);
+      console.log(
+        `[${requestId}] Successfully parsed JSON with ${planData.days?.length || 0} days`
+      );
     } catch (parseError) {
-      console.warn(`[${requestId}] JSON parse failed, using fallback`);
+      console.error(`[${requestId}] JSON parse failed`);
+      console.error(`[${requestId}] Parse error:`, parseError);
+      console.error(
+        `[${requestId}] First 500 chars of cleaned text:`,
+        cleanedText.substring(0, 500)
+      );
+      console.error(
+        `[${requestId}] Last 200 chars of cleaned text:`,
+        cleanedText.substring(cleanedText.length - 200)
+      );
+
+      console.warn(`[${requestId}] Using template fallback due to parse error`);
       return {
         tasks: generateTemplateTasks(goal),
         usedModel: 'template-fallback',

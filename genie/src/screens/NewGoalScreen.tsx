@@ -1721,42 +1721,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   />
                 </View>
 
-                {/* Title with Surprise Me Button */}
+                {/* Title */}
                 <View style={styles.fieldSpacing}>
-                  {/* Label Row with Surprise Me Button */}
-                  <View style={styles.labelWithButtonRow}>
-                    <Text
-                      variant="body"
-                      color="secondary"
-                      style={styles.fieldLabel}
-                    >
-                      What exactly do you want to achieve?
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.surpriseMeButton}
-                      onPress={handleSurpriseMe}
-                      disabled={isSurprisingMe}
-                      activeOpacity={0.7}
-                    >
-                      {isSurprisingMe ? (
-                        <ActivityIndicator size="small" color="#FFFF68" />
-                      ) : (
-                        <>
-                          <Text variant="caption" style={styles.surpriseMeText}>
-                            Surprise Me
-                          </Text>
-                          <Icon
-                            name="sparkle"
-                            size={14}
-                            color="#FFFF68"
-                            weight="fill"
-                          />
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-
                   <TextField
+                    label="What exactly do you want to achieve?"
                     value={formData.title}
                     onChangeText={(value) => updateField('title', value)}
                     error={errors.title}
@@ -1786,6 +1754,32 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     inputStyle={styles.rightAlignedInput}
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                   />
+                </View>
+
+                {/* Surprise Me Button */}
+                <View style={styles.surpriseMeContainer}>
+                  <TouchableOpacity
+                    style={styles.surpriseMeButton}
+                    onPress={handleSurpriseMe}
+                    disabled={isSurprisingMe}
+                    activeOpacity={0.7}
+                  >
+                    {isSurprisingMe ? (
+                      <ActivityIndicator size="small" color="#FFFF68" />
+                    ) : (
+                      <>
+                        <Text variant="body" style={styles.surpriseMeText}>
+                          Surprise Me
+                        </Text>
+                        <Icon
+                          name="sparkle"
+                          size={16}
+                          color="#FFFF68"
+                          weight="fill"
+                        />
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 {/* Advanced Settings Button */}
@@ -2720,15 +2714,9 @@ const styles = StyleSheet.create({
   fieldSpacing: {
     marginBottom: 20,
   },
-  labelWithButtonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 8,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+  surpriseMeContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
   },
   surpriseMeButton: {
     flexDirection: 'row',
@@ -2736,10 +2724,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: '#FFFF68',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    gap: 7,
+    gap: 8,
   },
   surpriseMeText: {
     fontSize: 13,

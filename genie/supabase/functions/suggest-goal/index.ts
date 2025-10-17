@@ -217,9 +217,23 @@ REMEMBER: Write as if YOU ARE the user expressing THEIR personal goal and motiva
     );
   } catch (error) {
     console.error('❌ Error in suggest-goal function:', error);
+    console.error(
+      '❌ Error details:',
+      error instanceof Error ? error.message : String(error)
+    );
+    console.error(
+      '❌ Error stack:',
+      error instanceof Error ? error.stack : 'No stack'
+    );
 
     // Parse category from request for fallback
-    const { category } = await req.json().catch(() => ({ category: 'custom' }));
+    let category = 'custom';
+    try {
+      const body = await req.json().catch(() => ({}));
+      category = body.category || 'custom';
+    } catch {
+      console.log('Could not parse request body for fallback');
+    }
 
     // Category-specific fallback suggestions
     const fallbackByCategory: Record<string, GoalSuggestion[]> = {
