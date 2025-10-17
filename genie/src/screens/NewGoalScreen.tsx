@@ -346,8 +346,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
       
       // If we were in preview state, show the plan preview modal
-      if (saved.state === 'preview' && saved.planData) {
-        setShowPlanPreview(true);
+      // But only if the goal is still paused (not active)
+      if (saved.state === 'preview' && saved.planData && saved.createdGoalId) {
+        const { data: goalData } = await supabase
+          .from('goals')
+          .select('status')
+          .eq('id', saved.createdGoalId)
+          .single();
+        
+        // Only show preview if goal is still paused
+        if (goalData?.status === 'paused') {
+          setShowPlanPreview(true);
+        } else {
+          console.log('🧹 Goal is no longer paused, clearing preview state');
+          await clearProgress();
+        }
       }
       
       // If we were in success state, show the success modal
@@ -1170,6 +1183,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
     }
     
+    // Immediately clear any persisted progress to prevent modal from reopening
+    await clearProgress();
+    
     // Activate the goal FIRST before closing the screen
     // This ensures the goal shows as loading in dashboard
     if (createdGoalId) {
@@ -1199,6 +1215,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     
     // Clear progress and close modals
     await clearProgress();
+    
+    // Reset all modal states to prevent reopening
+    setShowPlanPreview(false);
+    setShowSuccessModal(false);
     
     try {
       // Get device timezone and current time using expo-localization
