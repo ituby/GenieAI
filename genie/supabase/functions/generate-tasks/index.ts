@@ -628,6 +628,10 @@ OUTPUT JSON ONLY:`;
       console.log(
         `[${requestId}] Successfully parsed JSON with ${planData.days?.length || 0} days`
       );
+      console.log(
+        `[${requestId}] DEBUG: Full planData structure:`,
+        JSON.stringify(planData, null, 2)
+      );
     } catch (parseError) {
       console.error(`[${requestId}] JSON parse failed`);
       console.error(`[${requestId}] Parse error:`, parseError);
@@ -674,17 +678,44 @@ OUTPUT JSON ONLY:`;
     const tasks: TaskTemplate[] = [];
     const usedTimeSlots = new Map<string, Set<string>>();
 
+    console.log(
+      `[${requestId}] DEBUG: planData.days length: ${planData.days?.length || 0}`
+    );
+    console.log(
+      `[${requestId}] DEBUG: goal.preferred_days:`,
+      goal.preferred_days
+    );
+    console.log(`[${requestId}] DEBUG: tasksPerDay: ${tasksPerDay}`);
+
     for (const day of planData.days || []) {
       const dayNumber = day.day;
+      console.log(
+        `[${requestId}] DEBUG: Processing day ${dayNumber}, tasks count: ${day.tasks?.length || 0}`
+      );
 
       // Check preferred days
       if (goal.preferred_days?.length) {
         const dayOfWeek = (dayNumber - 1) % 7;
-        if (!goal.preferred_days.includes(dayOfWeek)) continue;
+        console.log(
+          `[${requestId}] DEBUG: Day ${dayNumber} is day of week ${dayOfWeek}, preferred days: ${goal.preferred_days}`
+        );
+        if (!goal.preferred_days.includes(dayOfWeek)) {
+          console.log(
+            `[${requestId}] DEBUG: Skipping day ${dayNumber} - not in preferred days`
+          );
+          continue;
+        }
       }
+
+      console.log(
+        `[${requestId}] DEBUG: Day ${dayNumber} passed preferred days check, processing ${day.tasks?.length || 0} tasks`
+      );
 
       for (const task of day.tasks?.slice(0, tasksPerDay) || []) {
         try {
+          console.log(
+            `[${requestId}] DEBUG: Processing task: ${task.title} at ${task.time}`
+          );
           const timeOfDay = convertHHMMToTimeOfDay(task.time);
           const runAt = computeRunAt(
             dayNumber,
@@ -702,6 +733,9 @@ OUTPUT JSON ONLY:`;
             time_allocation_minutes: task.time_allocation_minutes || 30,
             custom_time: task.time,
           });
+          console.log(
+            `[${requestId}] DEBUG: Added task ${task.title}, total tasks: ${tasks.length}`
+          );
         } catch (taskError) {
           console.warn(`[${requestId}] Error processing task:`, taskError);
         }
