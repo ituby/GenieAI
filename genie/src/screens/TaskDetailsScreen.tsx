@@ -7,6 +7,7 @@ import {
   Alert,
   TouchableOpacity,
   Modal,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 // i18n removed
@@ -54,18 +55,77 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     }
   };
 
+  // Parse description to extract resources/links
+  const parseDescription = (description: string) => {
+    const resourceRegex = /\[RESOURCE:(.*?)\|(.*?)\]/g;
+    const parts: Array<{
+      type: 'text' | 'resource';
+      content: string;
+      title?: string;
+      url?: string;
+    }> = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = resourceRegex.exec(description)) !== null) {
+      // Add text before the resource
+      if (match.index > lastIndex) {
+        const textBefore = description.substring(lastIndex, match.index).trim();
+        if (textBefore) {
+          parts.push({ type: 'text', content: textBefore });
+        }
+      }
+
+      // Add the resource
+      parts.push({
+        type: 'resource',
+        content: match[0],
+        title: match[1],
+        url: match[2],
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < description.length) {
+      const remainingText = description.substring(lastIndex).trim();
+      if (remainingText) {
+        parts.push({ type: 'text', content: remainingText });
+      }
+    }
+
+    // If no resources found, return the whole description as text
+    if (parts.length === 0) {
+      parts.push({ type: 'text', content: description });
+    }
+
+    return parts;
+  };
+
+  const handleResourcePress = async (url: string) => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open this link');
+      }
+    } catch (error) {
+      console.error('Error opening URL:', error);
+      Alert.alert('Error', 'Failed to open link');
+    }
+  };
+
   const handleRefresh = async () => {
     setShowRefreshLoader(true);
-    
+
     try {
-      await Promise.all([
-        fetchTaskDetails(),
-        fetchPointsEarned(),
-      ]);
+      await Promise.all([fetchTaskDetails(), fetchPointsEarned()]);
     } catch (error) {
       console.error('Error refreshing task data:', error);
     }
-    
+
     // Hide loader after 3 seconds
     setTimeout(() => {
       setShowRefreshLoader(false);
@@ -92,7 +152,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
       if (goalColor.startsWith('#')) {
         return goalColor;
       }
-      
+
       // Otherwise, map color names to hex values
       const colorMap = {
         yellow: '#FFFF68',
@@ -130,7 +190,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
       if (error) throw error;
 
       if (data) {
-        setTaskData(prev => ({
+        setTaskData((prev) => ({
           ...prev,
           ...data,
         }));
@@ -223,15 +283,17 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   const handleSubtaskToggle = async (subtaskIndex: number) => {
     try {
       if (!taskData.subtasks) return;
-      
+
       const updatedSubtasks = [...taskData.subtasks];
       updatedSubtasks[subtaskIndex] = {
         ...updatedSubtasks[subtaskIndex],
-        completed: !updatedSubtasks[subtaskIndex].completed
+        completed: !updatedSubtasks[subtaskIndex].completed,
       };
-      
-      const completedCount = updatedSubtasks.filter(subtask => subtask.completed).length;
-      
+
+      const completedCount = updatedSubtasks.filter(
+        (subtask) => subtask.completed
+      ).length;
+
       const { error } = await supabase
         .from('goal_tasks')
         .update({
@@ -242,7 +304,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
       if (error) throw error;
 
-      setTaskData(prev => ({
+      setTaskData((prev) => ({
         ...prev,
         subtasks: updatedSubtasks,
         subtasks_completed: completedCount,
@@ -253,7 +315,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
         // Auto-complete the main task
         await handleToggleTask(true);
       }
-      
+
       onTaskUpdate?.();
     } catch (error) {
       console.error('Error updating subtask:', error);
@@ -276,7 +338,11 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-left" size={20} color={theme.colors.text.primary} />
+            <Icon
+              name="arrow-left"
+              size={20}
+              color={theme.colors.text.primary}
+            />
           </TouchableOpacity>
           <Text variant="h3" style={styles.headerTitle}>
             Task Details
@@ -442,9 +508,46 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
             >
               Description
             </Text>
-            <Text variant="body" color="secondary" style={styles.description}>
-              {taskData.description}
-            </Text>
+            <View style={styles.descriptionContent}>
+              {parseDescription(taskData.description).map((part, index) => {
+                if (part.type === 'text') {
+                  return (
+                    <Text
+                      key={index}
+                      variant="body"
+                      color="secondary"
+                      style={styles.description}
+                    >
+                      {part.content}
+                    </Text>
+                  );
+                } else if (part.type === 'resource' && part.title && part.url) {
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.resourceButton}
+                      onPress={() => handleResourcePress(part.url!)}
+                      activeOpacity={0.7}
+                    >
+                      <Icon
+                        name="arrow-square-out"
+                        size={18}
+                        color="#FFFF68"
+                        weight="bold"
+                      />
+                      <Text style={styles.resourceText}>{part.title}</Text>
+                      <Icon
+                        name="caret-right"
+                        size={14}
+                        color="#FFFF68"
+                        weight="bold"
+                      />
+                    </TouchableOpacity>
+                  );
+                }
+                return null;
+              })}
+            </View>
           </Card>
 
           {/* Subtasks Card */}
@@ -460,22 +563,30 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                 </Text>
                 <View style={styles.timeAllocation}>
                   <Icon name="clock" size={16} color="#FFFFFF" />
-                  <Text variant="caption" color="secondary" style={styles.timeText}>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.timeText}
+                  >
                     {taskData.time_allocation_minutes || 30} minutes
                   </Text>
                 </View>
               </View>
-              
+
               {/* Time restriction message */}
               {!canCompleteTask && (
                 <View style={styles.timeRestrictionMessage}>
                   <Icon name="clock" size={16} color="#FFFF68" />
-                  <Text variant="caption" color="secondary" style={styles.timeRestrictionText}>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.timeRestrictionText}
+                  >
                     Task will be available at {formatTime(taskData.run_at)}
                   </Text>
                 </View>
               )}
-              
+
               <View style={styles.subtasksList}>
                 {taskData.subtasks.map((subtask, index) => (
                   <TouchableOpacity
@@ -483,49 +594,69 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                     style={[
                       styles.subtaskItem,
                       subtask.completed && styles.subtaskCompleted,
-                      !canCompleteTask && styles.subtaskDisabled
+                      !canCompleteTask && styles.subtaskDisabled,
                     ]}
-                    onPress={() => canCompleteTask && handleSubtaskToggle(index)}
+                    onPress={() =>
+                      canCompleteTask && handleSubtaskToggle(index)
+                    }
                     disabled={!canCompleteTask}
                   >
                     <View style={styles.subtaskContent}>
-                      <View style={[
-                        styles.checkbox,
-                        subtask.completed && [styles.checkboxChecked, { backgroundColor: '#FFFF68' }]
-                      ]}>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          subtask.completed && [
+                            styles.checkboxChecked,
+                            { backgroundColor: '#FFFF68' },
+                          ],
+                        ]}
+                      >
                         {subtask.completed && (
                           <Icon name="check" size={12} color="#000000" />
                         )}
                       </View>
-                      <Text style={[
-                        styles.subtaskTitle,
-                        { color: theme.colors.text.primary },
-                        subtask.completed && styles.subtaskTitleCompleted
-                      ]}>
+                      <Text
+                        style={[
+                          styles.subtaskTitle,
+                          { color: theme.colors.text.primary },
+                          subtask.completed && styles.subtaskTitleCompleted,
+                        ]}
+                      >
                         {subtask.title}
                       </Text>
-                      <Text style={[styles.subtaskTime, { color: theme.colors.text.secondary }]}>
+                      <Text
+                        style={[
+                          styles.subtaskTime,
+                          { color: theme.colors.text.secondary },
+                        ]}
+                      >
                         {subtask.estimated_minutes}min
                       </Text>
                     </View>
                   </TouchableOpacity>
                 ))}
               </View>
-              
+
               {/* Progress indicator */}
               <View style={styles.progressContainer}>
-                <Text variant="caption" color="secondary" style={styles.progressText}>
-                  {taskData.subtasks_completed || 0} of {taskData.total_subtasks || taskData.subtasks.length} completed
+                <Text
+                  variant="caption"
+                  color="secondary"
+                  style={styles.progressText}
+                >
+                  {taskData.subtasks_completed || 0} of{' '}
+                  {taskData.total_subtasks || taskData.subtasks.length}{' '}
+                  completed
                 </Text>
                 <View style={styles.progressBar}>
-                  <View 
+                  <View
                     style={[
-                      styles.progressFill, 
-                      { 
+                      styles.progressFill,
+                      {
                         width: `${((taskData.subtasks_completed || 0) / (taskData.total_subtasks || taskData.subtasks.length)) * 100}%`,
-                        backgroundColor: '#FFFF68'
-                      }
-                    ]} 
+                        backgroundColor: '#FFFF68',
+                      },
+                    ]}
                   />
                 </View>
               </View>
@@ -550,16 +681,24 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           </Card>
 
           {/* Auto-completion message */}
-          {!taskData.completed && taskData.subtasks && taskData.subtasks.length > 0 && (
-            <Card variant="gradient" padding="md" style={{ marginBottom: 16, opacity: 0.7 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Icon name="info" size={16} color="#FFFF68" />
-                <Text variant="caption" color="secondary" style={{ flex: 1 }}>
-                  Complete all subtasks to automatically finish this task
-                </Text>
-              </View>
-            </Card>
-          )}
+          {!taskData.completed &&
+            taskData.subtasks &&
+            taskData.subtasks.length > 0 && (
+              <Card
+                variant="gradient"
+                padding="md"
+                style={{ marginBottom: 16, opacity: 0.7 }}
+              >
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                >
+                  <Icon name="info" size={16} color="#FFFF68" />
+                  <Text variant="caption" color="secondary" style={{ flex: 1 }}>
+                    Complete all subtasks to automatically finish this task
+                  </Text>
+                </View>
+              </Card>
+            )}
         </ScrollView>
       </View>
     </Modal>
@@ -665,8 +804,29 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: 12,
   },
+  descriptionContent: {
+    gap: 12,
+  },
   description: {
     lineHeight: 24,
+  },
+  resourceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFFF68',
+    gap: 10,
+    marginTop: 8,
+  },
+  resourceText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFF68',
   },
   goalCard: {
     marginBottom: 24,

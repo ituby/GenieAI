@@ -198,6 +198,7 @@ async function generateTasksWithAI(
   tasks: TaskTemplate[];
   usedModel: string;
   tokenUsage?: { input: number; output: number; total: number };
+  metadata?: any;
 }> {
   try {
     console.log(`[${requestId}] Starting AI task generation...`);
@@ -259,18 +260,18 @@ async function generateTasksWithAI(
 
     // Category-specific task design principles
     const categoryTaskGuidance: Record<string, string> = {
-      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually, incorporate review sessions, create application opportunities.`,
-      career: `Apply career-specific task design: Focus on skill-building activities, networking tasks, portfolio development, visibility projects, strategic learning aligned with goals.`,
-      fitness: `Apply fitness-specific task design: Progressive intensity increase, include warm-up/cool-down, focus on form first, balance challenge with recovery, track measurable metrics.`,
-      health: `Apply health-specific task design: Sustainable habit formation, holistic wellness focus, gradual lifestyle changes, body awareness practices, prevention-oriented activities.`,
-      lifestyle: `Apply lifestyle-specific task design: Habit stacking opportunities, environment optimization, routine integration, enjoyable sustainable changes, identity-aligned actions.`,
-      mindset: `Apply mindset-specific task design: Awareness exercises, belief examination, gradual mental rewiring, embodiment practices, evidence-building activities.`,
-      character: `Apply character-specific task design: Value-based actions, daily integrity practices, intentional challenges, reflection exercises, accountability measures.`,
-      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes, tracking habits, incremental wealth-building actions.`,
-      social: `Apply social-specific task design: Regular connection activities, communication practice, vulnerability exercises, giving and receiving, presence-building.`,
-      creativity: `Apply creativity-specific task design: Daily creation practice, experimentation time, inspiration gathering, shipping outputs, process-focused work.`,
-      goal: `Apply goal-specific task design: Milestone-focused actions, momentum builders, obstacle preparation, progress tracking, celebration moments.`,
-      custom: `Apply personalized task design: Tailored to unique goal requirements, flexible structure, clear progress indicators, sustainable pacing.`,
+      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually. Write concise but valuable descriptions (2-3 sentences) that explain what to learn and one key insight. Include curated resources (YouTube, documentation, courses) when they genuinely help - max 1-2 per task.`,
+      career: `Apply career-specific task design: Focus on skill-building, networking, portfolio development. Keep descriptions focused and actionable. Include relevant industry resources or tutorials when they add real value.`,
+      fitness: `Apply fitness-specific task design: Progressive intensity, proper form focus, balance challenge with recovery. Descriptions should be brief but include form tips. Link to demonstration videos when helpful.`,
+      health: `Apply health-specific task design: Sustainable habits, gradual changes, body awareness. Keep descriptions practical and encouraging. Include helpful resources when relevant.`,
+      lifestyle: `Apply lifestyle-specific task design: Habit stacking, routine integration, sustainable changes. Brief, actionable descriptions with practical tips.`,
+      mindset: `Apply mindset-specific task design: Awareness exercises, belief examination, mental rewiring. Concise descriptions with one key insight per task.`,
+      character: `Apply character-specific task design: Value-based actions, integrity practices, intentional challenges. Brief, meaningful descriptions.`,
+      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes. Clear, actionable descriptions. Include educational resources when genuinely helpful.`,
+      social: `Apply social-specific task design: Regular connection activities, communication practice. Brief, warm descriptions with practical tips.`,
+      creativity: `Apply creativity-specific task design: Daily creation practice, experimentation, shipping outputs. Concise descriptions with creative guidance.`,
+      goal: `Apply goal-specific task design: Milestone-focused actions, momentum builders, progress tracking. Brief, motivating descriptions.`,
+      custom: `Apply personalized task design: Tailored to unique requirements, clear progress indicators. Focused, actionable descriptions.`,
     };
 
     const taskGuidance =
@@ -303,7 +304,7 @@ async function generateTasksWithAI(
       timeLabels.push('Morning', 'Afternoon', 'Evening');
     }
 
-    const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks.
+    const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks that TEACH and GUIDE, not just instruct.
 
 CATEGORY-SPECIFIC APPROACH:
 ${taskGuidance}
@@ -315,20 +316,47 @@ CORE PRINCIPLES:
 ✓ Motivating - Tasks should feel achievable and rewarding
 ✓ Action-Oriented - Start each task with a clear action verb
 ✓ Category-Aligned - Design tasks that match ${goal.category} best practices
+✓ Educational - Each task should teach something, not just tell what to do
 
 WRITING GUIDELINES:
 - Use clear, direct language
 - Task titles: 4-8 words, starting with action verb (Create, Practice, Complete, Review, Build, etc.)
-- Descriptions: 1-2 sentences, explain WHY and HOW
+- Descriptions: This is the MOST IMPORTANT part - write rich, valuable content:
+  
+  DESCRIPTION REQUIREMENTS:
+  • Write 2-3 concise, informative sentences
+  • Explain WHAT the user will do and WHY it matters
+  • Include ONE key tip or insight that adds real value
+  • Be direct and actionable - no fluff
+  • For learning tasks: Focus on one main concept or technique to master
+  • Keep it focused - comprehensive but not overwhelming
+  
+  BAD description: "Complete the first module exercises."
+  GOOD description: "Complete the first module exercises to build foundational understanding. Focus on understanding each example rather than rushing through - notice the pattern of how solutions are structured. This pattern will be your template for future problems."
+  
+  TOO LONG (avoid): "Complete the first module exercises to build foundational understanding of core concepts. Focus on truly understanding each example rather than rushing through. Pay special attention to the pattern of how solutions are structured - this will be your template for future problems. Take notes on any concepts that feel unclear. Review difficult sections multiple times. Compare your solutions with the provided answers."
+  
 - Subtasks: Concrete, sequential steps
 - Be encouraging but realistic
 - Consider user's timezone: morning tasks for fresh energy, evening for reflection/lighter work
+
+EXTERNAL RESOURCES & LINKS:
+When appropriate (especially for learning, career, fitness, creativity goals):
+- Include helpful YouTube tutorials, documentation, courses, or tools
+- Use this EXACT format for links: [RESOURCE:Title|URL]
+  Example: [RESOURCE:JavaScript Basics Tutorial|https://youtube.com/watch?v=xyz]
+  Example: [RESOURCE:Official React Docs|https://react.dev/learn]
+- Only include high-quality, relevant resources that genuinely help
+- Place links at the end of task descriptions
+- Don't overdo it - quality over quantity (1-2 links per task maximum)
 
 AVOID:
 ✗ Vague tasks ("Improve yourself", "Work on goals")
 ✗ Large difficulty jumps between days
 ✗ Assumptions about resources or availability
 ✗ Generic advice - be specific to the goal
+✗ Random or low-quality links - only curated, helpful resources
+✗ Links for every task - only when they add real value
 
 CRITICAL JSON RULES:
 1. Output MUST be valid JSON only - no markdown, no explanations, no text before/after
@@ -347,7 +375,7 @@ REQUIRED JSON STRUCTURE:
         {
           "time": "09:00",
           "title": "Action-oriented task title",
-          "description": "Clear explanation of what and why",
+          "description": "Concise explanation (2-3 sentences). State what to do and why. Include one key tip. [RESOURCE:Tutorial|URL] (optional)",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 10},
             {"title": "Specific step 2", "estimated_minutes": 15}
@@ -416,13 +444,25 @@ Task Composition:
   • Subtask duration: 10-20 minutes each
   • Total time per task: 25-45 minutes
   • Subtasks should be sequential steps
+  • EACH TASK DESCRIPTION must be concise but valuable (2-3 sentences MAXIMUM)
 
-Content Quality & Week Alignment:
+Content Quality & Week Alignment (CRITICAL):
   • Make tasks specific to "${goal.title}"
   • ALIGN with Week ${weekNumber}'s theme and objectives above
   • Focus ONLY on this week (Days ${startDay}-${endDay})
   • Ensure each task is actionable and clear
   • Progressive difficulty within this week
+  
+Educational Value & Resources:
+  • Write concise task descriptions (2-3 sentences, no more)
+  • Include ONE helpful tip or key insight per task
+  • Add curated external resources ONLY when they add significant value:
+    - YouTube tutorials for demonstrations
+    - Official documentation for reference
+    - Interactive tools or courses
+  • Use format: [RESOURCE:Title|URL] for any links
+  • Maximum 1-2 resources per task - quality over quantity
+  • Avoid over-explaining - be direct and actionable
   
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ OUTPUT FORMAT
@@ -440,7 +480,7 @@ Example for Day ${startDay}:
         {
           "time": "${timeSlots[0]}",
           "title": "Action-oriented task for week ${weekNumber}",
-          "description": "Clear explanation aligned with this week's theme.",
+          "description": "Concise explanation aligned with this week's theme. State what to do and why it matters. Focus on [key technique/concept]. [RESOURCE:Tutorial|URL] (if helpful)",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 15},
             {"title": "Specific step 2", "estimated_minutes": 15}
@@ -457,20 +497,26 @@ Example for Day ${startDay}:
 - Use ONLY these time slots: ${timeSlots.join(', ')}
 - Skip any days that are NOT in the preferred days list
 - Each preferred day should have ${tasksPerDay} task(s)
+- WRITE CONCISE, VALUABLE DESCRIPTIONS (2-3 sentences, no more!)
+- Include ONE key tip or insight per task - no over-explaining
+- Add resource links ONLY when they add real value (max 1-2 per task)
+- Be direct and actionable - avoid fluff
 
 NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${workingDaysCount} WORKING DAYS, ${tasksInThisWeek} TASKS TOTAL).
+REMEMBER: Descriptions should be valuable but CONCISE - 2-3 sentences maximum!
 OUTPUT JSON ONLY:`;
 
     // Calculate max_tokens dynamically based on tasks needed
-    // Each task ~250 tokens (title + description + subtasks + JSON structure)
-    // Add 1000 tokens for JSON overhead and buffer
-    const estimatedTokensPerTask = 250;
-    const jsonOverhead = 1000;
-    const safetyBuffer = 500;
+    // Each task ~450 tokens (title + concise description + subtasks + optional resources + JSON structure)
+    // Optimized for 2-3 sentence descriptions with one key insight
+    // Add 1200 tokens for JSON overhead and buffer
+    const estimatedTokensPerTask = 450;
+    const jsonOverhead = 1200;
+    const safetyBuffer = 800;
     const calculatedMaxTokens = Math.min(
       Math.max(
         tasksInThisWeek * estimatedTokensPerTask + jsonOverhead + safetyBuffer,
-        2048 // minimum 2K tokens
+        2500 // minimum 2.5K tokens
       ),
       16384 // maximum 16K tokens (Haiku limit)
     );
@@ -589,10 +635,33 @@ OUTPUT JSON ONLY:`;
         cleanedText.substring(cleanedText.length - 200)
       );
 
-      console.warn(`[${requestId}] Using template fallback due to parse error`);
+      // Check if this is likely a truncation issue (max_tokens exceeded)
+      const isTruncated =
+        cleanedText.length > 0 &&
+        !cleanedText.trim().endsWith('}') &&
+        !cleanedText.trim().endsWith(']');
+
+      if (isTruncated) {
+        console.error(
+          `[${requestId}] JSON appears truncated - likely hit max_tokens limit (${calculatedMaxTokens})`
+        );
+        console.error(
+          `[${requestId}] Response length: ${text.length} chars, Cleaned: ${cleanedText.length} chars`
+        );
+      }
+
+      console.warn(
+        `[${requestId}] Using template fallback due to parse error${isTruncated ? ' (truncated response)' : ''}`
+      );
       return {
         tasks: generateTemplateTasks(goal),
         usedModel: 'template-fallback',
+        metadata: {
+          parseError: true,
+          truncated: isTruncated,
+          responseLength: cleanedText.length,
+          maxTokens: calculatedMaxTokens,
+        },
       };
     }
 
@@ -1137,9 +1206,54 @@ serve(async (req) => {
       );
     }
 
+    // Check if fallback tasks were used - this means AI generation failed
+    if (tasksResult.usedModel === 'template-fallback') {
+      const metadata = tasksResult.metadata || {};
+      const isTruncated = metadata.truncated;
+
+      console.error(
+        `[${requestId}] AI generation failed for week ${currentWeek}, fallback tasks were generated`
+      );
+
+      if (isTruncated) {
+        console.error(
+          `[${requestId}] Failure reason: Response truncated at ${metadata.maxTokens} tokens (${metadata.responseLength} chars)`
+        );
+      }
+
+      // Save failure to ai_runs for tracking
+      const { error: aiRunError } = await supabase.from('ai_runs').insert({
+        goal_id: goal_id,
+        stage: `tasks_week_${currentWeek}`,
+        status: 'failed',
+        provider_model: 'template-fallback',
+        latency_ms: Date.now() - startTime,
+        week_number: currentWeek,
+        total_weeks: totalWeeks,
+        metadata: {
+          reason: isTruncated
+            ? `Response truncated - exceeded max_tokens (${metadata.maxTokens})`
+            : 'AI generation failed, would have used fallback tasks',
+          ...metadata,
+        },
+        completed_at: new Date().toISOString(),
+      });
+
+      const errorMessage = isTruncated
+        ? `AI response was truncated for week ${currentWeek}. The system is generating comprehensive task descriptions which exceeded the token limit. Please try again - the system will automatically adjust.`
+        : `AI generation failed for week ${currentWeek}. Please try again or contact support.`;
+
+      return errorResponse(
+        500,
+        errorMessage,
+        requestId,
+        Date.now() - startTime
+      );
+    }
+
     // Insert tasks for this week
     console.log(
-      `[${requestId}] Inserting ${tasksResult.tasks.length} tasks for week ${currentWeek}`
+      `[${requestId}] Inserting ${tasksResult.tasks.length} AI-generated tasks for week ${currentWeek}`
     );
     const insertedTasks = await insertTasks(
       supabase,
