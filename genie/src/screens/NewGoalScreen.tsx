@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
   Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // i18n removed
@@ -1916,536 +1917,496 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             )}
 
             {/* Advanced Settings Modal */}
-            {showAdvancedSettings && (
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                  <SafeAreaView
-                    edges={['top']}
-                    style={{ backgroundColor: colors.background.primary }}
+            <Modal
+              visible={showAdvancedSettings}
+              animationType="slide"
+              presentationStyle="formSheet"
+              onRequestClose={() => setShowAdvancedSettings(false)}
+            >
+              <SafeAreaView style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <View style={{ width: 24 }} />
+                  <Text variant="h3" color="primary" style={styles.modalTitle}>
+                    Advanced Settings
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.modalCloseButton}
+                    onPress={() => setShowAdvancedSettings(false)}
+                    activeOpacity={0.8}
                   >
-                    <View style={styles.modalHeader}>
+                    <Icon name="x" size={24} color="#FFFF68" weight="bold" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  style={styles.modalContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Plan Duration */}
+                  <View style={styles.section}>
+                    <Text
+                      variant="h4"
+                      color="primary"
+                      style={styles.sectionTitle}
+                    >
+                      Plan duration
+                    </Text>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.sectionSubtitle}
+                    >
+                      How long should your plan last?
+                    </Text>
+                    <Dropdown
+                      options={[
+                        { label: '1 week', value: '7' },
+                        { label: '2 weeks', value: '14' },
+                        { label: '3 weeks', value: '21' },
+                        { label: '1 month', value: '30' },
+                        { label: '6 weeks', value: '42' },
+                        { label: '2 months', value: '60' },
+                        { label: '3 months', value: '90' },
+                        { label: '6 months', value: '180' },
+                        { label: '1 year', value: '365' },
+                      ]}
+                      value={formData.planDurationDays.toString()}
+                      onValueChange={(value) =>
+                        updateField('planDurationDays', parseInt(value))
+                      }
+                      placeholder="Select duration"
+                      style={styles.durationDropdown}
+                      label="Duration"
+                    />
+                  </View>
+
+                  {/* Preferred Days */}
+                  <View style={styles.section}>
+                    <Text
+                      variant="h4"
+                      color="primary"
+                      style={styles.sectionTitle}
+                    >
+                      Preferred days
+                    </Text>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.sectionSubtitle}
+                    >
+                      Select your available days (or leave blank for every day)
+                    </Text>
+                    <View style={styles.daysGrid}>
+                      {[
+                        { value: 0, label: 'S' },
+                        { value: 1, label: 'M' },
+                        { value: 2, label: 'T' },
+                        { value: 3, label: 'W' },
+                        { value: 4, label: 'T' },
+                        { value: 5, label: 'F' },
+                        { value: 6, label: 'S' },
+                      ].map((day) => (
+                        <TouchableOpacity
+                          key={day.value}
+                          style={[
+                            styles.dayOption,
+                            formData.preferredDays.includes(day.value) &&
+                              styles.dayOptionActive,
+                          ]}
+                          onPress={() => {
+                            const newDays = formData.preferredDays.includes(
+                              day.value
+                            )
+                              ? formData.preferredDays.filter(
+                                  (d) => d !== day.value
+                                )
+                              : [...formData.preferredDays, day.value];
+                            updateField('preferredDays', newDays);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            variant="body"
+                            color={
+                              formData.preferredDays.includes(day.value)
+                                ? 'primary'
+                                : 'secondary'
+                            }
+                            style={[
+                              styles.dayOptionText,
+                              formData.preferredDays.includes(day.value) &&
+                                styles.dayOptionTextActive,
+                            ]}
+                          >
+                            {day.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Preferred Time Ranges */}
+                  <View style={styles.section}>
+                    <Text
+                      variant="h4"
+                      color="primary"
+                      style={styles.sectionTitle}
+                    >
+                      Preferred times
+                    </Text>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.sectionSubtitle}
+                    >
+                      Choose up to 3 time ranges that work for you
+                    </Text>
+                    {formData.preferredTimeRanges.map((range, index) => (
+                      <View key={index} style={styles.timeRangeCard}>
+                        <View style={styles.timeRangeHeader}>
+                          <Icon
+                            name={
+                              index === 0
+                                ? 'sun'
+                                : index === 1
+                                  ? 'sun-horizon'
+                                  : 'moon'
+                            }
+                            size={20}
+                            color="#FFFF68"
+                            weight="fill"
+                          />
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.timeRangeLabel}
+                          >
+                            {index === 0
+                              ? 'Morning'
+                              : index === 1
+                                ? 'Afternoon'
+                                : 'Evening'}
+                          </Text>
+                        </View>
+                        <View style={styles.timeInputs}>
+                          <View style={styles.timePickerContainer}>
+                            <TouchableOpacity
+                              style={styles.timePickerButton}
+                              onPress={() => {
+                                if (range.start_hour > 0) {
+                                  const newRanges = [
+                                    ...formData.preferredTimeRanges,
+                                  ];
+                                  newRanges[index].start_hour =
+                                    range.start_hour - 1;
+                                  updateField('preferredTimeRanges', newRanges);
+                                }
+                              }}
+                            >
+                              <Icon
+                                name="minus"
+                                size={14}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                            <View style={styles.timeDisplay}>
+                              <Text
+                                variant="h4"
+                                color="primary"
+                                style={styles.timeText}
+                              >
+                                {range.start_hour.toString().padStart(2, '0')}
+                                :00
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.timePickerButton}
+                              onPress={() => {
+                                if (range.start_hour < range.end_hour - 1) {
+                                  const newRanges = [
+                                    ...formData.preferredTimeRanges,
+                                  ];
+                                  newRanges[index].start_hour =
+                                    range.start_hour + 1;
+                                  updateField('preferredTimeRanges', newRanges);
+                                }
+                              }}
+                            >
+                              <Icon
+                                name="plus"
+                                size={14}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                          </View>
+
+                          <Text
+                            variant="body"
+                            color="secondary"
+                            style={styles.timeSeparator}
+                          >
+                            To
+                          </Text>
+
+                          <View style={styles.timePickerContainer}>
+                            <TouchableOpacity
+                              style={styles.timePickerButton}
+                              onPress={() => {
+                                if (range.end_hour > range.start_hour + 1) {
+                                  const newRanges = [
+                                    ...formData.preferredTimeRanges,
+                                  ];
+                                  newRanges[index].end_hour =
+                                    range.end_hour - 1;
+                                  updateField('preferredTimeRanges', newRanges);
+                                }
+                              }}
+                            >
+                              <Icon
+                                name="minus"
+                                size={14}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                            <View style={styles.timeDisplay}>
+                              <Text
+                                variant="h4"
+                                color="primary"
+                                style={styles.timeText}
+                              >
+                                {range.end_hour.toString().padStart(2, '0')}
+                                :00
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.timePickerButton}
+                              onPress={() => {
+                                if (range.end_hour < 23) {
+                                  const newRanges = [
+                                    ...formData.preferredTimeRanges,
+                                  ];
+                                  newRanges[index].end_hour =
+                                    range.end_hour + 1;
+                                  updateField('preferredTimeRanges', newRanges);
+                                }
+                              }}
+                            >
+                              <Icon
+                                name="plus"
+                                size={14}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                    {formData.preferredTimeRanges.length < 3 && (
                       <TouchableOpacity
-                        style={styles.modalBackButton}
-                        onPress={() => setShowAdvancedSettings(false)}
-                        activeOpacity={0.8}
+                        style={styles.addTimeRangeButton}
+                        onPress={() => {
+                          const newRanges = [...formData.preferredTimeRanges];
+                          newRanges.push({
+                            start_hour: 9,
+                            end_hour: 17,
+                            label: `Range ${newRanges.length + 1}`,
+                          });
+                          updateField('preferredTimeRanges', newRanges);
+                        }}
                       >
                         <Icon
-                          name="caret-left"
-                          size={28}
+                          name="plus"
+                          size={16}
                           color="#FFFF68"
                           weight="bold"
                         />
-                      </TouchableOpacity>
-                      <Text
-                        variant="h3"
-                        color="primary"
-                        style={styles.modalTitle}
-                      >
-                        Advanced Settings
-                      </Text>
-                      <View style={{ width: 28 }} />
-                    </View>
-                  </SafeAreaView>
-
-                  <ScrollView
-                    style={styles.modalContent}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {/* Plan Duration */}
-                    <View style={styles.section}>
-                      <Text
-                        variant="h4"
-                        color="primary"
-                        style={styles.sectionTitle}
-                      >
-                        Plan duration
-                      </Text>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.sectionSubtitle}
-                      >
-                        How long should your plan last?
-                      </Text>
-                      <Dropdown
-                        options={[
-                          { label: '1 week', value: '7' },
-                          { label: '2 weeks', value: '14' },
-                          { label: '3 weeks', value: '21' },
-                          { label: '1 month', value: '30' },
-                          { label: '6 weeks', value: '42' },
-                          { label: '2 months', value: '60' },
-                          { label: '3 months', value: '90' },
-                          { label: '6 months', value: '180' },
-                          { label: '1 year', value: '365' },
-                        ]}
-                        value={formData.planDurationDays.toString()}
-                        onValueChange={(value) =>
-                          updateField('planDurationDays', parseInt(value))
-                        }
-                        placeholder="Select duration"
-                        style={styles.durationDropdown}
-                        label="Duration"
-                      />
-                    </View>
-
-                    {/* Preferred Days */}
-                    <View style={styles.section}>
-                      <Text
-                        variant="h4"
-                        color="primary"
-                        style={styles.sectionTitle}
-                      >
-                        Preferred days
-                      </Text>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.sectionSubtitle}
-                      >
-                        Select your available days (or leave blank for every
-                        day)
-                      </Text>
-                      <View style={styles.daysGrid}>
-                        {[
-                          { value: 0, label: 'S' },
-                          { value: 1, label: 'M' },
-                          { value: 2, label: 'T' },
-                          { value: 3, label: 'W' },
-                          { value: 4, label: 'T' },
-                          { value: 5, label: 'F' },
-                          { value: 6, label: 'S' },
-                        ].map((day) => (
-                          <TouchableOpacity
-                            key={day.value}
-                            style={[
-                              styles.dayOption,
-                              formData.preferredDays.includes(day.value) &&
-                                styles.dayOptionActive,
-                            ]}
-                            onPress={() => {
-                              const newDays = formData.preferredDays.includes(
-                                day.value
-                              )
-                                ? formData.preferredDays.filter(
-                                    (d) => d !== day.value
-                                  )
-                                : [...formData.preferredDays, day.value];
-                              updateField('preferredDays', newDays);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Text
-                              variant="body"
-                              color={
-                                formData.preferredDays.includes(day.value)
-                                  ? 'primary'
-                                  : 'secondary'
-                              }
-                              style={[
-                                styles.dayOptionText,
-                                formData.preferredDays.includes(day.value) &&
-                                  styles.dayOptionTextActive,
-                              ]}
-                            >
-                              {day.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-
-                    {/* Preferred Time Ranges */}
-                    <View style={styles.section}>
-                      <Text
-                        variant="h4"
-                        color="primary"
-                        style={styles.sectionTitle}
-                      >
-                        Preferred times
-                      </Text>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.sectionSubtitle}
-                      >
-                        Choose up to 3 time ranges that work for you
-                      </Text>
-                      {formData.preferredTimeRanges.map((range, index) => (
-                        <View key={index} style={styles.timeRangeCard}>
-                          <View style={styles.timeRangeHeader}>
-                            <Text
-                              variant="caption"
-                              color="secondary"
-                              style={styles.timeRangeLabel}
-                            >
-                              {index === 0
-                                ? 'Morning'
-                                : index === 1
-                                  ? 'Afternoon'
-                                  : 'Evening'}
-                            </Text>
-                            <Icon
-                              name={
-                                index === 0
-                                  ? 'sun'
-                                  : index === 1
-                                    ? 'sun-horizon'
-                                    : 'moon'
-                              }
-                              size={20}
-                              color="#FFFF68"
-                              weight="fill"
-                            />
-                          </View>
-                          <View style={styles.timeInputs}>
-                            <View style={styles.timeInput}>
-                              <Text
-                                variant="caption"
-                                color="secondary"
-                                style={styles.timeLabel}
-                              >
-                                From:
-                              </Text>
-                              <View style={styles.timePickerContainer}>
-                                <TouchableOpacity
-                                  style={styles.timePickerButton}
-                                  onPress={() => {
-                                    if (range.start_hour > 0) {
-                                      const newRanges = [
-                                        ...formData.preferredTimeRanges,
-                                      ];
-                                      newRanges[index].start_hour =
-                                        range.start_hour - 1;
-                                      updateField(
-                                        'preferredTimeRanges',
-                                        newRanges
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <Icon
-                                    name="minus"
-                                    size={14}
-                                    color="#FFFF68"
-                                    weight="bold"
-                                  />
-                                </TouchableOpacity>
-                                <View style={styles.timeDisplay}>
-                                  <Text
-                                    variant="h4"
-                                    color="primary"
-                                    style={styles.timeText}
-                                  >
-                                    {range.start_hour
-                                      .toString()
-                                      .padStart(2, '0')}
-                                    :00
-                                  </Text>
-                                </View>
-                                <TouchableOpacity
-                                  style={styles.timePickerButton}
-                                  onPress={() => {
-                                    if (range.start_hour < range.end_hour - 1) {
-                                      const newRanges = [
-                                        ...formData.preferredTimeRanges,
-                                      ];
-                                      newRanges[index].start_hour =
-                                        range.start_hour + 1;
-                                      updateField(
-                                        'preferredTimeRanges',
-                                        newRanges
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <Icon
-                                    name="plus"
-                                    size={14}
-                                    color="#FFFF68"
-                                    weight="bold"
-                                  />
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                            <View style={styles.timeInput}>
-                              <Text
-                                variant="caption"
-                                color="secondary"
-                                style={styles.timeLabel}
-                              >
-                                To:
-                              </Text>
-                              <View style={styles.timePickerContainer}>
-                                <TouchableOpacity
-                                  style={styles.timePickerButton}
-                                  onPress={() => {
-                                    if (range.end_hour > range.start_hour + 1) {
-                                      const newRanges = [
-                                        ...formData.preferredTimeRanges,
-                                      ];
-                                      newRanges[index].end_hour =
-                                        range.end_hour - 1;
-                                      updateField(
-                                        'preferredTimeRanges',
-                                        newRanges
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <Icon
-                                    name="minus"
-                                    size={14}
-                                    color="#FFFF68"
-                                    weight="bold"
-                                  />
-                                </TouchableOpacity>
-                                <View style={styles.timeDisplay}>
-                                  <Text
-                                    variant="h4"
-                                    color="primary"
-                                    style={styles.timeText}
-                                  >
-                                    {range.end_hour.toString().padStart(2, '0')}
-                                    :00
-                                  </Text>
-                                </View>
-                                <TouchableOpacity
-                                  style={styles.timePickerButton}
-                                  onPress={() => {
-                                    if (range.end_hour < 23) {
-                                      const newRanges = [
-                                        ...formData.preferredTimeRanges,
-                                      ];
-                                      newRanges[index].end_hour =
-                                        range.end_hour + 1;
-                                      updateField(
-                                        'preferredTimeRanges',
-                                        newRanges
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <Icon
-                                    name="plus"
-                                    size={14}
-                                    color="#FFFF68"
-                                    weight="bold"
-                                  />
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-                      {formData.preferredTimeRanges.length < 3 && (
-                        <TouchableOpacity
-                          style={styles.addTimeRangeButton}
-                          onPress={() => {
-                            const newRanges = [...formData.preferredTimeRanges];
-                            newRanges.push({
-                              start_hour: 9,
-                              end_hour: 17,
-                              label: `Range ${newRanges.length + 1}`,
-                            });
-                            updateField('preferredTimeRanges', newRanges);
-                          }}
+                        <Text
+                          variant="body"
+                          color="primary"
+                          style={styles.addTimeRangeText}
                         >
-                          <Icon
-                            name="plus"
-                            size={16}
-                            color="#FFFF68"
-                            weight="bold"
-                          />
+                          Add Time Range
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Tasks Per Day Range */}
+                  <View style={styles.section}>
+                    <Text
+                      variant="h4"
+                      color="primary"
+                      style={styles.sectionTitle}
+                    >
+                      Tasks per day
+                    </Text>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.sectionSubtitle}
+                    >
+                      Choose your daily task range
+                    </Text>
+                    <View style={styles.tasksRangeCard}>
+                      <View style={styles.tasksRangeContainer}>
+                        <View style={styles.tasksRangeInput}>
                           <Text
-                            variant="body"
-                            color="primary"
-                            style={styles.addTimeRangeText}
+                            variant="caption"
+                            color="secondary"
+                            style={styles.rangeLabel}
                           >
-                            Add Time Range
+                            From:
                           </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    {/* Tasks Per Day Range */}
-                    <View style={styles.section}>
-                      <Text
-                        variant="h4"
-                        color="primary"
-                        style={styles.sectionTitle}
-                      >
-                        Tasks per day
-                      </Text>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.sectionSubtitle}
-                      >
-                        Choose your daily task range
-                      </Text>
-                      <View style={styles.tasksRangeCard}>
-                        <View style={styles.tasksRangeContainer}>
-                          <View style={styles.tasksRangeInput}>
-                            <Text
-                              variant="caption"
-                              color="secondary"
-                              style={styles.rangeLabel}
+                          <View style={styles.numberPickerContainer}>
+                            <TouchableOpacity
+                              style={styles.numberPickerButton}
+                              onPress={() => {
+                                if (formData.tasksPerDayRange.min > 1) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    min: formData.tasksPerDayRange.min - 1,
+                                  });
+                                }
+                              }}
                             >
-                              From:
-                            </Text>
-                            <View style={styles.numberPickerContainer}>
-                              <TouchableOpacity
-                                style={styles.numberPickerButton}
-                                onPress={() => {
-                                  if (formData.tasksPerDayRange.min > 1) {
-                                    updateField('tasksPerDayRange', {
-                                      ...formData.tasksPerDayRange,
-                                      min: formData.tasksPerDayRange.min - 1,
-                                    });
-                                  }
-                                }}
+                              <Icon
+                                name="minus"
+                                size={16}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                            <View style={styles.numberDisplay}>
+                              <Text
+                                variant="h4"
+                                color="primary"
+                                style={styles.numberText}
                               >
-                                <Icon
-                                  name="minus"
-                                  size={16}
-                                  color="#FFFF68"
-                                  weight="bold"
-                                />
-                              </TouchableOpacity>
-                              <View style={styles.numberDisplay}>
-                                <Text
-                                  variant="h4"
-                                  color="primary"
-                                  style={styles.numberText}
-                                >
-                                  {formData.tasksPerDayRange.min}
-                                </Text>
-                              </View>
-                              <TouchableOpacity
-                                style={styles.numberPickerButton}
-                                onPress={() => {
-                                  if (
-                                    formData.tasksPerDayRange.min <
-                                    formData.tasksPerDayRange.max - 1
-                                  ) {
-                                    updateField('tasksPerDayRange', {
-                                      ...formData.tasksPerDayRange,
-                                      min: formData.tasksPerDayRange.min + 1,
-                                    });
-                                  }
-                                }}
-                              >
-                                <Icon
-                                  name="plus"
-                                  size={16}
-                                  color="#FFFF68"
-                                  weight="bold"
-                                />
-                              </TouchableOpacity>
+                                {formData.tasksPerDayRange.min}
+                              </Text>
                             </View>
+                            <TouchableOpacity
+                              style={styles.numberPickerButton}
+                              onPress={() => {
+                                if (
+                                  formData.tasksPerDayRange.min <
+                                  formData.tasksPerDayRange.max - 1
+                                ) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    min: formData.tasksPerDayRange.min + 1,
+                                  });
+                                }
+                              }}
+                            >
+                              <Icon
+                                name="plus"
+                                size={16}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
                           </View>
-                          <View style={styles.tasksRangeInput}>
-                            <Text
-                              variant="caption"
-                              color="secondary"
-                              style={styles.rangeLabel}
+                        </View>
+                        <View style={styles.tasksRangeInput}>
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.rangeLabel}
+                          >
+                            To:
+                          </Text>
+                          <View style={styles.numberPickerContainer}>
+                            <TouchableOpacity
+                              style={styles.numberPickerButton}
+                              onPress={() => {
+                                if (
+                                  formData.tasksPerDayRange.max >
+                                  formData.tasksPerDayRange.min + 1
+                                ) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    max: formData.tasksPerDayRange.max - 1,
+                                  });
+                                }
+                              }}
                             >
-                              To:
-                            </Text>
-                            <View style={styles.numberPickerContainer}>
-                              <TouchableOpacity
-                                style={styles.numberPickerButton}
-                                onPress={() => {
-                                  if (
-                                    formData.tasksPerDayRange.max >
-                                    formData.tasksPerDayRange.min + 1
-                                  ) {
-                                    updateField('tasksPerDayRange', {
-                                      ...formData.tasksPerDayRange,
-                                      max: formData.tasksPerDayRange.max - 1,
-                                    });
-                                  }
-                                }}
+                              <Icon
+                                name="minus"
+                                size={16}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                            <View style={styles.numberDisplay}>
+                              <Text
+                                variant="h4"
+                                color="primary"
+                                style={styles.numberText}
                               >
-                                <Icon
-                                  name="minus"
-                                  size={16}
-                                  color="#FFFF68"
-                                  weight="bold"
-                                />
-                              </TouchableOpacity>
-                              <View style={styles.numberDisplay}>
-                                <Text
-                                  variant="h4"
-                                  color="primary"
-                                  style={styles.numberText}
-                                >
-                                  {formData.tasksPerDayRange.max}
-                                </Text>
-                              </View>
-                              <TouchableOpacity
-                                style={styles.numberPickerButton}
-                                onPress={() => {
-                                  if (formData.tasksPerDayRange.max < 10) {
-                                    updateField('tasksPerDayRange', {
-                                      ...formData.tasksPerDayRange,
-                                      max: formData.tasksPerDayRange.max + 1,
-                                    });
-                                  }
-                                }}
-                              >
-                                <Icon
-                                  name="plus"
-                                  size={16}
-                                  color="#FFFF68"
-                                  weight="bold"
-                                />
-                              </TouchableOpacity>
+                                {formData.tasksPerDayRange.max}
+                              </Text>
                             </View>
+                            <TouchableOpacity
+                              style={styles.numberPickerButton}
+                              onPress={() => {
+                                if (formData.tasksPerDayRange.max < 10) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    max: formData.tasksPerDayRange.max + 1,
+                                  });
+                                }
+                              }}
+                            >
+                              <Icon
+                                name="plus"
+                                size={16}
+                                color="#FFFF68"
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
                           </View>
                         </View>
                       </View>
                     </View>
-                  </ScrollView>
+                  </View>
+                </ScrollView>
 
-                  {/* Modal Buttons */}
-                  <SafeAreaView
-                    edges={['bottom']}
-                    style={{ backgroundColor: colors.background.primary }}
+                {/* Modal Buttons */}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.modalCancelButton}
+                    onPress={() => setShowAdvancedSettings(false)}
+                    activeOpacity={0.8}
                   >
-                    <View style={styles.modalButtons}>
-                      <TouchableOpacity
-                        style={styles.modalCancelButton}
-                        onPress={() => setShowAdvancedSettings(false)}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          variant="body"
-                          color="primary"
-                          style={styles.modalCancelButtonText}
-                        >
-                          Cancel
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.modalSaveButton}
-                        onPress={() => setShowAdvancedSettings(false)}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          variant="body"
-                          color="primary"
-                          style={styles.modalSaveButtonText}
-                        >
-                          Save
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </SafeAreaView>
+                    <Text
+                      variant="body"
+                      color="primary"
+                      style={styles.modalCancelButtonText}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalSaveButton}
+                    onPress={() => setShowAdvancedSettings(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      variant="body"
+                      color="primary"
+                      style={styles.modalSaveButtonText}
+                    >
+                      Save
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-            )}
+              </SafeAreaView>
+            </Modal>
 
             {/* Navigation Buttons */}
             <View style={styles.navigationButtons}>
@@ -2799,9 +2760,9 @@ const styles = StyleSheet.create({
   },
   timeRangeHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    gap: 8,
   },
   timeRangeLabelContainer: {
     flexDirection: 'row',
@@ -2813,15 +2774,15 @@ const styles = StyleSheet.create({
   },
   timeInputs: {
     flexDirection: 'row',
-    gap: 16,
-  },
-  timeInput: {
-    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingBottom: 16,
   },
-  timeLabel: {
-    marginBottom: 6,
+  timeSeparator: {
+    fontSize: 14,
     fontWeight: '500',
+    paddingHorizontal: 8,
   },
   timePickerContainer: {
     flexDirection: 'row',
@@ -3164,8 +3125,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     backgroundColor: colors.background.primary,
@@ -3181,18 +3141,18 @@ const styles = StyleSheet.create({
     marginLeft: -8,
   },
   modalCloseButton: {
-    padding: 4,
+    padding: 8,
+    marginRight: -8,
   },
   modalContent: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 16,
   },
   modalButtons: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 0,
+    paddingTop: 16,
+    paddingBottom: 32,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
@@ -3202,25 +3162,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   modalCancelButtonText: {
     fontWeight: '600',
+    fontSize: 16,
   },
   modalSaveButton: {
     flex: 1,
     backgroundColor: '#FFFF68',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#FFFF68',
   },
   modalSaveButtonText: {
     fontWeight: '600',
+    fontSize: 16,
     color: '#000000',
   },
 });
