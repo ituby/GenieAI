@@ -32,15 +32,17 @@ interface UserSettings {
   updated_at: string;
 }
 
-export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
+  onBack,
+}) => {
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
-  const { 
-    isInitialized, 
-    pushToken, 
-    isEnabled, 
-    requestPermissions, 
-    sendTestNotification 
+  const {
+    isInitialized,
+    pushToken,
+    isEnabled,
+    requestPermissions,
+    sendTestNotification,
   } = useNotifications();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
   const fetchSettings = async () => {
     if (!user?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('user_settings')
@@ -62,7 +64,8 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // Not found error
+      if (error && error.code !== 'PGRST116') {
+        // Not found error
         throw error;
       }
 
@@ -70,16 +73,18 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         // Create default settings
         const { data: newSettings, error: createError } = await supabase
           .from('user_settings')
-          .insert([{
-            user_id: user.id,
-            notifications_enabled: true,
-            push_notifications: true,
-            email_notifications: false,
-            reminder_time: '09:00',
-            theme: 'dark',
-            language: 'en',
-            timezone: 'UTC',
-          }])
+          .insert([
+            {
+              user_id: user.id,
+              notifications_enabled: true,
+              push_notifications: true,
+              email_notifications: false,
+              reminder_time: '09:00',
+              theme: 'dark',
+              language: 'en',
+              timezone: 'UTC',
+            },
+          ])
           .select()
           .single();
 
@@ -104,7 +109,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
   const updateSetting = async (key: keyof UserSettings, value: any) => {
     if (!user?.id || !settings) return;
-    
+
     try {
       const { error } = await supabase
         .from('user_settings')
@@ -116,11 +121,15 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
       if (error) throw error;
 
-      setSettings(prev => prev ? {
-        ...prev,
-        [key]: value,
-        updated_at: new Date().toISOString(),
-      } : null);
+      setSettings((prev) =>
+        prev
+          ? {
+              ...prev,
+              [key]: value,
+              updated_at: new Date().toISOString(),
+            }
+          : null
+      );
     } catch (error) {
       console.error('Error updating setting:', error);
       Alert.alert('Error', 'Failed to update setting');
@@ -128,12 +137,12 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: async () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
           try {
             await signOut();
             console.log('✅ User signed out successfully');
@@ -141,239 +150,341 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             console.error('❌ Error signing out:', error);
             Alert.alert('Error', 'Failed to sign out');
           }
-        }},
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   if (!settings) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background.primary },
+        ]}
+      >
         <View style={styles.absoluteHeader}>
           <View style={styles.headerLeft}>
             <TouchableOpacity onPress={onBack} style={styles.backButton}>
               <Icon name="arrow-left" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.headerCenter}>
-            <Text variant="h4" style={styles.title} numberOfLines={1}>Settings</Text>
+            <Text variant="h4" style={styles.title} numberOfLines={1}>
+              Settings
+            </Text>
           </View>
-          
-          <View style={styles.headerRight}>
-            {/* Empty for balance */}
-          </View>
+
+          <View style={styles.headerRight}>{/* Empty for balance */}</View>
         </View>
         <View style={styles.loadingContainer}>
-          <Text variant="body" color="secondary">Loading...</Text>
+          <Text variant="body" color="secondary">
+            Loading...
+          </Text>
         </View>
       </View>
     );
   }
 
   return (
-    <Modal
-      visible={true}
-      animationType="slide"
-      presentationStyle="fullScreen"
-    >
-      <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+    <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background.primary },
+        ]}
+      >
         {/* Absolute Header */}
         <View style={styles.absoluteHeader}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.headerCenter}>
-            <Text variant="h4" style={styles.title} numberOfLines={1}>Settings</Text>
-        </View>
-        
-        <View style={styles.headerRight}>
-          {/* Empty for balance */}
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.yellow[500]}
-          />
-        }
-      >
-        {/* Notifications */}
-        <Card variant="gradient" padding="lg" style={styles.settingsCard}>
-          <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-            Notifications
-          </Text>
-          <View style={styles.settingsList}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Enable Notifications</Text>
-                <Text variant="caption" color="secondary">Receive push notifications</Text>
-              </View>
-              <Switch
-                value={settings.notifications_enabled}
-                onValueChange={(value: boolean) => updateSetting('notifications_enabled', value)}
-              />
-            </View>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Push Notifications</Text>
-                <Text variant="caption" color="secondary">
-                  {pushToken ? 'Registered' : 'Not registered'} • {isEnabled ? 'Enabled' : 'Disabled'}
-                </Text>
-              </View>
-              <Switch
-                value={settings.push_notifications}
-                onValueChange={async (value: boolean) => {
-                  if (value && !isEnabled) {
-                    const granted = await requestPermissions();
-                    if (granted) {
-                      updateSetting('push_notifications', true);
-                    }
-                  } else {
-                    updateSetting('push_notifications', value);
-                  }
-                }}
-                disabled={!settings.notifications_enabled}
-              />
-            </View>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Email Notifications</Text>
-                <Text variant="caption" color="secondary">Email updates and summaries</Text>
-              </View>
-              <Switch
-                value={settings.email_notifications}
-                onValueChange={(value: boolean) => updateSetting('email_notifications', value)}
-                disabled={!settings.notifications_enabled}
-              />
-            </View>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
-        </Card>
 
-        {/* Test Notifications */}
-        {isEnabled && pushToken && (
+          <View style={styles.headerCenter}>
+            <Text variant="h4" style={styles.title} numberOfLines={1}>
+              Settings
+            </Text>
+          </View>
+
+          <View style={styles.headerRight}>{/* Empty for balance */}</View>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.yellow[500]}
+            />
+          }
+        >
+          {/* Notifications */}
           <Card variant="gradient" padding="lg" style={styles.settingsCard}>
-            <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-              Test Notifications
+            <Text
+              variant="h4"
+              color="primary-color"
+              style={styles.sectionTitle}
+            >
+              Notifications
             </Text>
             <View style={styles.settingsList}>
-              <Button
-                variant="outline"
-                onPress={async () => {
-                  try {
-                    if (!user?.id) {
-                      Alert.alert('Error', 'User not authenticated');
-                      return;
-                    }
-                    await sendTestNotification(user.id);
-                    Alert.alert('Success', 'Test notification sent!');
-                  } catch (error) {
-                    Alert.alert('Error', 'Failed to send test notification');
+              <View style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Enable Notifications
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Receive push notifications
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.notifications_enabled}
+                  onValueChange={(value: boolean) =>
+                    updateSetting('notifications_enabled', value)
                   }
-                }}
-                style={styles.testButton}
-              >
-                Send Test Notification
-              </Button>
+                />
+              </View>
+              <View style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Push Notifications
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    {pushToken ? 'Registered' : 'Not registered'} •{' '}
+                    {isEnabled ? 'Enabled' : 'Disabled'}
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.push_notifications}
+                  onValueChange={async (value: boolean) => {
+                    if (value && !isEnabled) {
+                      const granted = await requestPermissions();
+                      if (granted) {
+                        updateSetting('push_notifications', true);
+                      }
+                    } else {
+                      updateSetting('push_notifications', value);
+                    }
+                  }}
+                  disabled={!settings.notifications_enabled}
+                />
+              </View>
+              <View style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Email Notifications
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Email updates and summaries
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.email_notifications}
+                  onValueChange={(value: boolean) =>
+                    updateSetting('email_notifications', value)
+                  }
+                  disabled={!settings.notifications_enabled}
+                />
+              </View>
             </View>
           </Card>
-        )}
 
-        {/* Appearance */}
-        <Card variant="gradient" padding="lg" style={styles.settingsCard}>
-          <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-            Appearance
-          </Text>
-          <View style={styles.settingsList}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Theme</Text>
-                <Text variant="caption" color="secondary">Current: {settings.theme}</Text>
+          {/* Test Notifications */}
+          {isEnabled && pushToken && (
+            <Card variant="gradient" padding="lg" style={styles.settingsCard}>
+              <Text
+                variant="h4"
+                color="primary-color"
+                style={styles.sectionTitle}
+              >
+                Test Notifications
+              </Text>
+              <View style={styles.settingsList}>
+                <Button
+                  variant="outline"
+                  onPress={async () => {
+                    try {
+                      if (!user?.id) {
+                        Alert.alert('Error', 'User not authenticated');
+                        return;
+                      }
+                      await sendTestNotification(user.id);
+                      Alert.alert('Success', 'Test notification sent!');
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to send test notification');
+                    }
+                  }}
+                  style={styles.testButton}
+                >
+                  Send Test Notification
+                </Button>
               </View>
-              <Icon name="caret-right" size={16} color={theme.colors.text.disabled} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Language</Text>
-                <Text variant="caption" color="secondary">Current: {settings.language}</Text>
-              </View>
-              <Icon name="caret-right" size={16} color={theme.colors.text.disabled} />
-            </TouchableOpacity>
-          </View>
-        </Card>
+            </Card>
+          )}
 
-        {/* Time & Location */}
-        <Card variant="gradient" padding="lg" style={styles.settingsCard}>
-          <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-            Time & Location
-          </Text>
-          <View style={styles.settingsList}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Timezone</Text>
-                <Text variant="caption" color="secondary">Current: {settings.timezone}</Text>
-              </View>
-              <Icon name="caret-right" size={16} color={theme.colors.text.disabled} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Reminder Time</Text>
-                <Text variant="caption" color="secondary">Daily reminders at {settings.reminder_time}</Text>
-              </View>
-              <Icon name="caret-right" size={16} color={theme.colors.text.disabled} />
-            </TouchableOpacity>
-          </View>
-        </Card>
+          {/* Appearance */}
+          <Card variant="gradient" padding="lg" style={styles.settingsCard}>
+            <Text
+              variant="h4"
+              color="primary-color"
+              style={styles.sectionTitle}
+            >
+              Appearance
+            </Text>
+            <View style={styles.settingsList}>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Theme
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Current: {settings.theme}
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.text.disabled}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Language
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Current: {settings.language}
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.text.disabled}
+                />
+              </TouchableOpacity>
+            </View>
+          </Card>
 
-        {/* Account */}
-        <Card variant="gradient" padding="lg" style={styles.settingsCard}>
-          <Text variant="h4" color="primary-color" style={styles.sectionTitle}>
-            Account
-          </Text>
-          <View style={styles.settingsList}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Privacy Policy</Text>
-                <Text variant="caption" color="secondary">View our privacy policy</Text>
-              </View>
-              <Icon name="caret-right" size={16} color={theme.colors.text.disabled} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Terms of Service</Text>
-                <Text variant="caption" color="secondary">View terms and conditions</Text>
-              </View>
-              <Icon name="caret-right" size={16} color={theme.colors.text.disabled} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text variant="body" color="primary-color">Delete Account</Text>
-                <Text variant="caption" color="secondary">Permanently delete your account</Text>
-              </View>
-              <Icon name="caret-right" size={16} color={theme.colors.status.error} />
-            </TouchableOpacity>
-          </View>
-        </Card>
+          {/* Time & Location */}
+          <Card variant="gradient" padding="lg" style={styles.settingsCard}>
+            <Text
+              variant="h4"
+              color="primary-color"
+              style={styles.sectionTitle}
+            >
+              Time & Location
+            </Text>
+            <View style={styles.settingsList}>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Timezone
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Current: {settings.timezone}
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.text.disabled}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Reminder Time
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Daily reminders at {settings.reminder_time}
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.text.disabled}
+                />
+              </TouchableOpacity>
+            </View>
+          </Card>
 
-        {/* Sign Out */}
-        <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
-          <Icon name="sign-out" size={20} color={theme.colors.status.error} />
-          <Text variant="body" color="error" style={styles.signOutText}>
-            Sign Out
-          </Text>
-        </TouchableOpacity>
-        
-        {/* Bottom Padding */}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+          {/* Account */}
+          <Card variant="gradient" padding="lg" style={styles.settingsCard}>
+            <Text
+              variant="h4"
+              color="primary-color"
+              style={styles.sectionTitle}
+            >
+              Account
+            </Text>
+            <View style={styles.settingsList}>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Privacy Policy
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    View our privacy policy
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.text.disabled}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Terms of Service
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    View terms and conditions
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.text.disabled}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Delete Account
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Permanently delete your account
+                  </Text>
+                </View>
+                <Icon
+                  name="caret-right"
+                  size={16}
+                  color={theme.colors.status.error}
+                />
+              </TouchableOpacity>
+            </View>
+          </Card>
+
+          {/* Sign Out */}
+          <TouchableOpacity
+            onPress={handleSignOut}
+            style={styles.signOutButton}
+          >
+            <Icon name="sign-out" size={20} color={theme.colors.status.error} />
+            <Text variant="body" color="error" style={styles.signOutText}>
+              Sign Out
+            </Text>
+          </TouchableOpacity>
+
+          {/* Bottom Padding */}
+          <View style={styles.bottomPadding} />
+        </ScrollView>
       </View>
     </Modal>
   );

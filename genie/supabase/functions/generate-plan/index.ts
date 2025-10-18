@@ -702,10 +702,6 @@ OUTPUT JSON ONLY:`;
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 16384,
-          thinking: {
-            type: 'enabled',
-            budget_tokens: 1000,
-          },
           messages: [
             { role: 'user', content: `${systemPrompt}\n${userPrompt}` },
           ],
