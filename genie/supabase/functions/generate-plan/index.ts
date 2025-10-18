@@ -165,13 +165,18 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function truncateDescription(description: string, maxSentences: number = 7): string {
+function truncateDescription(
+  description: string,
+  maxSentences: number = 7
+): string {
   // Split by sentence endings (. ! ?)
-  const sentences = description.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  
+  const sentences = description
+    .split(/[.!?]+/)
+    .filter((s) => s.trim().length > 0);
+
   // Take only first N sentences
   const truncated = sentences.slice(0, maxSentences).join('. ');
-  
+
   // Add period if needed
   return truncated.endsWith('.') ? truncated : truncated + '.';
 }
@@ -739,10 +744,12 @@ OUTPUT JSON ONLY:`;
       );
 
       // Return fallback data with truncated descriptions
-      const fallbackOutline = buildTailoredOutline(title, description).map((week: any) => ({
-        ...week,
-        description: truncateDescription(week.description || '', 7),
-      }));
+      const fallbackOutline = buildTailoredOutline(title, description).map(
+        (week: any) => ({
+          ...week,
+          description: truncateDescription(week.description || '', 7),
+        })
+      );
 
       return {
         iconName: 'star',
@@ -759,7 +766,9 @@ OUTPUT JSON ONLY:`;
     }
 
     // Truncate long descriptions to max 7 sentences
-    const truncatedPlanOutline = (planData.plan_outline || buildTailoredOutline(title, description)).map((week: any) => ({
+    const truncatedPlanOutline = (
+      planData.plan_outline || buildTailoredOutline(title, description)
+    ).map((week: any) => ({
       ...week,
       description: truncateDescription(week.description || '', 7),
     }));
@@ -787,10 +796,12 @@ OUTPUT JSON ONLY:`;
     }
 
     // Return fallback data for any API error with truncated descriptions
-    const errorFallbackOutline = buildTailoredOutline(title, description).map((week: any) => ({
-      ...week,
-      description: truncateDescription(week.description || '', 7),
-    }));
+    const errorFallbackOutline = buildTailoredOutline(title, description).map(
+      (week: any) => ({
+        ...week,
+        description: truncateDescription(week.description || '', 7),
+      })
+    );
 
     return {
       iconName: 'star',
