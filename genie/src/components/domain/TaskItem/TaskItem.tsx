@@ -8,6 +8,7 @@ import { Icon } from '../../primitives/Icon';
 import { TaskWithGoal } from '../../../types/task';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { cleanDescription } from '../../../utils/descriptionUtils';
 
 export interface TaskItemProps {
   task: TaskWithGoal;
@@ -236,7 +237,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 task.completed && styles.completedText,
               ]}
             >
-              {task.description}
+              {cleanDescription(task.description)}
             </Text>
 
             {/* Goal Info */}

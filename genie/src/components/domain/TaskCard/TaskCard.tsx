@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Card, Icon } from '../../primitives';
 import { Task, Subtask } from '../../../types/task';
 import { useTheme } from '../../../theme';
+import { cleanDescription } from '../../../utils/descriptionUtils';
 
 interface TaskCardProps {
   task: Task;
@@ -74,7 +75,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Task Description */}
       <Text style={[styles.description, { color: theme.colors.text.secondary }]}>
-        {task.description}
+        {cleanDescription(task.description)}
       </Text>
 
       {/* Subtasks Section */}
