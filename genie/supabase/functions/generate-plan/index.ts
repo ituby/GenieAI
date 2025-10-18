@@ -167,18 +167,25 @@ function wait(ms: number): Promise<void> {
 
 function truncateDescription(
   description: string,
-  maxSentences: number = 7
+  maxWords: number = 30
 ): string {
-  // Split by sentence endings (. ! ?)
-  const sentences = description
-    .split(/[.!?]+/)
-    .filter((s) => s.trim().length > 0);
+  // Split by words
+  const words = description.trim().split(/\s+/);
 
-  // Take only first N sentences
-  const truncated = sentences.slice(0, maxSentences).join('. ');
+  // If already short enough, return as-is
+  if (words.length <= maxWords) {
+    return description.trim();
+  }
+
+  // Take only first N words
+  const truncated = words.slice(0, maxWords).join(' ');
 
   // Add period if needed
-  return truncated.endsWith('.') ? truncated : truncated + '.';
+  return truncated.endsWith('.') ||
+    truncated.endsWith('!') ||
+    truncated.endsWith('?')
+    ? truncated
+    : truncated + '.';
 }
 
 function convertHHMMToTimeOfDay(hhmm: string): string {
@@ -195,15 +202,15 @@ function buildTailoredOutline(title: string, description: string): any[] {
   return [
     {
       title: `Week 1 • ${shortTitle} - Foundation`,
-      description: `Establish core systems and build momentum. Create strong foundations for success.`,
+      description: `Establish core systems. Build momentum. Create strong foundations for success.`, // 11 words
     },
     {
       title: `Week 2 • ${shortTitle} - Development`,
-      description: `Develop skills and deepen expertise. Practice and apply what you've learned.`,
+      description: `Develop skills and deepen expertise. Practice and apply what you learned.`, // 12 words
     },
     {
       title: `Week 3 • ${shortTitle} - Mastery`,
-      description: `Master your skills and achieve your goals. Celebrate your transformation.`,
+      description: `Master your skills. Achieve your goals. Celebrate your transformation.`, // 10 words
     },
   ];
 }
@@ -574,12 +581,12 @@ EACH WEEK MUST INCLUDE:
 3. Key Activities - What the person will actually do
 4. Progress Markers - How they'll know they're succeeding
 
-WEEK DESCRIPTION LENGTH - CRITICAL:
-- Each week description: MAXIMUM 7 lines
-- Count lines strictly - do not exceed 7 lines per week
-- Be concise, focused, and direct
+WEEK DESCRIPTION LENGTH - STRICT LIMIT:
+- Each week description: MAXIMUM 30 WORDS
+- Count every single word - absolutely no more than 30
+- Short, punchy, focused sentences
 - Every word must add value
-- Remove any fluff or redundancy
+- Remove all fluff and redundancy
 
 CRITICAL INSTRUCTIONS:
 - Return ONLY valid JSON, no markdown, no explanations, no extra text
@@ -597,9 +604,9 @@ REQUIRED JSON STRUCTURE:
   "icon_name": "star",
   "milestones": [{"week": 1, "title": "Week 1: Foundation", "description": "Detailed week description with specific goals and outcomes", "tasks": 21}],
   "plan_outline": [
-    {"title": "Week 1: Foundation Phase", "description": "Build core foundations. Set up systems and create baseline measurements. Practice basic techniques daily. Develop consistency. Build confidence through small wins. Track initial progress. Establish sustainable routines."},
-    {"title": "Week 2: Development Phase", "description": "Expand skills and deepen understanding. Increase complexity gradually. Introduce new challenges. Track progress metrics. Apply learnings practically. Refine techniques. Build momentum."},
-    {"title": "Week 3: Mastery Phase", "description": "Integrate all elements. Demonstrate consistent results. Handle complex scenarios. Maintain sustainable habits. Celebrate achievements. Review progress. Prepare for continued growth."}
+    {"title": "Week 1: Foundation Phase", "description": "Build core foundations and establish systems. Practice basic techniques daily. Develop consistency and confidence through early wins."},
+    {"title": "Week 2: Development Phase", "description": "Expand skills gradually. Introduce new challenges. Apply learnings practically and refine techniques based on feedback."},
+    {"title": "Week 3: Mastery Phase", "description": "Integrate all elements. Demonstrate consistent results. Maintain sustainable habits and celebrate achievements."}
   ],
   "deliverables": {
     "overview": {
@@ -621,10 +628,10 @@ FOCUS ON:
 - Creating comprehensive, actionable plan outline
 - Ensuring each week has clear value and purpose
 - Making weeks progressive and interconnected
-- Keeping descriptions EXACTLY 7 LINES per week (strict limit!)
+- Keeping descriptions MAXIMUM 30 WORDS per week (strict limit!)
 - Using professional, descriptive titles
 - Maintaining consistent quality throughout
-- Being clear, focused, and concise - never verbose`;
+- Being ultra-concise - every word counts`;
 
   const totalWeeks = Math.ceil(planDurationDays / 7);
 
@@ -656,12 +663,12 @@ CRITICAL REQUIREMENTS:
   - Key activities and practices
   - Expected outcomes and progress markers
   
-✓ Description Length - STRICT LIMIT:
-  - Each week description: EXACTLY 7 lines maximum
-  - Write short, punchy sentences
+✓ Description Length - STRICT WORD LIMIT:
+  - Each week description: MAXIMUM 30 WORDS (count them!)
+  - Write ultra-short, punchy sentences
   - One key idea per sentence
-  - No fluff, no redundancy
-  - Count your lines and stop at 7
+  - Absolutely no fluff or redundancy
+  - 30 words maximum - this is critical!
   
 ✓ Progressive Structure:
   - Week 1: Foundation (build momentum, establish basics)
@@ -695,6 +702,10 @@ OUTPUT JSON ONLY:`;
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 16384,
+          thinking: {
+            type: 'enabled',
+            budget_tokens: 1000,
+          },
           messages: [
             { role: 'user', content: `${systemPrompt}\n${userPrompt}` },
           ],
@@ -747,7 +758,7 @@ OUTPUT JSON ONLY:`;
       const fallbackOutline = buildTailoredOutline(title, description).map(
         (week: any) => ({
           ...week,
-          description: truncateDescription(week.description || '', 7),
+          description: truncateDescription(week.description || '', 30),
         })
       );
 
@@ -765,12 +776,12 @@ OUTPUT JSON ONLY:`;
       };
     }
 
-    // Truncate long descriptions to max 7 sentences
+    // Truncate long descriptions to max 30 words
     const truncatedPlanOutline = (
       planData.plan_outline || buildTailoredOutline(title, description)
     ).map((week: any) => ({
       ...week,
-      description: truncateDescription(week.description || '', 7),
+      description: truncateDescription(week.description || '', 30),
     }));
 
     return {
@@ -799,7 +810,7 @@ OUTPUT JSON ONLY:`;
     const errorFallbackOutline = buildTailoredOutline(title, description).map(
       (week: any) => ({
         ...week,
-        description: truncateDescription(week.description || '', 7),
+        description: truncateDescription(week.description || '', 30),
       })
     );
 

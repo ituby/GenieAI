@@ -126,6 +126,10 @@ CRITICAL: BOTH title and description MUST start with "I want to..." - first pers
         model: 'claude-3-7-sonnet-20250219',
         max_tokens: 1024,
         temperature: 0.9, // Higher temperature for more creative suggestions
+        thinking: {
+          type: 'enabled',
+          budget_tokens: 300,
+        },
         messages: [
           {
             role: 'user',
