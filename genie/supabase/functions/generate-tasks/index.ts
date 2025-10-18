@@ -260,14 +260,14 @@ async function generateTasksWithAI(
 
     // Category-specific task design principles
     const categoryTaskGuidance: Record<string, string> = {
-      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually. Write concise but valuable descriptions (2-3 sentences) that explain what to learn and one key insight. Include curated resources (YouTube, documentation, courses) when they genuinely help - max 1-2 per task.`,
-      career: `Apply career-specific task design: Focus on skill-building, networking, portfolio development. Keep descriptions focused and actionable. Include relevant industry resources or tutorials when they add real value.`,
-      fitness: `Apply fitness-specific task design: Progressive intensity, proper form focus, balance challenge with recovery. Descriptions should be brief but include form tips. Link to demonstration videos when helpful.`,
-      health: `Apply health-specific task design: Sustainable habits, gradual changes, body awareness. Keep descriptions practical and encouraging. Include helpful resources when relevant.`,
+      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually. Write concise but valuable descriptions (2-3 sentences) that explain what to learn and one key insight. Suggest Google searches for tutorials, documentation, or courses when they genuinely help - max 1-2 per task using [SEARCH:Title|keywords] format.`,
+      career: `Apply career-specific task design: Focus on skill-building, networking, portfolio development. Keep descriptions focused and actionable. Suggest searches for relevant industry resources or tutorials when they add real value.`,
+      fitness: `Apply fitness-specific task design: Progressive intensity, proper form focus, balance challenge with recovery. Descriptions should be brief but include form tips. Suggest searches for demonstration videos when helpful (e.g., [SEARCH:Proper Squat Form|squat technique demonstration]).`,
+      health: `Apply health-specific task design: Sustainable habits, gradual changes, body awareness. Keep descriptions practical and encouraging. Suggest searches for helpful resources when relevant.`,
       lifestyle: `Apply lifestyle-specific task design: Habit stacking, routine integration, sustainable changes. Brief, actionable descriptions with practical tips.`,
       mindset: `Apply mindset-specific task design: Awareness exercises, belief examination, mental rewiring. Concise descriptions with one key insight per task.`,
       character: `Apply character-specific task design: Value-based actions, integrity practices, intentional challenges. Brief, meaningful descriptions.`,
-      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes. Clear, actionable descriptions. Include educational resources when genuinely helpful.`,
+      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes. Clear, actionable descriptions. Suggest searches for educational resources when genuinely helpful.`,
       social: `Apply social-specific task design: Regular connection activities, communication practice. Brief, warm descriptions with practical tips.`,
       creativity: `Apply creativity-specific task design: Daily creation practice, experimentation, shipping outputs. Concise descriptions with creative guidance.`,
       goal: `Apply goal-specific task design: Milestone-focused actions, momentum builders, progress tracking. Brief, motivating descriptions.`,
@@ -340,15 +340,17 @@ WRITING GUIDELINES:
 - Be encouraging but realistic
 - Consider user's timezone: morning tasks for fresh energy, evening for reflection/lighter work
 
-EXTERNAL RESOURCES & LINKS:
+SEARCH SUGGESTIONS & RESOURCES:
 When appropriate (especially for learning, career, fitness, creativity goals):
-- Include helpful YouTube tutorials, documentation, courses, or tools
-- Use this EXACT format for links: [RESOURCE:Title|URL]
-  Example: [RESOURCE:JavaScript Basics Tutorial|https://youtube.com/watch?v=xyz]
-  Example: [RESOURCE:Official React Docs|https://react.dev/learn]
-- Only include high-quality, relevant resources that genuinely help
-- Place links at the end of task descriptions
-- Don't overdo it - quality over quantity (1-2 links per task maximum)
+- Provide Google search keywords that will help users find relevant resources
+- Use this EXACT format: [SEARCH:Button Title|search keywords]
+  Example: [SEARCH:Sword Grip Tutorial|medieval longsword grip technique demonstration]
+  Example: [SEARCH:React Hooks Guide|react hooks tutorial useState useEffect]
+- The search keywords should be specific and likely to return high-quality results
+- Include YouTube-specific searches when video demonstrations would help
+- Place search suggestions at the end of task descriptions
+- Maximum 1-2 search suggestions per task - quality over quantity
+- Users will click the button and see Google search results with these keywords
 
 AVOID:
 ✗ Vague tasks ("Improve yourself", "Work on goals")
@@ -375,7 +377,7 @@ REQUIRED JSON STRUCTURE:
         {
           "time": "09:00",
           "title": "Action-oriented task title",
-          "description": "Concise explanation (2-3 sentences). State what to do and why. Include one key tip. [RESOURCE:Tutorial|URL] (optional)",
+          "description": "Concise explanation (2-3 sentences). State what to do and why. Include one key tip. [SEARCH:Find Tutorial|search keywords here] (optional)",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 10},
             {"title": "Specific step 2", "estimated_minutes": 15}
@@ -453,15 +455,16 @@ Content Quality & Week Alignment (CRITICAL):
   • Ensure each task is actionable and clear
   • Progressive difficulty within this week
   
-Educational Value & Resources:
+Educational Value & Search Suggestions:
   • Write concise task descriptions (2-3 sentences, no more)
   • Include ONE helpful tip or key insight per task
-  • Add curated external resources ONLY when they add significant value:
+  • Suggest Google searches ONLY when they add significant value:
     - YouTube tutorials for demonstrations
     - Official documentation for reference
     - Interactive tools or courses
-  • Use format: [RESOURCE:Title|URL] for any links
-  • Maximum 1-2 resources per task - quality over quantity
+  • Use format: [SEARCH:Button Title|search keywords]
+    Example: [SEARCH:Tutorial Video|medieval sword grip technique youtube]
+  • Maximum 1-2 search suggestions per task - quality over quantity
   • Avoid over-explaining - be direct and actionable
   
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -480,7 +483,7 @@ Example for Day ${startDay}:
         {
           "time": "${timeSlots[0]}",
           "title": "Action-oriented task for week ${weekNumber}",
-          "description": "Concise explanation aligned with this week's theme. State what to do and why it matters. Focus on [key technique/concept]. [RESOURCE:Tutorial|URL] (if helpful)",
+          "description": "Concise explanation aligned with this week's theme. State what to do and why it matters. Focus on [key technique/concept]. [SEARCH:Watch Tutorial|specific search keywords for youtube or google] (if helpful)",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 15},
             {"title": "Specific step 2", "estimated_minutes": 15}
@@ -499,11 +502,13 @@ Example for Day ${startDay}:
 - Each preferred day should have ${tasksPerDay} task(s)
 - WRITE CONCISE, VALUABLE DESCRIPTIONS (2-3 sentences, no more!)
 - Include ONE key tip or insight per task - no over-explaining
-- Add resource links ONLY when they add real value (max 1-2 per task)
+- Add search suggestions ONLY when they add real value (max 1-2 per task)
+- Use format: [SEARCH:Button Text|google search keywords]
 - Be direct and actionable - avoid fluff
 
 NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${workingDaysCount} WORKING DAYS, ${tasksInThisWeek} TASKS TOTAL).
 REMEMBER: Descriptions should be valuable but CONCISE - 2-3 sentences maximum!
+When adding search suggestions, use relevant keywords that will return helpful Google results.
 OUTPUT JSON ONLY:`;
 
     // Calculate max_tokens dynamically based on tasks needed

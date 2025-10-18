@@ -55,20 +55,20 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     }
   };
 
-  // Parse description to extract resources/links
+  // Parse description to extract search suggestions
   const parseDescription = (description: string) => {
-    const resourceRegex = /\[RESOURCE:(.*?)\|(.*?)\]/g;
+    const searchRegex = /\[SEARCH:(.*?)\|(.*?)\]/g;
     const parts: Array<{
-      type: 'text' | 'resource';
+      type: 'text' | 'search';
       content: string;
       title?: string;
-      url?: string;
+      keywords?: string;
     }> = [];
     let lastIndex = 0;
     let match;
 
-    while ((match = resourceRegex.exec(description)) !== null) {
-      // Add text before the resource
+    while ((match = searchRegex.exec(description)) !== null) {
+      // Add text before the search
       if (match.index > lastIndex) {
         const textBefore = description.substring(lastIndex, match.index).trim();
         if (textBefore) {
@@ -76,12 +76,12 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
         }
       }
 
-      // Add the resource
+      // Add the search
       parts.push({
-        type: 'resource',
+        type: 'search',
         content: match[0],
         title: match[1],
-        url: match[2],
+        keywords: match[2],
       });
 
       lastIndex = match.index + match[0].length;
@@ -95,7 +95,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
       }
     }
 
-    // If no resources found, return the whole description as text
+    // If no searches found, return the whole description as text
     if (parts.length === 0) {
       parts.push({ type: 'text', content: description });
     }
@@ -103,17 +103,20 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     return parts;
   };
 
-  const handleResourcePress = async (url: string) => {
+  const handleSearchPress = async (keywords: string) => {
     try {
-      const canOpen = await Linking.canOpenURL(url);
+      // Build Google search URL with the keywords
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keywords)}`;
+
+      const canOpen = await Linking.canOpenURL(searchUrl);
       if (canOpen) {
-        await Linking.openURL(url);
+        await Linking.openURL(searchUrl);
       } else {
-        Alert.alert('Error', 'Cannot open this link');
+        Alert.alert('Error', 'Cannot open search');
       }
     } catch (error) {
-      console.error('Error opening URL:', error);
-      Alert.alert('Error', 'Failed to open link');
+      console.error('Error opening search:', error);
+      Alert.alert('Error', 'Failed to open search');
     }
   };
 
@@ -521,21 +524,25 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                       {part.content}
                     </Text>
                   );
-                } else if (part.type === 'resource' && part.title && part.url) {
+                } else if (
+                  part.type === 'search' &&
+                  part.title &&
+                  part.keywords
+                ) {
                   return (
                     <TouchableOpacity
                       key={index}
-                      style={styles.resourceButton}
-                      onPress={() => handleResourcePress(part.url!)}
+                      style={styles.searchButton}
+                      onPress={() => handleSearchPress(part.keywords!)}
                       activeOpacity={0.7}
                     >
                       <Icon
-                        name="arrow-square-out"
+                        name="magnifying-glass"
                         size={18}
                         color="#FFFF68"
                         weight="bold"
                       />
-                      <Text style={styles.resourceText}>{part.title}</Text>
+                      <Text style={styles.searchText}>{part.title}</Text>
                       <Icon
                         name="caret-right"
                         size={14}
@@ -810,7 +817,7 @@ const styles = StyleSheet.create({
   description: {
     lineHeight: 24,
   },
-  resourceButton: {
+  searchButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 104, 0.1)',
@@ -822,7 +829,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
-  resourceText: {
+  searchText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
