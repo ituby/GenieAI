@@ -3110,7 +3110,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.secondary,
     borderRadius: 16,
     width: '100%',
-    height: '100%',
+    maxHeight: '85%',
     overflow: 'hidden',
   },
   modalHeader: {

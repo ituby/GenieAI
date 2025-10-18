@@ -60,59 +60,35 @@ serve(async (req) => {
         : 'Focus on meaningful personal growth and self-improvement.';
 
     // Prepare enhanced prompt for Claude
-    const prompt = `You are helping someone express their personal goal in their own words. Generate a goal suggestion written in FIRST PERSON, as if the user themselves is writing it.
+    const prompt = `You are helping someone write their goal in simple, natural language - as if they're talking to a friend.
 
-CATEGORY FOCUS: ${category || 'custom'}
+CATEGORY: ${category || 'custom'}
 ${selectedGuidance}
 
-CRITICAL FORMATTING RULES:
-- TITLE: Write as "I want to..." or "I will..." (first person, personal voice)
-- DESCRIPTION: Write as "I want to achieve this because..." (first person, their motivation and journey)
-- Make it sound natural, personal, and authentic
-- Use conversational, human language
-- Express personal motivation and emotion
+WRITING STYLE:
+- Simple, conversational, natural
+- Short and clear (not fancy or complicated)
+- Like they're texting a friend about their goal
+- First person: "I want to..."
 
-REQUIREMENTS:
-- Make it specific and actionable (not generic)
-- Ensure it's achievable within 21 days
-- Make it exciting and slightly challenging
-- Use creative angles and fresh perspectives
-- Avoid clichés - think outside the box
-- Make it measurable with clear success criteria
-- MUST be written in first person (I, me, my)
-
-EXAMPLES OF GREAT FIRST-PERSON SUGGESTIONS by category:
-- Lifestyle: Title: "I want to master the art of slow mornings", Description: "I want to create a luxurious 45-minute morning ritual that includes stretching, journaling, and mindful breakfast. I struggle with rushing in the morning, but I'm committed to waking up earlier so I can start each day feeling energized and centered."
-
-- Career: Title: "I want to become a thought leader on LinkedIn", Description: "I want to post valuable insights daily for 21 days to build my professional brand and expand my network. I'm ready to position myself as an industry expert and overcome my fear of sharing my ideas publicly."
-
-- Mindset: Title: "I want to train my brain's pause button", Description: "I want to practice 5-minute mindful pauses before reacting to stressful situations. I often react impulsively, but I'm committed to rewiring my response patterns and developing unshakeable mental calm."
-
-- Character: Title: "I want to take the gratitude challenge", Description: "I want to write one heartfelt thank-you note daily to people who impacted my life. I sometimes take relationships for granted, but I'm ready to strengthen my connections and cultivate deep appreciation."
-
-- Learning: Title: "I want to learn conversational Japanese", Description: "I want to master 300 essential phrases and hold my first 5-minute conversation in Japanese. I've always been fascinated by the language, and I'm excited to finally make progress on this dream."
-
-- Health: Title: "I want to sleep like an elite athlete", Description: "I want to optimize my sleep environment, routine, and habits to achieve consistent 8-hour deep sleep. I've been exhausted for too long, and I'm ready to wake up refreshed every single day."
-
-- Finance: Title: "I want to save $500 in 21 days", Description: "I want to find creative ways to save $500 by cutting unnecessary expenses and discovering money leaks. I'm ready to build my financial cushion and feel more secure about my finances."
-
-- Social: Title: "I want to start the deep connection project", Description: "I want to have 7 meaningful one-on-one conversations that go beyond small talk. I miss genuine intimacy with people I care about, and I'm ready to build deeper relationships."
-
-- Fitness: Title: "I want to do 100 push-ups in a row", Description: "I want to progress from my current level to 100 continuous push-ups through consistent daily training. I'm ready to build impressive upper body strength and prove to myself I can do hard things."
-
-- Creativity: Title: "I want to ignite my daily creative spark", Description: "I want to create one piece of art, music, or writing daily for 21 days. I've been holding back my creativity, but I'm ready to unlock my creative flow and build an impressive portfolio."
+EXAMPLES - Simple & Natural:
+- Lifestyle: "I want to wake up early and enjoy my mornings" / "Build a calm morning routine with coffee and journaling"
+- Career: "I want to post on LinkedIn every day" / "Share my ideas and build my professional network"
+- Fitness: "I want to run 5km without stopping" / "Build endurance and feel stronger"
+- Learning: "I want to learn basic Spanish" / "Be able to have simple conversations in Spanish"
+- Health: "I want to sleep 8 hours every night" / "Feel rested and energized every day"
+- Finance: "I want to save $500 this month" / "Cut unnecessary spending and build my savings"
 
 ${userContext ? `USER CONTEXT: ${userContext}\n` : ''}
 
-Return ONLY a valid JSON object with this exact structure (no markdown, no explanations):
-
+Return ONLY valid JSON (no markdown):
 {
-  "title": "Written in first person starting with 'I want to...' or 'I will...' (max 60 characters)",
-  "description": "Written in first person explaining 'I want this because...', including personal challenges and motivation (150-300 characters)",
+  "title": "I want to... (max 40 characters, simple language)",
+  "description": "Why I want this and what I'll do (60-100 characters, conversational)",
   "category": "${category || 'custom'}"
 }
 
-REMEMBER: Write as if YOU ARE the user expressing THEIR personal goal and motivation!`;
+Keep it SHORT, SIMPLE, and NATURAL!`;
 
     console.log('🤖 Calling Claude API...');
 
