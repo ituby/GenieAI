@@ -186,6 +186,7 @@ function errorResponse(
 async function generateTasksWithAI(
   goal: Goal,
   deviceNowIso: string,
+  deviceTimezone: string,
   savedOutline: any,
   requestId: string
 ): Promise<{ tasks: TaskTemplate[]; usedModel: string }> {
@@ -223,29 +224,73 @@ async function generateTasksWithAI(
 
     console.log(`[${requestId}] Requesting ${finalTaskCount} tasks from AI`);
 
-    const systemPrompt = `You are a JSON task generator. Your ONLY job is to output valid JSON. No explanations, no markdown, no text before or after the JSON.
+    // Category-specific task design principles
+    const categoryTaskGuidance: Record<string, string> = {
+      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually, incorporate review sessions, create application opportunities.`,
+      career: `Apply career-specific task design: Focus on skill-building activities, networking tasks, portfolio development, visibility projects, strategic learning aligned with goals.`,
+      fitness: `Apply fitness-specific task design: Progressive intensity increase, include warm-up/cool-down, focus on form first, balance challenge with recovery, track measurable metrics.`,
+      health: `Apply health-specific task design: Sustainable habit formation, holistic wellness focus, gradual lifestyle changes, body awareness practices, prevention-oriented activities.`,
+      lifestyle: `Apply lifestyle-specific task design: Habit stacking opportunities, environment optimization, routine integration, enjoyable sustainable changes, identity-aligned actions.`,
+      mindset: `Apply mindset-specific task design: Awareness exercises, belief examination, gradual mental rewiring, embodiment practices, evidence-building activities.`,
+      character: `Apply character-specific task design: Value-based actions, daily integrity practices, intentional challenges, reflection exercises, accountability measures.`,
+      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes, tracking habits, incremental wealth-building actions.`,
+      social: `Apply social-specific task design: Regular connection activities, communication practice, vulnerability exercises, giving and receiving, presence-building.`,
+      creativity: `Apply creativity-specific task design: Daily creation practice, experimentation time, inspiration gathering, shipping outputs, process-focused work.`,
+      goal: `Apply goal-specific task design: Milestone-focused actions, momentum builders, obstacle preparation, progress tracking, celebration moments.`,
+      custom: `Apply personalized task design: Tailored to unique goal requirements, flexible structure, clear progress indicators, sustainable pacing.`,
+    };
 
-CRITICAL RULES:
-1. Output MUST start with { and end with }
-2. Use double quotes for all strings
-3. No comments in JSON
-4. No trailing commas
+    const taskGuidance =
+      categoryTaskGuidance[goal.category] || categoryTaskGuidance['custom'];
+
+    const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks.
+
+CATEGORY-SPECIFIC APPROACH:
+${taskGuidance}
+
+CORE PRINCIPLES:
+✓ Specific & Measurable - "Practice piano scales for 15 minutes" not "Practice music"
+✓ Progressive Difficulty - Start manageable, gradually increase challenge
+✓ Human-Centered - Remember there's a real person with limited time and energy
+✓ Motivating - Tasks should feel achievable and rewarding
+✓ Action-Oriented - Start each task with a clear action verb
+✓ Category-Aligned - Design tasks that match ${goal.category} best practices
+
+WRITING GUIDELINES:
+- Use clear, direct language
+- Task titles: 4-8 words, starting with action verb (Create, Practice, Complete, Review, Build, etc.)
+- Descriptions: 1-2 sentences, explain WHY and HOW
+- Subtasks: Concrete, sequential steps
+- Be encouraging but realistic
+- Consider user's timezone: morning tasks for fresh energy, evening for reflection/lighter work
+
+AVOID:
+✗ Vague tasks ("Improve yourself", "Work on goals")
+✗ Large difficulty jumps between days
+✗ Assumptions about resources or availability
+✗ Generic advice - be specific to the goal
+
+CRITICAL JSON RULES:
+1. Output MUST be valid JSON only - no markdown, no explanations, no text before/after
+2. Start with { and end with }
+3. Use double quotes for all strings
+4. No comments, no trailing commas
 5. All strings must be properly escaped
 
-REQUIRED JSON STRUCTURE (copy this exactly):
+REQUIRED JSON STRUCTURE:
 {
   "days": [
     {
       "day": 1,
-      "summary": "Daily focus",
+      "summary": "Brief daily focus (3-6 words)",
       "tasks": [
         {
           "time": "09:00",
-          "title": "Task title",
-          "description": "Task description",
+          "title": "Action-oriented task title",
+          "description": "Clear explanation of what and why",
           "subtasks": [
-            {"title": "Step 1", "estimated_minutes": 15},
-            {"title": "Step 2", "estimated_minutes": 15}
+            {"title": "Specific step 1", "estimated_minutes": 10},
+            {"title": "Specific step 2", "estimated_minutes": 15}
           ],
           "time_allocation_minutes": 30
         }
@@ -254,24 +299,101 @@ REQUIRED JSON STRUCTURE (copy this exactly):
   ]
 }`;
 
-    const userPrompt = `Generate ${finalTaskCount} tasks for this goal.
+    const userPrompt = `Create a ${goal.plan_duration_days}-day action plan with ${finalTaskCount} total tasks.
 
-GOAL: ${goal.title}
-DESCRIPTION: ${goal.description}
-CATEGORY: ${goal.category}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 GOAL INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: ${goal.title}
+Description: ${goal.description}
+Category: ${goal.category}
 
-PLAN OUTLINE:
+🌍 USER CONTEXT
+Timezone: ${deviceTimezone}
+Current time: ${new Date(deviceNowIso).toLocaleString('en-US', { timeZone: deviceTimezone })}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 WEEKLY PLAN OUTLINE - FOLLOW THIS STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is your roadmap. Create tasks that align with each week's theme and objectives.
+
 ${outlineContext}
 
-REQUIREMENTS:
-- Create ${Math.ceil(goal.plan_duration_days)} days
-- ${tasksPerDay} tasks per day
-- Times: 09:00 (morning), 14:00 (afternoon), 19:00 (evening)
-- Each task: 2-3 subtasks, 25-45 minutes total
-- Make tasks specific and actionable
-- Follow the plan outline structure
+⚠️ CRITICAL: Your tasks must follow this weekly progression. Each week's tasks should 
+reflect that week's specific focus and objectives as outlined above.
 
-OUTPUT VALID JSON ONLY. Start with { and end with }. No markdown, no explanations.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ TECHNICAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Structure:
+  • Total days: ${Math.ceil(goal.plan_duration_days)}
+  • Tasks per day: ${tasksPerDay}
+  • Total tasks: ${finalTaskCount}
+
+Task Distribution:
+  • Distribute tasks across the time slots below
+  • Each day should have ${tasksPerDay} tasks
+  • Follow the progression in the plan outline
+
+Time Slots (adjusted for user's timezone):
+  • Morning task: "09:00" (early day activity)
+  • Afternoon task: "14:00" (mid-day activity)
+  • Evening task: "19:00" (end of day activity)
+  ${tasksPerDay === 1 ? '  (Use morning slot only)' : ''}
+  ${tasksPerDay === 2 ? '  (Use morning and afternoon slots)' : ''}
+  
+  Note: Consider the user's timezone when planning. Morning tasks should be 
+  appropriate for morning energy levels, evening tasks for winding down.
+
+Task Composition:
+  • Each task MUST have 2-3 subtasks
+  • Subtask duration: 10-20 minutes each
+  • Total time per task: 25-45 minutes
+  • Subtasks should be sequential steps
+
+Content Quality & Weekly Alignment:
+  • Make tasks specific to "${goal.title}"
+  • FOLLOW the weekly plan outline structure above
+  • Match each week's tasks to that week's theme and objectives
+  • Progressive difficulty: start easier, build up week by week
+  • Ensure each task is actionable and clear
+  
+  Example structure:
+  - Days 1-7: Align with Week 1 outline theme
+  - Days 8-14: Align with Week 2 outline theme
+  - Days 15-21: Align with Week 3 outline theme
+  - Continue this pattern for all ${Math.ceil(goal.plan_duration_days / 7)} weeks
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ OUTPUT FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Return ONLY valid JSON. No markdown blocks, no explanations, no text before or after.
+Must start with { and end with }
+
+Example of ONE day (you need to create ${Math.ceil(goal.plan_duration_days)} days):
+{
+  "days": [
+    {
+      "day": 1,
+      "summary": "Foundation building",
+      "tasks": [
+        {
+          "time": "09:00",
+          "title": "Complete initial research phase",
+          "description": "Gather essential information to build a strong foundation for your goal.",
+          "subtasks": [
+            {"title": "Review key resources", "estimated_minutes": 15},
+            {"title": "Take structured notes", "estimated_minutes": 15}
+          ],
+          "time_allocation_minutes": 30
+        }
+      ]
+    }
+  ]
+}
+
+NOW CREATE THE COMPLETE ${goal.plan_duration_days}-DAY PLAN WITH ${finalTaskCount} TASKS.
+OUTPUT JSON ONLY:`;
 
     console.log(`[${requestId}] Sending request to Claude API...`);
     const response = await fetchWithRetry(
@@ -284,7 +406,7 @@ OUTPUT VALID JSON ONLY. Start with { and end with }. No markdown, no explanation
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-opus-4-1-20250805',
           max_tokens: 16384,
           messages: [
             { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` },
@@ -413,7 +535,7 @@ OUTPUT VALID JSON ONLY. Start with { and end with }. No markdown, no explanation
     }
 
     console.log(`[${requestId}] Generated ${tasks.length} tasks from AI`);
-    return { tasks, usedModel: 'claude-haiku-4-5-20251001' };
+    return { tasks, usedModel: 'claude-opus-4-1-20250805' };
   } catch (error) {
     console.error(`[${requestId}] AI generation error:`, error);
     return {
@@ -540,6 +662,50 @@ async function insertTasks(
   }
 
   console.log(`[${requestId}] Inserted ${data?.length || 0} tasks`);
+
+  // Create scheduled notifications for each task
+  if (data && data.length > 0) {
+    // Get user_id from goal
+    const { data: goalData, error: goalError } = await supabase
+      .from('goals')
+      .select('user_id')
+      .eq('id', goalId)
+      .single();
+
+    if (goalError) {
+      console.error(
+        `[${requestId}] Error fetching goal for notifications:`,
+        goalError
+      );
+    } else {
+      const scheduledNotifications = data.map((task: any) => ({
+        user_id: goalData.user_id,
+        task_id: task.id,
+        goal_id: goalId,
+        type: 'task_reminder',
+        title: '⏰ Task Reminder',
+        body: `Time to work on: ${task.title}`,
+        scheduled_for: task.run_at,
+        sent: false,
+      }));
+
+      const { error: notificationError } = await supabase
+        .from('scheduled_notifications')
+        .insert(scheduledNotifications);
+
+      if (notificationError) {
+        console.error(
+          `[${requestId}] Error creating scheduled notifications:`,
+          notificationError
+        );
+      } else {
+        console.log(
+          `[${requestId}] Created ${scheduledNotifications.length} scheduled notifications`
+        );
+      }
+    }
+  }
+
   return data || [];
 }
 
@@ -800,6 +966,7 @@ serve(async (req) => {
     const tasksResult = await generateTasksWithAI(
       goal as Goal,
       finalDeviceNow,
+      finalTimezone,
       savedOutline,
       requestId
     );

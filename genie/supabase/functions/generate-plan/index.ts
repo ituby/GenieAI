@@ -115,6 +115,8 @@ const AVAILABLE_ICONS = [
   'thumbs-up',
   'thumbs-down',
   'password',
+  'hammer',
+  'wrench',
 ];
 
 function validateIcon(icon: string | undefined): string {
@@ -444,18 +446,127 @@ async function generatePlanOutlineWithAI(
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey?.length) throw new Error('ANTHROPIC_API_KEY is missing');
 
-  const systemPrompt = `You are a plan outline generation expert. Generate a detailed transformation plan in valid JSON format ONLY.
+  // Category-specific approach and principles
+  const categoryGuidance: Record<string, string> = {
+    learning: `LEARNING APPROACH:
+✓ Curriculum Design - Structure knowledge progression logically
+✓ Practice & Repetition - Build mastery through consistent practice
+✓ Application Focus - Learn by doing, not just consuming
+✓ Incremental Complexity - Start simple, gradually increase difficulty
+✓ Knowledge Retention - Include review and reinforcement`,
+
+    career: `CAREER DEVELOPMENT APPROACH:
+✓ Skills & Impact - Focus on valuable, demonstrable competencies
+✓ Network Building - Create meaningful professional connections
+✓ Visible Progress - Build portfolio/evidence of growth
+✓ Strategic Positioning - Align actions with career goals
+✓ Continuous Learning - Stay current and relevant`,
+
+    fitness: `FITNESS TRANSFORMATION APPROACH:
+✓ Progressive Overload - Gradually increase challenge and intensity
+✓ Recovery & Balance - Include rest for sustainable progress
+✓ Form & Technique - Master basics before advancing
+✓ Consistency Over Intensity - Regular practice beats sporadic effort
+✓ Body Awareness - Listen and adapt to physical feedback`,
+
+    health: `HEALTH OPTIMIZATION APPROACH:
+✓ Sustainable Habits - Build practices you can maintain long-term
+✓ Holistic View - Address physical, mental, and emotional health
+✓ Gradual Change - Small, consistent improvements compound
+✓ Listen to Body - Adapt based on how you feel
+✓ Prevention Focus - Build resilience and vitality`,
+
+    lifestyle: `LIFESTYLE TRANSFORMATION APPROACH:
+✓ Habit Stacking - Build new routines on existing ones
+✓ Environment Design - Set up surroundings for success
+✓ Balance & Integration - Fit improvements into real life
+✓ Enjoyment Factor - Make changes sustainable and pleasant
+✓ Identity Shift - Become the person who lives this way`,
+
+    mindset: `MINDSET TRANSFORMATION APPROACH:
+✓ Awareness First - Notice current patterns and beliefs
+✓ Gradual Rewiring - Replace limiting beliefs progressively
+✓ Practice & Embodiment - Turn concepts into lived experience
+✓ Self-Compassion - Change with kindness, not criticism
+✓ Evidence Building - Collect proof of new possibilities`,
+
+    character: `CHARACTER DEVELOPMENT APPROACH:
+✓ Value Clarity - Define what matters most to you
+✓ Daily Practice - Character is built through consistent actions
+✓ Challenge & Growth - Step into discomfort intentionally
+✓ Self-Reflection - Regular examination of choices and impact
+✓ Accountability - Hold yourself to your standards`,
+
+    finance: `FINANCIAL GROWTH APPROACH:
+✓ Knowledge Foundation - Understand money principles clearly
+✓ Systems & Automation - Build structures that work passively
+✓ Incremental Progress - Small wins create momentum
+✓ Long-term Perspective - Balance present and future needs
+✓ Behavior Change - Transform relationship with money`,
+
+    social: `SOCIAL DEVELOPMENT APPROACH:
+✓ Authentic Connection - Build genuine, meaningful relationships
+✓ Communication Skills - Learn to express and listen effectively
+✓ Consistent Presence - Show up regularly for people
+✓ Vulnerability & Trust - Deepen bonds through openness
+✓ Give & Receive - Balance supporting others and receiving support`,
+
+    creativity: `CREATIVE DEVELOPMENT APPROACH:
+✓ Regular Practice - Creativity grows through consistent creation
+✓ Experimentation - Try new approaches without judgment
+✓ Inspiration Gathering - Feed your creative mind constantly
+✓ Ship & Share - Create outputs, not just ideas
+✓ Process Over Perfection - Focus on creating, not critiquing`,
+
+    goal: `GOAL ACHIEVEMENT APPROACH:
+✓ Clear Milestones - Break big goal into concrete checkpoints
+✓ Momentum Building - Create early wins for motivation
+✓ Obstacle Planning - Anticipate and prepare for challenges
+✓ Measurement - Track progress objectively
+✓ Celebration - Acknowledge progress along the way`,
+
+    custom: `TRANSFORMATION APPROACH:
+✓ Personalized Path - Design specifically for this unique goal
+✓ Adaptive Structure - Build flexibility into the plan
+✓ Clear Progress - Define what success looks like at each stage
+✓ Sustainable Pace - Balance ambition with sustainability
+✓ Meaningful Impact - Focus on what truly matters`,
+  };
+
+  const categoryApproach =
+    categoryGuidance[category] || categoryGuidance['custom'];
+
+  const systemPrompt = `You are an expert goal transformation architect specialized in ${category} goals. Your mission is to create comprehensive, week-by-week roadmaps that guide real people to achieve their goals.
+
+${categoryApproach}
+
+UNIVERSAL PRINCIPLES:
+✓ Human-Centered - Design for real people with limited time and energy
+✓ Progressive Structure - Each week builds naturally on the previous
+✓ Specific & Actionable - Clear, concrete outcomes for each week
+✓ Motivating Journey - Create a compelling transformation narrative
+✓ Practical Focus - Realistic, achievable milestones
+
+WEEK DESIGN PRINCIPLES:
+- Week 1: Foundation & Momentum (Getting started right, building confidence)
+- Middle Weeks: Progressive Development (Gradual increase in challenge and depth)
+- Final Week: Integration & Mastery (Consolidation and sustainable habits)
+
+EACH WEEK MUST INCLUDE:
+1. Clear Theme - What this week is about
+2. Specific Goals - Measurable outcomes expected
+3. Key Activities - What the person will actually do
+4. Progress Markers - How they'll know they're succeeding
 
 CRITICAL INSTRUCTIONS:
 - Return ONLY valid JSON, no markdown, no explanations, no extra text
-- Focus on creating the JSON structure, not introductory text
 - Generate comprehensive plan outline in 30-45 seconds maximum
-- Each week must be separate and detailed
+- Each week must be separate, detailed, and distinct
 - Milestones must be comprehensive and specific
-- Plan outline must be actionable and valuable
 - Focus on practical, achievable steps
 - Include specific outcomes and measurements
-- Make each week distinct and progressive
+- Make each week's progression feel natural and motivating
+- Apply ${category}-specific expertise to the plan structure
 
 REQUIRED JSON STRUCTURE:
 {
@@ -490,7 +601,7 @@ REQUIRED JSON STRUCTURE:
 }
 
 CRITICAL: You MUST choose icon_name from this exact list (no other icons allowed):
-user, user-circle, user-square, users, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, hand-heart, heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube, briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront, handshake, book, book-open, graduation-cap, pencil, calculator, leaf, sun, moon, tree, flower, cloud, rainbow, drop, mountains, wave, fire, bicycle, music-notes, camera, brain, eye, eye-closed, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down, password
+user, user-circle, user-square, users, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, hand-heart, heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube, briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront, handshake, book, book-open, graduation-cap, pencil, calculator, leaf, sun, moon, tree, flower, cloud, rainbow, drop, mountains, wave, fire, bicycle, music-notes, camera, brain, eye, eye-closed, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down, password, hammer, wrench
 
 FOCUS ON:
 - Creating comprehensive, actionable plan outline
@@ -500,33 +611,53 @@ FOCUS ON:
 - Using professional, descriptive titles
 - Maintaining consistent quality throughout`;
 
-  const userPrompt = `Generate a comprehensive ${planDurationDays}-day transformation plan:
+  const totalWeeks = Math.ceil(planDurationDays / 7);
 
-GOAL: ${title}
-DESCRIPTION: ${description}
-CATEGORY: ${category}
-INTENSITY: ${intensity}
-DURATION: ${planDurationDays} days (${Math.ceil(planDurationDays / 7)} weeks)
+  const userPrompt = `Create a transformative ${planDurationDays}-day roadmap (${totalWeeks} weeks) for this goal:
 
-USER PREFERENCES:
-- Device Timezone: ${deviceTimezone}
-- Current Time: ${deviceNowIso}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 GOAL INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: ${title}
+Description: ${description}
+Category: ${category}
+Intensity Level: ${intensity}
+
+🌍 USER CONTEXT
+Timezone: ${deviceTimezone}
+Starting: ${new Date(deviceNowIso).toLocaleString('en-US', { timeZone: deviceTimezone })}
+Duration: ${planDurationDays} days (${totalWeeks} weeks)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 YOUR MISSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Create a detailed week-by-week outline that will guide this person from where they are today to achieving their goal.
 
 CRITICAL REQUIREMENTS:
-- Generate detailed plan in 30-45 seconds
-- Create EXACTLY ${Math.ceil(planDurationDays / 7)} separate, distinct weeks (one for each week)
-- Each week must have specific goals and outcomes
-- Include practical, actionable steps
-- Focus on measurable progress
-- Make each week build upon the previous
-- Provide comprehensive descriptions
-- Include specific deliverables and outcomes
-- Ensure high value and detailed information
-- Return ONLY valid JSON format
+✓ Create EXACTLY ${totalWeeks} distinct weeks
+✓ Each week needs:
+  - Clear weekly theme/focus
+  - Specific learning objectives
+  - Key activities and practices
+  - Expected outcomes and progress markers
+  
+✓ Progressive Structure:
+  - Week 1: Foundation (build momentum, establish basics)
+  ${totalWeeks > 1 ? `- Weeks 2-${Math.max(2, totalWeeks - 1)}: Development (progressive skill building, increasing challenge)` : ''}
+  ${totalWeeks > 1 ? `- Week ${totalWeeks}: Mastery (integration, sustainable habits, completion)` : ''}
 
-IMPORTANT: You must create ${Math.ceil(planDurationDays / 7)} weeks total - one week for each week of the ${planDurationDays}-day plan.
+✓ Make it specific to "${title}"
+✓ Ensure ${intensity} intensity level (${intensity === 'easy' ? 'gentle pace, achievable steps' : intensity === 'medium' ? 'moderate challenge, steady progress' : 'ambitious pace, intensive focus'})
+✓ Each week must feel valuable and distinct
+✓ Create a compelling transformation journey
 
-FOCUS ON CREATING THE JSON STRUCTURE WITH COMPREHENSIVE PLAN OUTLINE BASED ON THE GOAL AND USER PREFERENCES.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ OUTPUT FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Return ONLY valid JSON. No markdown, no explanations.
+
+YOU MUST CREATE ${totalWeeks} WEEKS IN THE plan_outline ARRAY.
+OUTPUT JSON ONLY:`;
 
   try {
     console.log('[AI] Sending outline generation request to Claude...');
