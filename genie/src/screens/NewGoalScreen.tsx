@@ -207,6 +207,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   // Surprise Me feature
   const [isSurprisingMe, setIsSurprisingMe] = useState(false);
+  const [showSurpriseButton, setShowSurpriseButton] = useState(true);
 
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
@@ -225,11 +226,24 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   // Animate Surprise Me button based on title field
   useEffect(() => {
-    Animated.timing(surpriseMeOpacity, {
-      toValue: formData.title ? 0 : 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
+    if (formData.title) {
+      // Fade out, then hide
+      Animated.timing(surpriseMeOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowSurpriseButton(false);
+      });
+    } else {
+      // Show first, then fade in
+      setShowSurpriseButton(true);
+      Animated.timing(surpriseMeOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
   }, [formData.title]);
 
   // Keys for persisting progress
@@ -1755,38 +1769,39 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                     containerStyle={styles.darkInputContainer}
                     rightIcon={
-                      <Animated.View
-                        style={{
-                          opacity: surpriseMeOpacity,
-                        }}
-                        pointerEvents={formData.title ? 'none' : 'auto'}
-                      >
-                        <TouchableOpacity
-                          onPress={handleSurpriseMe}
-                          disabled={isSurprisingMe || !!formData.title}
-                          activeOpacity={0.7}
-                          style={styles.surpriseMeInlineButton}
+                      showSurpriseButton ? (
+                        <Animated.View
+                          style={{
+                            opacity: surpriseMeOpacity,
+                          }}
                         >
-                          {isSurprisingMe ? (
-                            <ActivityIndicator size="small" color="#FFFF68" />
-                          ) : (
-                            <>
-                              <Text
-                                variant="body"
-                                style={styles.surpriseMeText}
-                              >
-                                Surprise Me
-                              </Text>
-                              <Icon
-                                name="sparkle"
-                                size={16}
-                                color="#FFFF68"
-                                weight="fill"
-                              />
-                            </>
-                          )}
-                        </TouchableOpacity>
-                      </Animated.View>
+                          <TouchableOpacity
+                            onPress={handleSurpriseMe}
+                            disabled={isSurprisingMe}
+                            activeOpacity={0.7}
+                            style={styles.surpriseMeInlineButton}
+                          >
+                            {isSurprisingMe ? (
+                              <ActivityIndicator size="small" color="#FFFF68" />
+                            ) : (
+                              <>
+                                <Text
+                                  variant="body"
+                                  style={styles.surpriseMeText}
+                                >
+                                  Surprise Me
+                                </Text>
+                                <Icon
+                                  name="sparkle"
+                                  size={16}
+                                  color="#FFFF68"
+                                  weight="fill"
+                                />
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        </Animated.View>
+                      ) : null
                     }
                   />
                 </View>

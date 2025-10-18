@@ -572,9 +572,10 @@ UNIVERSAL PRINCIPLES:
 ✓ Practical Focus - Realistic, achievable milestones
 
 WEEK DESIGN PRINCIPLES:
-- Week 1: Foundation & Momentum (Getting started right, building confidence)
-- Middle Weeks: Progressive Development (Gradual increase in challenge and depth)
-- Final Week: Integration & Mastery (Consolidation and sustainable habits)
+- Week 1: Start with essential basics specific to the goal
+- Middle Weeks: Progressive skill/habit building with increasing challenge
+- Final Week: Integration and completion specific to the goal
+- IMPORTANT: Use goal-specific language in titles, NOT generic terms like "Foundation" or "Development"
 
 EACH WEEK MUST INCLUDE:
 1. Clear Theme - What this week is about
@@ -605,9 +606,9 @@ REQUIRED JSON STRUCTURE:
   "icon_name": "star",
   "milestones": [{"week": 1, "title": "Week 1: Foundation", "description": "Detailed week description with specific goals and outcomes", "tasks": 21}],
   "plan_outline": [
-    {"title": "Week 1: Foundation Phase", "description": "Build core foundations and establish systems. Practice basic techniques daily. Develop consistency and confidence through early wins."},
-    {"title": "Week 2: Development Phase", "description": "Expand skills gradually. Introduce new challenges. Apply learnings practically and refine techniques based on feedback."},
-    {"title": "Week 3: Mastery Phase", "description": "Integrate all elements. Demonstrate consistent results. Maintain sustainable habits and celebrate achievements."}
+    {"title": "Week 1: [Specific action related to the goal]", "description": "30 words max describing week 1 focus."},
+    {"title": "Week 2: [Specific action related to the goal]", "description": "30 words max describing week 2 focus."},
+    {"title": "Week 3: [Specific action related to the goal]", "description": "30 words max describing week 3 focus."}
   ],
   "deliverables": {
     "overview": {
@@ -622,6 +623,15 @@ REQUIRED JSON STRUCTURE:
   }
 }
 
+EXAMPLE for "Learn Spanish":
+{
+  "plan_outline": [
+    {"title": "Week 1: Master Basic Pronunciation & Greetings", "description": "Learn Spanish alphabet sounds. Practice common greetings daily. Build confidence with basic phrases."},
+    {"title": "Week 2: Essential Vocabulary & Present Tense", "description": "Learn 200 most common words. Practice present tense conjugation. Hold simple conversations."},
+    {"title": "Week 3: Conversations & Real-World Practice", "description": "Practice ordering food and asking directions. Engage with native speakers. Build fluency and confidence."}
+  ]
+}
+
 CRITICAL: You MUST choose icon_name from this exact list (no other icons allowed):
 user, user-circle, user-square, users, person-simple-run, person-simple-walk, person-simple-bike, fingerprint, hand-heart, heart, star, target, lightbulb, rocket, trophy, medal, crown, sparkle, compass, shield, key, lock, puzzle-piece, infinity, atom, flask, globe, test-tube, briefcase, laptop, building, bank, money, coins, credit-card, wallet, chart-line, chart-pie, storefront, handshake, book, book-open, graduation-cap, pencil, calculator, leaf, sun, moon, tree, flower, cloud, rainbow, drop, mountains, wave, fire, bicycle, music-notes, camera, brain, eye, eye-closed, bell, chat-circle, chat-text, paper-plane, calendar, clock, map-pin, globe-hemisphere-west, thumbs-up, thumbs-down, password, hammer, wrench
 
@@ -630,9 +640,14 @@ FOCUS ON:
 - Ensuring each week has clear value and purpose
 - Making weeks progressive and interconnected
 - Keeping descriptions MAXIMUM 30 WORDS per week (strict limit!)
-- Using professional, descriptive titles
+- Using SPECIFIC titles related to the goal (NOT generic "Foundation/Development/Mastery")
+- Make each week title unique and action-oriented
 - Maintaining consistent quality throughout
-- Being ultra-concise - every word counts`;
+- Being ultra-concise - every word counts
+
+CRITICAL - WEEK TITLES:
+✗ BAD: "Week 1: Foundation Phase", "Week 2: Development Phase"
+✓ GOOD: "Week 1: Master Basic Pronunciation", "Week 2: Build Core Vocabulary"`;
 
   const totalWeeks = Math.ceil(planDurationDays / 7);
 
@@ -670,13 +685,18 @@ CRITICAL REQUIREMENTS:
   - One key idea per sentence
   - Absolutely no fluff or redundancy
   - 30 words maximum - this is critical!
+
+✓ Week Titles - BE SPECIFIC TO THE GOAL:
+  - DO NOT use generic words like "Foundation", "Development", "Mastery"
+  - USE specific actions related to "${title}"
+  - Each title should describe WHAT the person will actually do/learn that week
+  - Make titles concrete and goal-specific
   
 ✓ Progressive Structure:
-  - Week 1: Foundation (build momentum, establish basics)
-  ${totalWeeks > 1 ? `- Weeks 2-${Math.max(2, totalWeeks - 1)}: Development (progressive skill building, increasing challenge)` : ''}
-  ${totalWeeks > 1 ? `- Week ${totalWeeks}: Mastery (integration, sustainable habits, completion)` : ''}
+  - Week 1: Start with basics and early actions for "${title}"
+  ${totalWeeks > 1 ? `- Weeks 2-${Math.max(2, totalWeeks - 1)}: Build skills progressively for "${title}"` : ''}
+  ${totalWeeks > 1 ? `- Week ${totalWeeks}: Complete and integrate for "${title}"` : ''}
 
-✓ Make it specific to "${title}"
 ✓ Ensure ${intensity} intensity level (${intensity === 'easy' ? 'gentle pace, achievable steps' : intensity === 'medium' ? 'moderate challenge, steady progress' : 'ambitious pace, intensive focus'})
 ✓ Each week must feel valuable and distinct
 ✓ Create a compelling transformation journey
