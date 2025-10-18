@@ -211,6 +211,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
 
+  // Animation for Surprise Me button fade
+  const surpriseMeOpacity = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     // Cleanup interval on unmount
     return () => {
@@ -219,6 +222,15 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
     };
   }, [loadingInterval]);
+
+  // Animate Surprise Me button based on title field
+  useEffect(() => {
+    Animated.timing(surpriseMeOpacity, {
+      toValue: formData.title ? 0 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [formData.title]);
 
   // Keys for persisting progress
   const PROGRESS_KEY = 'genie:new-goal-progress';
@@ -1742,6 +1754,40 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     inputStyle={styles.rightAlignedInput}
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                     containerStyle={styles.darkInputContainer}
+                    rightIcon={
+                      <Animated.View
+                        style={{
+                          opacity: surpriseMeOpacity,
+                        }}
+                        pointerEvents={formData.title ? 'none' : 'auto'}
+                      >
+                        <TouchableOpacity
+                          onPress={handleSurpriseMe}
+                          disabled={isSurprisingMe || !!formData.title}
+                          activeOpacity={0.7}
+                          style={styles.surpriseMeInlineButton}
+                        >
+                          {isSurprisingMe ? (
+                            <ActivityIndicator size="small" color="#FFFF68" />
+                          ) : (
+                            <>
+                              <Text
+                                variant="body"
+                                style={styles.surpriseMeText}
+                              >
+                                Surprise Me
+                              </Text>
+                              <Icon
+                                name="sparkle"
+                                size={16}
+                                color="#FFFF68"
+                                weight="fill"
+                              />
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </Animated.View>
+                    }
                   />
                 </View>
 
@@ -1763,32 +1809,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     inputStyle={styles.rightAlignedInput}
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                   />
-                </View>
-
-                {/* Surprise Me Button */}
-                <View style={styles.surpriseMeContainer}>
-                  <TouchableOpacity
-                    style={styles.surpriseMeButton}
-                    onPress={handleSurpriseMe}
-                    disabled={isSurprisingMe}
-                    activeOpacity={0.7}
-                  >
-                    {isSurprisingMe ? (
-                      <ActivityIndicator size="small" color="#FFFF68" />
-                    ) : (
-                      <>
-                        <Text variant="body" style={styles.surpriseMeText}>
-                          Surprise Me
-                        </Text>
-                        <Icon
-                          name="sparkle"
-                          size={16}
-                          color="#FFFF68"
-                          weight="fill"
-                        />
-                      </>
-                    )}
-                  </TouchableOpacity>
                 </View>
 
                 {/* Advanced Settings Button */}
@@ -2730,23 +2750,15 @@ const styles = StyleSheet.create({
   fieldSpacing: {
     marginBottom: 20,
   },
-  surpriseMeContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  surpriseMeButton: {
+  surpriseMeInlineButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: '#FFFF68',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
+    gap: 6,
+    paddingHorizontal: 8,
   },
   surpriseMeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFF68',
   },
