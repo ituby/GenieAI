@@ -194,7 +194,11 @@ async function generateTasksWithAI(
   requestId: string,
   weekNumber: number = 1,
   totalWeeks: number = 1
-): Promise<{ tasks: TaskTemplate[]; usedModel: string }> {
+): Promise<{
+  tasks: TaskTemplate[];
+  usedModel: string;
+  tokenUsage?: { input: number; output: number; total: number };
+}> {
   try {
     console.log(`[${requestId}] Starting AI task generation...`);
 
@@ -510,6 +514,22 @@ OUTPUT JSON ONLY:`;
       `[${requestId}] Response parsed, has content: ${!!data.content}`
     );
 
+    // Extract token usage for tracking
+    const tokenUsage = data.usage
+      ? {
+          input: data.usage.input_tokens || 0,
+          output: data.usage.output_tokens || 0,
+          total:
+            (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0),
+        }
+      : null;
+
+    if (tokenUsage) {
+      console.log(
+        `[${requestId}] Token usage - Input: ${tokenUsage.input}, Output: ${tokenUsage.output}, Total: ${tokenUsage.total}`
+      );
+    }
+
     if (!data.content?.[0]?.text) {
       console.error(
         `[${requestId}] Invalid AI response structure:`,
@@ -615,7 +635,11 @@ OUTPUT JSON ONLY:`;
     }
 
     console.log(`[${requestId}] Generated ${tasks.length} tasks from AI`);
-    return { tasks, usedModel: 'claude-haiku-4-5-20251001' };
+    return {
+      tasks,
+      usedModel: 'claude-haiku-4-5-20251001',
+      tokenUsage: tokenUsage || undefined,
+    };
   } catch (error) {
     console.error(`[${requestId}] AI generation error:`, error);
     return {
@@ -1130,6 +1154,62 @@ serve(async (req) => {
     console.log(
       `[${requestId}] Week ${currentWeek} completed in ${totalTime}ms`
     );
+
+    // Calculate days for this week (for metadata)
+    const startDay = (currentWeek - 1) * 7 + 1;
+    const endDay = Math.min(currentWeek * 7, goal.plan_duration_days);
+    const daysInWeek = endDay - startDay + 1;
+
+    // Save to ai_runs for tracking (documentation - never delete!)
+    const inputTokens = tasksResult.tokenUsage?.input || 0;
+    const outputTokens = tasksResult.tokenUsage?.output || 0;
+
+    // Calculate cost using SQL function
+    const { data: costData } = await supabase.rpc('calculate_ai_cost', {
+      model_name: tasksResult.usedModel,
+      input_tokens_count: inputTokens,
+      output_tokens_count: outputTokens,
+    });
+
+    const estimatedCost = costData || 0;
+    console.log(
+      `[${requestId}] 💰 Week ${currentWeek} cost: $${estimatedCost.toFixed(6)}`
+    );
+
+    const aiRunData = {
+      goal_id: goal_id,
+      stage: `tasks_week_${currentWeek}`,
+      status: 'success',
+      provider_model: tasksResult.usedModel,
+      latency_ms: totalTime,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      total_tokens: tasksResult.tokenUsage?.total || 0,
+      week_number: currentWeek,
+      total_weeks: totalWeeks,
+      tasks_generated: insertedTasks.length,
+      cost_usd: estimatedCost,
+      metadata: {
+        days_in_week: daysInWeek,
+        tasks_per_day: goal.preferred_time_ranges?.length || 3,
+      },
+      completed_at: new Date().toISOString(),
+    };
+
+    const { error: aiRunError } = await supabase
+      .from('ai_runs')
+      .insert(aiRunData);
+
+    if (aiRunError) {
+      console.error(
+        `[${requestId}] Failed to save ai_run (non-critical):`,
+        aiRunError
+      );
+    } else {
+      console.log(
+        `[${requestId}] Saved ai_run for week ${currentWeek} (cost: $${estimatedCost.toFixed(6)})`
+      );
+    }
 
     // Check if there are more weeks to generate
     if (currentWeek < totalWeeks) {

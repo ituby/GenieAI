@@ -34,6 +34,7 @@ interface AIResult {
   category: string;
   deliverables: any;
   usedModel: string;
+  tokenUsage?: { input: number; output: number; total: number };
 }
 
 // ============================================================================
@@ -720,6 +721,22 @@ OUTPUT JSON ONLY:`;
     const data = await response.json();
     console.log(`[AI] Response parsed, has content: ${!!data.content}`);
 
+    // Extract token usage
+    const tokenUsage = data.usage
+      ? {
+          input: data.usage.input_tokens || 0,
+          output: data.usage.output_tokens || 0,
+          total:
+            (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0),
+        }
+      : null;
+
+    if (tokenUsage) {
+      console.log(
+        `[AI] Token usage - Input: ${tokenUsage.input}, Output: ${tokenUsage.output}, Total: ${tokenUsage.total}`
+      );
+    }
+
     const text = data.content?.[0]?.text || '';
 
     if (!text) {
@@ -792,6 +809,7 @@ OUTPUT JSON ONLY:`;
         sections: [],
       },
       usedModel: 'claude-haiku-4-5-20251001',
+      tokenUsage: tokenUsage || undefined,
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -839,15 +857,19 @@ OUTPUT JSON ONLY:`;
 async function savePlanOutline(
   supabase: any,
   goalId: string,
+  userId: string,
   result: AIResult,
   startTime: number
 ): Promise<void> {
+  const latency = Date.now() - startTime;
+  const tokenUsage = result.tokenUsage;
+
   const planOutlineData: Record<string, any> = {
     goal_id: goalId,
     milestones: result.milestones,
     deliverables: result.deliverables,
     ai_model_used: result.usedModel,
-    generation_latency_ms: Date.now() - startTime,
+    generation_latency_ms: latency,
   };
 
   // Save week-by-week data (up to 24 weeks)
@@ -868,6 +890,50 @@ async function savePlanOutline(
     throw error;
   }
   console.log(`✅ Saved outline with ${result.planOutline.length} weeks`);
+
+  // Save to ai_runs for tracking (never delete - for documentation!)
+  const inputTokens = tokenUsage?.input || 0;
+  const outputTokens = tokenUsage?.output || 0;
+
+  // Calculate cost using SQL function
+  const { data: costData } = await supabase.rpc('calculate_ai_cost', {
+    model_name: result.usedModel,
+    input_tokens_count: inputTokens,
+    output_tokens_count: outputTokens,
+  });
+
+  const estimatedCost = costData || 0;
+  console.log(`💰 Estimated cost: $${estimatedCost.toFixed(6)}`);
+
+  const aiRunData = {
+    goal_id: goalId,
+    stage: 'outline',
+    status: 'success',
+    provider_model: result.usedModel,
+    latency_ms: latency,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens: tokenUsage?.total || 0,
+    total_weeks: result.planOutline.length,
+    cost_usd: estimatedCost,
+    metadata: {
+      milestones_count: result.milestones.length,
+      deliverables_sections: result.deliverables?.sections?.length || 0,
+    },
+    completed_at: new Date().toISOString(),
+  };
+
+  const { error: aiRunError } = await supabase
+    .from('ai_runs')
+    .insert(aiRunData);
+
+  if (aiRunError) {
+    console.error('⚠️ Failed to save ai_run (non-critical):', aiRunError);
+  } else {
+    console.log(
+      `✅ Saved ai_run for outline generation (cost: $${estimatedCost.toFixed(6)})`
+    );
+  }
 }
 
 // ============================================================================
@@ -1113,7 +1179,7 @@ serve(async (req) => {
       device_timezone || 'UTC'
     );
 
-    await savePlanOutline(supabase, goal_id, result, startTime);
+    await savePlanOutline(supabase, goal_id, user_id, result, startTime);
 
     // Update goal metadata
     await supabase

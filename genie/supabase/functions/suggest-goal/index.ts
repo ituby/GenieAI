@@ -157,6 +157,22 @@ CRITICAL: BOTH title and description MUST start with "I want to..." - first pers
     const data = await response.json();
     console.log('✅ Claude API response received');
 
+    // Extract token usage
+    const tokenUsage = data.usage
+      ? {
+          input: data.usage.input_tokens || 0,
+          output: data.usage.output_tokens || 0,
+          total:
+            (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0),
+        }
+      : null;
+
+    if (tokenUsage) {
+      console.log(
+        `💰 Token usage - Input: ${tokenUsage.input}, Output: ${tokenUsage.output}, Total: ${tokenUsage.total}`
+      );
+    }
+
     // Extract the suggestion from Claude's response
     const textContent = data.content?.[0]?.text;
     if (!textContent) {
@@ -210,6 +226,48 @@ CRITICAL: BOTH title and description MUST start with "I want to..." - first pers
       title: suggestion.title,
       category: suggestion.category,
     });
+
+    // Save to ai_runs for tracking (optional - no goal_id yet)
+    if (tokenUsage) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+
+        const { data: costData } = await supabase.rpc('calculate_ai_cost', {
+          model_name: 'claude-3-7-sonnet-20250219',
+          input_tokens_count: tokenUsage.input,
+          output_tokens_count: tokenUsage.output,
+        });
+
+        const estimatedCost = costData || 0;
+
+        await supabase.from('ai_runs').insert({
+          goal_id: null, // No goal yet - just a suggestion
+          stage: 'suggestion',
+          status: 'success',
+          provider_model: 'claude-3-7-sonnet-20250219',
+          input_tokens: tokenUsage.input,
+          output_tokens: tokenUsage.output,
+          total_tokens: tokenUsage.total,
+          cost_usd: estimatedCost,
+          metadata: {
+            category: suggestion.category,
+            title_length: suggestion.title.length,
+            desc_length: suggestion.description.length,
+          },
+          completed_at: new Date().toISOString(),
+        });
+
+        console.log(`💰 Suggestion cost: $${estimatedCost.toFixed(6)}`);
+      } catch (trackingError) {
+        console.warn(
+          '⚠️ Failed to save ai_run tracking (non-critical):',
+          trackingError
+        );
+      }
+    }
 
     // Return the suggestion
     return new Response(
