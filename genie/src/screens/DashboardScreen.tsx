@@ -1587,9 +1587,6 @@ export const DashboardScreen: React.FC = () => {
               <Text variant="h4" style={styles.sideMenuGreetingTitle}>
                 Hello, {getUserName()}
               </Text>
-              <Text variant="body" style={styles.sideMenuGreetingSubtitle}>
-                What's your wish?
-              </Text>
             </View>
 
             <View style={styles.sideMenuHeader}>
@@ -2776,8 +2773,8 @@ const styles = StyleSheet.create({
     paddingTop: 60, // Reduced safe area padding
     paddingHorizontal: 24,
     paddingVertical: 24,
-    borderLeftWidth: 0, // Removed yellow border
-    borderLeftColor: 'transparent',
+    borderLeftWidth: 0.5, // Thin yellow line
+    borderLeftColor: '#FFFF68',
     zIndex: 2003,
     shadowColor: '#FFFF68', // Yellow glow
     shadowOffset: {
@@ -2805,7 +2802,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 0,
-    paddingBottom: 10,
+    paddingBottom: 4,
   },
   sideMenuHeader: {
     marginBottom: 24,
@@ -2828,11 +2825,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontSize: 18,
     fontWeight: '600',
-    textAlign: 'left',
-  },
-  sideMenuGreetingSubtitle: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
     textAlign: 'left',
   },
   sideMenuCloseButton: {

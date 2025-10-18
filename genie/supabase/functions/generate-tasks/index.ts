@@ -47,6 +47,8 @@ interface Goal {
   plan_duration_days: number;
   preferred_time_ranges: PreferredTimeRange[] | null;
   preferred_days: number[] | null;
+  tasks_per_day_min: number | null;
+  tasks_per_day_max: number | null;
   status: string;
   user_id: string;
 }
@@ -214,7 +216,15 @@ async function generateTasksWithAI(
     }
 
     // Calculate week-specific parameters
-    const tasksPerDay = goal.preferred_time_ranges?.length || 3;
+    // Use tasks_per_day_min/max if available, otherwise fallback to preferred_time_ranges length
+    const minTasks = goal.tasks_per_day_min || 1;
+    const maxTasks =
+      goal.tasks_per_day_max || goal.preferred_time_ranges?.length || 3;
+
+    // Calculate actual tasks per day based on available time slots
+    const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+    const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+
     const preferredDays = goal.preferred_days || [0, 1, 2, 3, 4, 5, 6]; // All days if not specified
 
     // Calculate which days belong to this week
@@ -261,6 +271,33 @@ async function generateTasksWithAI(
 
     const taskGuidance =
       categoryTaskGuidance[goal.category] || categoryTaskGuidance['custom'];
+
+    // Prepare preferred days and time ranges info
+    const dayNames = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
+    const preferredDaysText = preferredDays.map((d) => dayNames[d]).join(', ');
+
+    // Get actual time slots from preferred_time_ranges
+    const timeSlots: string[] = [];
+    const timeLabels: string[] = [];
+    if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
+      goal.preferred_time_ranges.forEach((range, idx) => {
+        const hour = range.start_hour.toString().padStart(2, '0');
+        timeSlots.push(`${hour}:00`);
+        timeLabels.push(range.label || `Slot ${idx + 1}`);
+      });
+    } else {
+      // Default time slots if not specified
+      timeSlots.push('09:00', '14:00', '19:00');
+      timeLabels.push('Morning', 'Afternoon', 'Evening');
+    }
 
     const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks.
 
@@ -331,6 +368,15 @@ Category: ${goal.category}
 Timezone: ${deviceTimezone}
 Current time: ${new Date(deviceNowIso).toLocaleString('en-US', { timeZone: deviceTimezone })}
 
+⚙️ USER PREFERENCES
+Preferred Days: ${preferredDaysText}
+⚠️ CRITICAL: Create tasks ONLY for these days! Skip other days completely.
+
+Tasks Per Day: ${minTasks === maxTasks ? `${tasksPerDay} task(s)` : `${minTasks}-${maxTasks} tasks (using ${tasksPerDay} based on available time slots)`}
+
+Preferred Time Slots: ${timeSlots.map((time, idx) => `${time} (${timeLabels[idx]})`).join(', ')}
+⚠️ CRITICAL: Use ONLY these exact time slots for tasks!
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 THIS WEEK'S FOCUS (Week ${weekNumber}/${totalWeeks})
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -348,19 +394,18 @@ Structure:
   • Total tasks for this week: ${tasksInThisWeek}
 
 Task Distribution:
-  • Distribute tasks across the time slots below
-  • Each day should have ${tasksPerDay} tasks
+  • Distribute tasks across the EXACT time slots the user selected
+  • Each PREFERRED day should have ${tasksPerDay} tasks
   • Follow the progression in the plan outline
+  • SKIP days that are NOT in the preferred days list
 
-Time Slots (adjusted for user's timezone):
-  • Morning task: "09:00" (early day activity)
-  • Afternoon task: "14:00" (mid-day activity)
-  • Evening task: "19:00" (end of day activity)
-  ${tasksPerDay === 1 ? '  (Use morning slot only)' : ''}
-  ${tasksPerDay === 2 ? '  (Use morning and afternoon slots)' : ''}
+Time Slots (user's selected times in ${deviceTimezone}):
+${timeSlots.map((time, idx) => `  • ${timeLabels[idx]}: "${time}"`).join('\n')}
+  ${tasksPerDay === 1 ? `\n  ⚠️ Use ONLY the first time slot: ${timeSlots[0]}` : ''}
+  ${tasksPerDay === 2 ? `\n  ⚠️ Use ONLY first two time slots: ${timeSlots[0]} and ${timeSlots[1]}` : ''}
+  ${tasksPerDay === 3 ? `\n  ⚠️ Use ALL three time slots: ${timeSlots.join(', ')}` : ''}
   
-  Note: Consider the user's timezone when planning. Morning tasks should be 
-  appropriate for morning energy levels, evening tasks for winding down.
+  IMPORTANT: Use these EXACT times - the user specifically chose them!
 
 Task Composition:
   • Each task MUST have 2-3 subtasks
@@ -389,7 +434,7 @@ Example for Day ${startDay}:
       "summary": "Week ${weekNumber} focus",
       "tasks": [
         {
-          "time": "09:00",
+          "time": "${timeSlots[0]}",
           "title": "Action-oriented task for week ${weekNumber}",
           "description": "Clear explanation aligned with this week's theme.",
           "subtasks": [
@@ -403,7 +448,13 @@ Example for Day ${startDay}:
   ]
 }
 
-NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${daysInThisWeek} DAYS, ${tasksInThisWeek} TASKS TOTAL).
+⚠️ IMPORTANT REMINDERS:
+- Create tasks ONLY for preferred days: ${preferredDaysText}
+- Use ONLY these time slots: ${timeSlots.join(', ')}
+- Skip any days that are NOT in the preferred days list
+- Each preferred day should have ${tasksPerDay} task(s)
+
+NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${workingDaysCount} WORKING DAYS, ${tasksInThisWeek} TASKS TOTAL).
 OUTPUT JSON ONLY:`;
 
     // Calculate max_tokens dynamically based on tasks needed
@@ -580,23 +631,46 @@ OUTPUT JSON ONLY:`;
 
 function generateTemplateTasks(goal: Goal): TaskTemplate[] {
   const tasks: TaskTemplate[] = [];
-  const tasksPerDay = goal.preferred_time_ranges?.length || 3;
+
+  // Calculate tasks per day based on user preferences
+  const maxTasks =
+    goal.tasks_per_day_max || goal.preferred_time_ranges?.length || 3;
+  const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+  const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+
+  // Use preferred time ranges or defaults
+  const timeSlots: string[] = [];
+  const timeLabels: string[] = [];
+  if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
+    goal.preferred_time_ranges.forEach((range) => {
+      const hour = range.start_hour.toString().padStart(2, '0');
+      timeSlots.push(`${hour}:00`);
+      timeLabels.push(range.label || 'Session');
+    });
+  } else {
+    timeSlots.push('09:00', '14:00', '19:00');
+    timeLabels.push('Morning', 'Afternoon', 'Evening');
+  }
+
   const timeOfDays = ['morning', 'afternoon', 'evening'];
 
   for (let day = 1; day <= goal.plan_duration_days; day++) {
+    // Check if this day is in preferred_days
     if (goal.preferred_days?.length) {
       const dayOfWeek = (day - 1) % 7;
       if (!goal.preferred_days.includes(dayOfWeek)) {
-        continue;
+        continue; // Skip this day
       }
     }
 
     for (let taskIdx = 0; taskIdx < tasksPerDay; taskIdx++) {
       const timeOfDay = timeOfDays[taskIdx] || 'morning';
+      const customTime = timeSlots[taskIdx] || timeSlots[0];
+      const label = timeLabels[taskIdx] || 'Session';
 
       tasks.push({
         title: `Day ${day}: ${['Foundation', 'Development', 'Practice'][taskIdx] || 'Progress'}`,
-        description: `Complete your ${timeOfDay} work session for ${goal.title}.`,
+        description: `Complete your ${label.toLowerCase()} work session for ${goal.title}.`,
         day_offset: day - 1,
         time_of_day: timeOfDay,
         subtasks: [
@@ -605,7 +679,7 @@ function generateTemplateTasks(goal: Goal): TaskTemplate[] {
           { title: 'Document your progress', estimated_minutes: 5 },
         ],
         time_allocation_minutes: 30,
-        custom_time: undefined,
+        custom_time: customTime,
       });
     }
   }
@@ -930,7 +1004,11 @@ serve(async (req) => {
         .eq('goal_id', goal_id);
 
       // Calculate expected total tasks for the full plan
-      const tasksPerDay = goal.preferred_time_ranges?.length || 3;
+      const maxTasks =
+        goal.tasks_per_day_max || goal.preferred_time_ranges?.length || 3;
+      const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+      const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+
       const daysPerWeek = goal.preferred_days?.length || 7;
       const totalWorkingDays = Math.ceil(
         (goal.plan_duration_days / 7) * daysPerWeek

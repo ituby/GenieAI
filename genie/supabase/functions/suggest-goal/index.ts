@@ -59,8 +59,18 @@ serve(async (req) => {
         ? categoryGuidance[category]
         : 'Focus on meaningful personal growth and self-improvement.';
 
+    // Generate unique creativity seed for varied suggestions
+    const creativitySeed = Math.floor(Math.random() * 1000000);
+    const timestamp = Date.now();
+
     // Prepare enhanced prompt for Claude
     const prompt = `You are helping someone write their goal in simple, natural language.
+
+🎲 CREATIVITY SEED: ${creativitySeed} | Timestamp: ${timestamp}
+
+IMPORTANT: This person is exploring different goal ideas in the ${category || 'custom'} category. 
+Generate a UNIQUE, CREATIVE, and FRESH suggestion. Think outside the box and avoid generic goals.
+Be specific, innovative, and inspiring. Each suggestion should feel distinctly different.
 
 CATEGORY: ${category || 'custom'}
 ${selectedGuidance}
@@ -125,7 +135,10 @@ CRITICAL: BOTH title and description MUST start with "I want to..." - first pers
       body: JSON.stringify({
         model: 'claude-3-7-sonnet-20250219',
         max_tokens: 1024,
-        temperature: 0.9, // Higher temperature for more creative suggestions
+        temperature: 1.0, // Maximum temperature for maximum creativity and variation
+        thinking: {
+          type: 'disabled',
+        },
         messages: [
           {
             role: 'user',
