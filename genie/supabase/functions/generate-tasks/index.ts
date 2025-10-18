@@ -36,6 +36,7 @@ interface RequestBody {
   goal_id: string;
   device_now_iso?: string;
   device_timezone?: string;
+  week_number?: number; // Which week to generate (1-based). If not provided, start from week 1
 }
 
 interface Goal {
@@ -188,7 +189,9 @@ async function generateTasksWithAI(
   deviceNowIso: string,
   deviceTimezone: string,
   savedOutline: any,
-  requestId: string
+  requestId: string,
+  weekNumber: number = 1,
+  totalWeeks: number = 1
 ): Promise<{ tasks: TaskTemplate[]; usedModel: string }> {
   try {
     console.log(`[${requestId}] Starting AI task generation...`);
@@ -210,19 +213,35 @@ async function generateTasksWithAI(
       };
     }
 
-    const outlineContext = outlineArray
-      .map((w) => `${w.title}: ${w.description}`)
-      .join('\n');
-
+    // Calculate week-specific parameters
     const tasksPerDay = goal.preferred_time_ranges?.length || 3;
-    const daysPerWeek = goal.preferred_days?.length || 7;
-    const totalWorkingDays = Math.ceil(
-      (goal.plan_duration_days / 7) * daysPerWeek
-    );
-    // Smart calculation based on user's advanced settings
-    const finalTaskCount = totalWorkingDays * tasksPerDay;
+    const preferredDays = goal.preferred_days || [0, 1, 2, 3, 4, 5, 6]; // All days if not specified
 
-    console.log(`[${requestId}] Requesting ${finalTaskCount} tasks from AI`);
+    // Calculate which days belong to this week
+    const startDay = (weekNumber - 1) * 7 + 1;
+    const endDay = Math.min(weekNumber * 7, goal.plan_duration_days);
+    const daysInThisWeek = endDay - startDay + 1;
+
+    // Calculate actual working days in this week based on preferred_days
+    let workingDaysCount = 0;
+    for (let day = startDay; day <= endDay; day++) {
+      const dayOfWeek = (day - 1) % 7; // 0=Sunday, 1=Monday, etc.
+      if (preferredDays.includes(dayOfWeek)) {
+        workingDaysCount++;
+      }
+    }
+
+    const tasksInThisWeek = workingDaysCount * tasksPerDay;
+
+    console.log(
+      `[${requestId}] Generating Week ${weekNumber}/${totalWeeks}: Days ${startDay}-${endDay} (${workingDaysCount} working days, ${tasksInThisWeek} tasks)`
+    );
+
+    // Get the specific week's outline
+    const currentWeekOutline = outlineArray[weekNumber - 1];
+    const outlineContext = currentWeekOutline
+      ? `${currentWeekOutline.title}: ${currentWeekOutline.description}`
+      : outlineArray.map((w) => `${w.title}: ${w.description}`).join('\n');
 
     // Category-specific task design principles
     const categoryTaskGuidance: Record<string, string> = {
@@ -299,7 +318,7 @@ REQUIRED JSON STRUCTURE:
   ]
 }`;
 
-    const userPrompt = `Create a ${goal.plan_duration_days}-day action plan with ${finalTaskCount} total tasks.
+    const userPrompt = `Create tasks for WEEK ${weekNumber} of ${totalWeeks} (Days ${startDay}-${endDay}).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📌 GOAL INFORMATION
@@ -313,22 +332,20 @@ Timezone: ${deviceTimezone}
 Current time: ${new Date(deviceNowIso).toLocaleString('en-US', { timeZone: deviceTimezone })}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 WEEKLY PLAN OUTLINE - FOLLOW THIS STRUCTURE
+📋 THIS WEEK'S FOCUS (Week ${weekNumber}/${totalWeeks})
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-This is your roadmap. Create tasks that align with each week's theme and objectives.
-
 ${outlineContext}
 
-⚠️ CRITICAL: Your tasks must follow this weekly progression. Each week's tasks should 
-reflect that week's specific focus and objectives as outlined above.
+⚠️ CRITICAL: Create tasks ONLY for this week. Align all tasks with this week's theme and objectives.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚙️ TECHNICAL REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Structure:
-  • Total days: ${Math.ceil(goal.plan_duration_days)}
+  • This week: Week ${weekNumber} of ${totalWeeks}
+  • Days to create: ${startDay} to ${endDay} (${daysInThisWeek} days)
   • Tasks per day: ${tasksPerDay}
-  • Total tasks: ${finalTaskCount}
+  • Total tasks for this week: ${tasksInThisWeek}
 
 Task Distribution:
   • Distribute tasks across the time slots below
@@ -351,39 +368,33 @@ Task Composition:
   • Total time per task: 25-45 minutes
   • Subtasks should be sequential steps
 
-Content Quality & Weekly Alignment:
+Content Quality & Week Alignment:
   • Make tasks specific to "${goal.title}"
-  • FOLLOW the weekly plan outline structure above
-  • Match each week's tasks to that week's theme and objectives
-  • Progressive difficulty: start easier, build up week by week
+  • ALIGN with Week ${weekNumber}'s theme and objectives above
+  • Focus ONLY on this week (Days ${startDay}-${endDay})
   • Ensure each task is actionable and clear
+  • Progressive difficulty within this week
   
-  Example structure:
-  - Days 1-7: Align with Week 1 outline theme
-  - Days 8-14: Align with Week 2 outline theme
-  - Days 15-21: Align with Week 3 outline theme
-  - Continue this pattern for all ${Math.ceil(goal.plan_duration_days / 7)} weeks
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ OUTPUT FORMAT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Return ONLY valid JSON. No markdown blocks, no explanations, no text before or after.
 Must start with { and end with }
 
-Example of ONE day (you need to create ${Math.ceil(goal.plan_duration_days)} days):
+Example for Day ${startDay}:
 {
   "days": [
     {
-      "day": 1,
-      "summary": "Foundation building",
+      "day": ${startDay},
+      "summary": "Week ${weekNumber} focus",
       "tasks": [
         {
           "time": "09:00",
-          "title": "Complete initial research phase",
-          "description": "Gather essential information to build a strong foundation for your goal.",
+          "title": "Action-oriented task for week ${weekNumber}",
+          "description": "Clear explanation aligned with this week's theme.",
           "subtasks": [
-            {"title": "Review key resources", "estimated_minutes": 15},
-            {"title": "Take structured notes", "estimated_minutes": 15}
+            {"title": "Specific step 1", "estimated_minutes": 15},
+            {"title": "Specific step 2", "estimated_minutes": 15}
           ],
           "time_allocation_minutes": 30
         }
@@ -392,10 +403,28 @@ Example of ONE day (you need to create ${Math.ceil(goal.plan_duration_days)} day
   ]
 }
 
-NOW CREATE THE COMPLETE ${goal.plan_duration_days}-DAY PLAN WITH ${finalTaskCount} TASKS.
+NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${daysInThisWeek} DAYS, ${tasksInThisWeek} TASKS TOTAL).
 OUTPUT JSON ONLY:`;
 
+    // Calculate max_tokens dynamically based on tasks needed
+    // Each task ~250 tokens (title + description + subtasks + JSON structure)
+    // Add 1000 tokens for JSON overhead and buffer
+    const estimatedTokensPerTask = 250;
+    const jsonOverhead = 1000;
+    const safetyBuffer = 500;
+    const calculatedMaxTokens = Math.min(
+      Math.max(
+        tasksInThisWeek * estimatedTokensPerTask + jsonOverhead + safetyBuffer,
+        2048 // minimum 2K tokens
+      ),
+      16384 // maximum 16K tokens (Haiku limit)
+    );
+
+    console.log(
+      `[${requestId}] Calculated max_tokens: ${calculatedMaxTokens} for ${tasksInThisWeek} tasks`
+    );
     console.log(`[${requestId}] Sending request to Claude API...`);
+
     const response = await fetchWithRetry(
       'https://api.anthropic.com/v1/messages',
       {
@@ -406,8 +435,8 @@ OUTPUT JSON ONLY:`;
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-opus-4-1-20250805',
-          max_tokens: 16384,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: calculatedMaxTokens,
           messages: [
             { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` },
           ],
@@ -535,7 +564,7 @@ OUTPUT JSON ONLY:`;
     }
 
     console.log(`[${requestId}] Generated ${tasks.length} tasks from AI`);
-    return { tasks, usedModel: 'claude-opus-4-1-20250805' };
+    return { tasks, usedModel: 'claude-haiku-4-5-20251001' };
   } catch (error) {
     console.error(`[${requestId}] AI generation error:`, error);
     return {
@@ -610,22 +639,8 @@ async function insertTasks(
   preferredTimeRanges: PreferredTimeRange[] | null,
   requestId: string
 ): Promise<any[]> {
-  // Check if tasks already exist
-  const { data: existingTasks, error: checkError } = await supabase
-    .from('goal_tasks')
-    .select('id')
-    .eq('goal_id', goalId)
-    .limit(1);
-
-  if (checkError) {
-    console.error(`[${requestId}] Error checking existing tasks:`, checkError);
-    throw checkError;
-  }
-
-  if (existingTasks && existingTasks.length > 0) {
-    console.log(`[${requestId}] Tasks already exist, skipping insertion`);
-    return existingTasks;
-  }
+  // Note: We don't check for existing tasks anymore because we're adding week-by-week
+  // Each week adds its own tasks incrementally
 
   const tasksToInsert = tasks.map((task) => {
     const runAt = computeRunAt(
@@ -823,7 +838,8 @@ serve(async (req) => {
       return errorResponse(400, 'Invalid JSON in request body', requestId);
     }
 
-    const { user_id, goal_id, device_now_iso, device_timezone } = body;
+    const { user_id, goal_id, device_now_iso, device_timezone, week_number } =
+      body;
 
     // Validate required fields
     if (!user_id || !goal_id) {
@@ -838,6 +854,9 @@ serve(async (req) => {
     // Set defaults for device info
     const finalDeviceNow = device_now_iso || new Date().toISOString();
     const finalTimezone = device_timezone || 'UTC';
+
+    // Week number: default to 1 if not provided
+    const currentWeek = week_number || 1;
 
     // Check and deduct tokens
     const tokenCheck = await checkAndDeductTokens(
@@ -899,22 +918,37 @@ serve(async (req) => {
       );
     }
 
-    // For active goals, check if tasks already exist
-    if (goal.status === 'active') {
-      const { data: existingTasks } = await supabase
-        .from('goal_tasks')
-        .select('id')
-        .eq('goal_id', goal_id)
-        .limit(1);
+    // For active goals, check if ALL tasks already exist (only if this is week 1)
+    // For subsequent weeks (week > 1), allow adding more tasks
+    if (goal.status === 'active' && currentWeek === 1) {
+      const totalWeeks = Math.ceil(goal.plan_duration_days / 7);
 
-      if (existingTasks && existingTasks.length > 0) {
-        console.log(`[${requestId}] Tasks already exist for active goal`);
+      // Count existing tasks
+      const { count: existingTaskCount } = await supabase
+        .from('goal_tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('goal_id', goal_id);
+
+      // Calculate expected total tasks for the full plan
+      const tasksPerDay = goal.preferred_time_ranges?.length || 3;
+      const daysPerWeek = goal.preferred_days?.length || 7;
+      const totalWorkingDays = Math.ceil(
+        (goal.plan_duration_days / 7) * daysPerWeek
+      );
+      const expectedTotalTasks = totalWorkingDays * tasksPerDay;
+
+      // Only block if we already have all expected tasks
+      if (existingTaskCount && existingTaskCount >= expectedTotalTasks) {
+        console.log(
+          `[${requestId}] All tasks already exist (${existingTaskCount}/${expectedTotalTasks})`
+        );
         return new Response(
           JSON.stringify({
             success: true,
-            message: 'Tasks already exist',
+            message: 'All tasks already exist',
             request_id: requestId,
             processing_time_ms: Date.now() - startTime,
+            tasks_count: existingTaskCount,
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -922,6 +956,10 @@ serve(async (req) => {
           }
         );
       }
+
+      console.log(
+        `[${requestId}] Partial tasks exist (${existingTaskCount}/${expectedTotalTasks}), continuing generation`
+      );
     }
 
     // Fetch outline
@@ -961,14 +999,30 @@ serve(async (req) => {
       );
     }
 
-    // Generate tasks
-    console.log(`[${requestId}] Generating tasks...`);
+    // Calculate total weeks
+    const totalWeeks = Math.ceil(goal.plan_duration_days / 7);
+
+    // Check if this is the first week or a continuation
+    if (currentWeek === 1) {
+      console.log(
+        `[${requestId}] Starting multi-week generation: ${totalWeeks} weeks total`
+      );
+    } else {
+      console.log(
+        `[${requestId}] Continuing generation for week ${currentWeek}/${totalWeeks}`
+      );
+    }
+
+    // Generate tasks for this specific week
+    console.log(`[${requestId}] Generating tasks for week ${currentWeek}...`);
     const tasksResult = await generateTasksWithAI(
       goal as Goal,
       finalDeviceNow,
       finalTimezone,
       savedOutline,
-      requestId
+      requestId,
+      currentWeek,
+      totalWeeks
     );
 
     if (tasksResult.tasks.length === 0) {
@@ -981,8 +1035,10 @@ serve(async (req) => {
       );
     }
 
-    // Insert tasks
-    console.log(`[${requestId}] Inserting ${tasksResult.tasks.length} tasks`);
+    // Insert tasks for this week
+    console.log(
+      `[${requestId}] Inserting ${tasksResult.tasks.length} tasks for week ${currentWeek}`
+    );
     const insertedTasks = await insertTasks(
       supabase,
       goal_id,
@@ -992,7 +1048,60 @@ serve(async (req) => {
       requestId
     );
 
-    // Update goal status to active
+    const totalTime = Date.now() - startTime;
+    console.log(
+      `[${requestId}] Week ${currentWeek} completed in ${totalTime}ms`
+    );
+
+    // Check if there are more weeks to generate
+    if (currentWeek < totalWeeks) {
+      console.log(
+        `[${requestId}] Triggering generation for week ${currentWeek + 1}/${totalWeeks}`
+      );
+
+      // Call the function again for the next week (non-blocking)
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-tasks`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user_id,
+          goal_id: goal_id,
+          device_now_iso: finalDeviceNow,
+          device_timezone: finalTimezone,
+          week_number: currentWeek + 1,
+        }),
+      }).catch((error) => {
+        console.error(`[${requestId}] Failed to trigger next week:`, error);
+      });
+
+      // Return success for this week
+      return new Response(
+        JSON.stringify({
+          success: true,
+          request_id: requestId,
+          processing_time_ms: totalTime,
+          week_number: currentWeek,
+          total_weeks: totalWeeks,
+          tasks_count: insertedTasks.length,
+          used_model: tasksResult.usedModel,
+          status: 'in_progress',
+          next_week: currentWeek + 1,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // This is the last week - update goal status and send notification
+    console.log(
+      `[${requestId}] Final week (${currentWeek}) completed - updating goal status`
+    );
+
     const { error: statusUpdateError } = await supabase
       .from('goals')
       .update({
@@ -1007,7 +1116,13 @@ serve(async (req) => {
       console.log(`[${requestId}] Goal status updated to active`);
     }
 
-    // Send push notification
+    // Get total task count for final notification
+    const { count: totalTaskCount } = await supabase
+      .from('goal_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('goal_id', goal_id);
+
+    // Send push notification for completion
     try {
       await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`,
@@ -1019,12 +1134,12 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             user_id: user_id,
-            title: 'Tasks Generated',
-            body: `Your ${goal.title} tasks are ready! ${insertedTasks.length} tasks created.`,
+            title: 'All Tasks Ready! 🎉',
+            body: `Your ${goal.title} plan is complete! ${totalTaskCount || insertedTasks.length} tasks created.`,
             data: {
               type: 'tasks_generated',
               goal_id: goal_id,
-              task_count: insertedTasks.length,
+              task_count: totalTaskCount || insertedTasks.length,
               screen: 'dashboard',
             },
             sound: true,
@@ -1032,22 +1147,22 @@ serve(async (req) => {
           }),
         }
       );
-      console.log(`[${requestId}] Push notification sent`);
+      console.log(`[${requestId}] Completion push notification sent`);
     } catch (pushError) {
       console.warn(`[${requestId}] Push notification failed:`, pushError);
     }
-
-    const totalTime = Date.now() - startTime;
 
     return new Response(
       JSON.stringify({
         success: true,
         request_id: requestId,
         processing_time_ms: totalTime,
-        tokens_used: 1,
-        tokens_remaining: tokenCheck.remainingTokens,
+        week_number: currentWeek,
+        total_weeks: totalWeeks,
         tasks_count: insertedTasks.length,
+        total_task_count: totalTaskCount || insertedTasks.length,
         used_model: tasksResult.usedModel,
+        status: 'completed',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -60,35 +60,57 @@ serve(async (req) => {
         : 'Focus on meaningful personal growth and self-improvement.';
 
     // Prepare enhanced prompt for Claude
-    const prompt = `You are helping someone write their goal in simple, natural language - as if they're talking to a friend.
+    const prompt = `You are helping someone write their goal in simple, natural language.
 
 CATEGORY: ${category || 'custom'}
 ${selectedGuidance}
 
 WRITING STYLE:
-- Simple, conversational, natural
-- Short and clear (not fancy or complicated)
-- Like they're texting a friend about their goal
-- First person: "I want to..."
+- Both title AND description in FIRST PERSON
+- Title: "I want to..." (the main goal)
+- Description: "I want to..." (expand with MORE specific details)
+- Like the person is explaining their goal to a friend
 
-EXAMPLES - Simple & Natural:
-- Lifestyle: "I want to wake up early and enjoy my mornings" / "Build a calm morning routine with coffee and journaling"
-- Career: "I want to post on LinkedIn every day" / "Share my ideas and build my professional network"
-- Fitness: "I want to run 5km without stopping" / "Build endurance and feel stronger"
-- Learning: "I want to learn basic Spanish" / "Be able to have simple conversations in Spanish"
-- Health: "I want to sleep 8 hours every night" / "Feel rested and energized every day"
-- Finance: "I want to save $500 this month" / "Cut unnecessary spending and build my savings"
+STRUCTURE:
+- TITLE: "I want to [main goal]"
+- DESCRIPTION: "I want to [specific details, methods, or what exactly they'll do]"
+
+EXAMPLES - Both in First Person:
+
+Lifestyle:
+Title: "I want to wake up at 6am daily"
+Description: "I want to build a morning routine with exercise, meditation, and healthy breakfast"
+
+Career:
+Title: "I want to learn Python"
+Description: "I want to master basic syntax and build 3 projects for my portfolio"
+
+Fitness:
+Title: "I want to run 5km non-stop"
+Description: "I want to train 4x weekly and improve my endurance and breathing"
+
+Learning:
+Title: "I want to speak basic Spanish"
+Description: "I want to learn 300 phrases and practice conversations 20 min daily"
+
+Health:
+Title: "I want to sleep 8 hours nightly"
+Description: "I want to create a bedtime routine and optimize my sleep environment"
+
+Finance:
+Title: "I want to save $500"
+Description: "I want to track expenses and eliminate 3 subscriptions this month"
 
 ${userContext ? `USER CONTEXT: ${userContext}\n` : ''}
 
 Return ONLY valid JSON (no markdown):
 {
-  "title": "I want to... (max 40 characters, simple language)",
-  "description": "Why I want this and what I'll do (60-100 characters, conversational)",
+  "title": "I want to... (main goal, 30-40 chars)",
+  "description": "I want to... (specific expansion, 50-75 chars)",
   "category": "${category || 'custom'}"
 }
 
-Keep it SHORT, SIMPLE, and NATURAL!`;
+CRITICAL: BOTH title and description MUST start with "I want to..." - first person only!`;
 
     console.log('🤖 Calling Claude API...');
 

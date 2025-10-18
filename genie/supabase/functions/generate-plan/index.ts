@@ -165,6 +165,17 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function truncateDescription(description: string, maxSentences: number = 7): string {
+  // Split by sentence endings (. ! ?)
+  const sentences = description.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  // Take only first N sentences
+  const truncated = sentences.slice(0, maxSentences).join('. ');
+  
+  // Add period if needed
+  return truncated.endsWith('.') ? truncated : truncated + '.';
+}
+
 function convertHHMMToTimeOfDay(hhmm: string): string {
   const [hoursStr] = hhmm.split(':');
   const hours = parseInt(hoursStr, 10);
@@ -558,11 +569,12 @@ EACH WEEK MUST INCLUDE:
 3. Key Activities - What the person will actually do
 4. Progress Markers - How they'll know they're succeeding
 
-WEEK DESCRIPTION LENGTH:
-- Keep descriptions CONCISE and FOCUSED
-- Maximum 8-10 lines of text per week
-- Cover key points without excessive detail
-- Be clear and actionable, not verbose
+WEEK DESCRIPTION LENGTH - CRITICAL:
+- Each week description: MAXIMUM 7 lines
+- Count lines strictly - do not exceed 7 lines per week
+- Be concise, focused, and direct
+- Every word must add value
+- Remove any fluff or redundancy
 
 CRITICAL INSTRUCTIONS:
 - Return ONLY valid JSON, no markdown, no explanations, no extra text
@@ -580,9 +592,9 @@ REQUIRED JSON STRUCTURE:
   "icon_name": "star",
   "milestones": [{"week": 1, "title": "Week 1: Foundation", "description": "Detailed week description with specific goals and outcomes", "tasks": 21}],
   "plan_outline": [
-    {"title": "Week 1: Foundation Phase", "description": "Build core foundations and establish momentum. Focus on fundamentals, set up systems, create baseline measurements. Practice basic techniques daily, develop consistency, and build confidence through small wins."},
-    {"title": "Week 2: Development Phase", "description": "Expand skills and deepen understanding. Increase complexity gradually, introduce new challenges, track progress metrics. Apply learnings in practical situations and refine techniques based on feedback."},
-    {"title": "Week 3: Mastery Phase", "description": "Integrate all elements and achieve proficiency. Demonstrate consistent results, handle complex scenarios, maintain sustainable habits. Celebrate achievements and prepare for continued growth."}
+    {"title": "Week 1: Foundation Phase", "description": "Build core foundations. Set up systems and create baseline measurements. Practice basic techniques daily. Develop consistency. Build confidence through small wins. Track initial progress. Establish sustainable routines."},
+    {"title": "Week 2: Development Phase", "description": "Expand skills and deepen understanding. Increase complexity gradually. Introduce new challenges. Track progress metrics. Apply learnings practically. Refine techniques. Build momentum."},
+    {"title": "Week 3: Mastery Phase", "description": "Integrate all elements. Demonstrate consistent results. Handle complex scenarios. Maintain sustainable habits. Celebrate achievements. Review progress. Prepare for continued growth."}
   ],
   "deliverables": {
     "overview": {
@@ -604,10 +616,10 @@ FOCUS ON:
 - Creating comprehensive, actionable plan outline
 - Ensuring each week has clear value and purpose
 - Making weeks progressive and interconnected
-- Keeping descriptions CONCISE (8-10 lines maximum per week)
+- Keeping descriptions EXACTLY 7 LINES per week (strict limit!)
 - Using professional, descriptive titles
 - Maintaining consistent quality throughout
-- Being clear and focused, not verbose`;
+- Being clear, focused, and concise - never verbose`;
 
   const totalWeeks = Math.ceil(planDurationDays / 7);
 
@@ -639,10 +651,12 @@ CRITICAL REQUIREMENTS:
   - Key activities and practices
   - Expected outcomes and progress markers
   
-✓ Description Length:
-  - Keep each week description CONCISE
-  - Maximum 8-10 lines of text per week
-  - Cover key points clearly without being verbose
+✓ Description Length - STRICT LIMIT:
+  - Each week description: EXACTLY 7 lines maximum
+  - Write short, punchy sentences
+  - One key idea per sentence
+  - No fluff, no redundancy
+  - Count your lines and stop at 7
   
 ✓ Progressive Structure:
   - Week 1: Foundation (build momentum, establish basics)
@@ -724,12 +738,17 @@ OUTPUT JSON ONLY:`;
         cleanedText.substring(0, 1000)
       );
 
-      // Return fallback data
+      // Return fallback data with truncated descriptions
+      const fallbackOutline = buildTailoredOutline(title, description).map((week: any) => ({
+        ...week,
+        description: truncateDescription(week.description || '', 7),
+      }));
+
       return {
         iconName: 'star',
         color: CATEGORY_COLOR_MAP[category] || 'yellow',
         milestones: buildTailoredMilestones(title, planDurationDays),
-        planOutline: buildTailoredOutline(title, description),
+        planOutline: fallbackOutline,
         category,
         deliverables: {
           overview: { chosen_topic: '', rationale: '', synopsis: '' },
@@ -739,13 +758,18 @@ OUTPUT JSON ONLY:`;
       };
     }
 
+    // Truncate long descriptions to max 7 sentences
+    const truncatedPlanOutline = (planData.plan_outline || buildTailoredOutline(title, description)).map((week: any) => ({
+      ...week,
+      description: truncateDescription(week.description || '', 7),
+    }));
+
     return {
       iconName: validateIcon(planData.icon_name),
       color: CATEGORY_COLOR_MAP[category] || 'yellow',
       milestones:
         planData.milestones || buildTailoredMilestones(title, planDurationDays),
-      planOutline:
-        planData.plan_outline || buildTailoredOutline(title, description),
+      planOutline: truncatedPlanOutline,
       category,
       deliverables: planData.deliverables || {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },
@@ -762,12 +786,17 @@ OUTPUT JSON ONLY:`;
       console.warn('[AI] Credit balance too low, using template fallback');
     }
 
-    // Return fallback data for any API error
+    // Return fallback data for any API error with truncated descriptions
+    const errorFallbackOutline = buildTailoredOutline(title, description).map((week: any) => ({
+      ...week,
+      description: truncateDescription(week.description || '', 7),
+    }));
+
     return {
       iconName: 'star',
       color: CATEGORY_COLOR_MAP[category] || 'yellow',
       milestones: buildTailoredMilestones(title, planDurationDays),
-      planOutline: buildTailoredOutline(title, description),
+      planOutline: errorFallbackOutline,
       category,
       deliverables: {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },

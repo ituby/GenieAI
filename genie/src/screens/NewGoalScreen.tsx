@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
   Animated,
+  SafeAreaView,
 } from 'react-native';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1881,9 +1882,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
             {/* Advanced Settings Modal */}
             {showAdvancedSettings && (
-              <View style={styles.modalOverlay}>
+              <SafeAreaView style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
                   <View style={styles.modalHeader}>
+                    <TouchableOpacity
+                      style={styles.modalBackButton}
+                      onPress={() => setShowAdvancedSettings(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Icon
+                        name="caret-left"
+                        size={28}
+                        color="#FFFF68"
+                        weight="bold"
+                      />
+                    </TouchableOpacity>
                     <Text
                       variant="h3"
                       color="primary"
@@ -1891,18 +1904,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     >
                       Advanced Settings
                     </Text>
-                    <TouchableOpacity
-                      style={styles.modalCloseButton}
-                      onPress={() => setShowAdvancedSettings(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Icon name="x" size={24} color="#FFFF68" weight="bold" />
-                    </TouchableOpacity>
+                    <View style={{ width: 28 }} />
                   </View>
 
                   <ScrollView
                     style={styles.modalContent}
                     showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 100 }}
                   >
                     {/* Plan Duration */}
                     <View style={styles.section}>
@@ -2392,7 +2400,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </SafeAreaView>
             )}
 
             {/* Navigation Buttons */}
@@ -2711,13 +2719,13 @@ const styles = StyleSheet.create({
   },
   // New styles for plan customization
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   sectionSubtitle: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   fieldSpacing: {
     marginBottom: 20,
@@ -3108,40 +3116,43 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.background.primary,
     zIndex: 1000,
-    padding: 20,
   },
   modalContainer: {
-    backgroundColor: colors.background.secondary,
-    borderRadius: 16,
-    width: '100%',
-    maxHeight: '85%',
-    overflow: 'hidden',
+    flex: 1,
+    backgroundColor: colors.background.primary,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitle: {
     fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalBackButton: {
+    padding: 4,
   },
   modalCloseButton: {
     padding: 4,
   },
   modalContent: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   modalButtons: {
     flexDirection: 'row',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
