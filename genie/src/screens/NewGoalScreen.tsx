@@ -1556,22 +1556,24 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   const handleTryAgain = async () => {
     try {
       // If a goal was created, delete it completely
-      if (createdGoalId) {
+      if (createdGoalId && user?.id) {
         console.log('🗑️ Deleting goal and all related data:', createdGoalId);
 
         // Delete the goal - CASCADE will handle tasks, notifications, rewards, etc.
         const { error: deleteError } = await supabase
           .from('goals')
           .delete()
-          .eq('id', createdGoalId);
+          .eq('id', createdGoalId)
+          .eq('user_id', user.id);
 
         if (deleteError) {
           console.error('❌ Error deleting goal:', deleteError);
-          Alert.alert('Error', 'Failed to delete the plan. Please try again.');
-          return;
+          // Don't block the user - continue with reset even if delete failed
+          console.warn('⚠️ Continuing with reset despite delete error');
+        } else {
+          console.log('✅ Goal and all related data deleted successfully');
         }
 
-        console.log('✅ Goal and all related data deleted successfully');
         setCreatedGoalId(null);
       }
 
@@ -1609,7 +1611,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       console.log('✅ UI reset complete - ready for new goal');
     } catch (error) {
       console.error('❌ Error in handleTryAgain:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      // Don't show alert - just log and reset anyway
+      console.warn('⚠️ Resetting UI despite error');
+
+      // Force reset
+      setShowPlanPreview(false);
+      setCurrentStep(1);
+      setCreatedGoalId(null);
     }
   };
 

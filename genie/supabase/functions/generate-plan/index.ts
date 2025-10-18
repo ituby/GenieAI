@@ -558,6 +558,12 @@ EACH WEEK MUST INCLUDE:
 3. Key Activities - What the person will actually do
 4. Progress Markers - How they'll know they're succeeding
 
+WEEK DESCRIPTION LENGTH:
+- Keep descriptions CONCISE and FOCUSED
+- Maximum 8-10 lines of text per week
+- Cover key points without excessive detail
+- Be clear and actionable, not verbose
+
 CRITICAL INSTRUCTIONS:
 - Return ONLY valid JSON, no markdown, no explanations, no extra text
 - Generate comprehensive plan outline in 30-45 seconds maximum
@@ -574,18 +580,9 @@ REQUIRED JSON STRUCTURE:
   "icon_name": "star",
   "milestones": [{"week": 1, "title": "Week 1: Foundation", "description": "Detailed week description with specific goals and outcomes", "tasks": 21}],
   "plan_outline": [
-    {"title": "Week 1: Foundation Phase", "description": "Comprehensive description of week 1 activities, goals, and expected outcomes"},
-    {"title": "Week 2: Development Phase", "description": "Comprehensive description of week 2 activities, goals, and expected outcomes"},
-    {"title": "Week 3: Mastery Phase", "description": "Comprehensive description of week 3 activities, goals, and expected outcomes"},
-    {"title": "Week 4: Advanced Phase", "description": "Comprehensive description of week 4 activities, goals, and expected outcomes"},
-    {"title": "Week 5: Optimization Phase", "description": "Comprehensive description of week 5 activities, goals, and expected outcomes"},
-    {"title": "Week 6: Refinement Phase", "description": "Comprehensive description of week 6 activities, goals, and expected outcomes"},
-    {"title": "Week 7: Expansion Phase", "description": "Comprehensive description of week 7 activities, goals, and expected outcomes"},
-    {"title": "Week 8: Consolidation Phase", "description": "Comprehensive description of week 8 activities, goals, and expected outcomes"},
-    {"title": "Week 9: Innovation Phase", "description": "Comprehensive description of week 9 activities, goals, and expected outcomes"},
-    {"title": "Week 10: Mastery Phase", "description": "Comprehensive description of week 10 activities, goals, and expected outcomes"},
-    {"title": "Week 11: Excellence Phase", "description": "Comprehensive description of week 11 activities, goals, and expected outcomes"},
-    {"title": "Week 12: Achievement Phase", "description": "Comprehensive description of week 12 activities, goals, and expected outcomes"}
+    {"title": "Week 1: Foundation Phase", "description": "Build core foundations and establish momentum. Focus on fundamentals, set up systems, create baseline measurements. Practice basic techniques daily, develop consistency, and build confidence through small wins."},
+    {"title": "Week 2: Development Phase", "description": "Expand skills and deepen understanding. Increase complexity gradually, introduce new challenges, track progress metrics. Apply learnings in practical situations and refine techniques based on feedback."},
+    {"title": "Week 3: Mastery Phase", "description": "Integrate all elements and achieve proficiency. Demonstrate consistent results, handle complex scenarios, maintain sustainable habits. Celebrate achievements and prepare for continued growth."}
   ],
   "deliverables": {
     "overview": {
@@ -607,9 +604,10 @@ FOCUS ON:
 - Creating comprehensive, actionable plan outline
 - Ensuring each week has clear value and purpose
 - Making weeks progressive and interconnected
-- Providing detailed, specific descriptions
+- Keeping descriptions CONCISE (8-10 lines maximum per week)
 - Using professional, descriptive titles
-- Maintaining consistent quality throughout`;
+- Maintaining consistent quality throughout
+- Being clear and focused, not verbose`;
 
   const totalWeeks = Math.ceil(planDurationDays / 7);
 
@@ -640,6 +638,11 @@ CRITICAL REQUIREMENTS:
   - Specific learning objectives
   - Key activities and practices
   - Expected outcomes and progress markers
+  
+✓ Description Length:
+  - Keep each week description CONCISE
+  - Maximum 8-10 lines of text per week
+  - Cover key points clearly without being verbose
   
 ✓ Progressive Structure:
   - Week 1: Foundation (build momentum, establish basics)

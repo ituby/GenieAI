@@ -310,8 +310,9 @@ export const DashboardScreen: React.FC = () => {
     // Check immediately
     checkForLoadingGoals();
 
-    // Set up polling every 3 seconds for loading goals
-    const interval = setInterval(checkForLoadingGoals, 3000);
+    // Set up polling every 5 seconds for loading goals
+    // This continues until all goals have tasks loaded
+    const interval = setInterval(checkForLoadingGoals, 5000);
 
     return () => clearInterval(interval);
   }, [user?.id, activeGoals, refreshGoal]);

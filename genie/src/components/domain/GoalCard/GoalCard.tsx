@@ -200,7 +200,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 <Animated.Text
                   style={[styles.loadingTextAnimated, { opacity: textOpacity }]}
                 >
-                  Genie is creating your plan...
+                  Creating your tasks...
                 </Animated.Text>
               </View>
             </View>
