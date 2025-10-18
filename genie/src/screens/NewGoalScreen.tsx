@@ -1917,35 +1917,39 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
             {/* Advanced Settings Modal */}
             {showAdvancedSettings && (
-              <SafeAreaView style={styles.modalOverlay}>
+              <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
-                  <View style={styles.modalHeader}>
-                    <TouchableOpacity
-                      style={styles.modalBackButton}
-                      onPress={() => setShowAdvancedSettings(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Icon
-                        name="caret-left"
-                        size={28}
-                        color="#FFFF68"
-                        weight="bold"
-                      />
-                    </TouchableOpacity>
-                    <Text
-                      variant="h3"
-                      color="primary"
-                      style={styles.modalTitle}
-                    >
-                      Advanced Settings
-                    </Text>
-                    <View style={{ width: 28 }} />
-                  </View>
+                  <SafeAreaView
+                    edges={['top']}
+                    style={{ backgroundColor: colors.background.primary }}
+                  >
+                    <View style={styles.modalHeader}>
+                      <TouchableOpacity
+                        style={styles.modalBackButton}
+                        onPress={() => setShowAdvancedSettings(false)}
+                        activeOpacity={0.8}
+                      >
+                        <Icon
+                          name="caret-left"
+                          size={28}
+                          color="#FFFF68"
+                          weight="bold"
+                        />
+                      </TouchableOpacity>
+                      <Text
+                        variant="h3"
+                        color="primary"
+                        style={styles.modalTitle}
+                      >
+                        Advanced Settings
+                      </Text>
+                      <View style={{ width: 28 }} />
+                    </View>
+                  </SafeAreaView>
 
                   <ScrollView
                     style={styles.modalContent}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 100 }}
                   >
                     {/* Plan Duration */}
                     <View style={styles.section}>
@@ -2406,36 +2410,41 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   </ScrollView>
 
                   {/* Modal Buttons */}
-                  <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={styles.modalCancelButton}
-                      onPress={() => setShowAdvancedSettings(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        variant="body"
-                        color="primary"
-                        style={styles.modalCancelButtonText}
+                  <SafeAreaView
+                    edges={['bottom']}
+                    style={{ backgroundColor: colors.background.primary }}
+                  >
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={styles.modalCancelButton}
+                        onPress={() => setShowAdvancedSettings(false)}
+                        activeOpacity={0.8}
                       >
-                        Cancel
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.modalSaveButton}
-                      onPress={() => setShowAdvancedSettings(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        variant="body"
-                        color="primary"
-                        style={styles.modalSaveButtonText}
+                        <Text
+                          variant="body"
+                          color="primary"
+                          style={styles.modalCancelButtonText}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.modalSaveButton}
+                        onPress={() => setShowAdvancedSettings(false)}
+                        activeOpacity={0.8}
                       >
-                        Save
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                        <Text
+                          variant="body"
+                          color="primary"
+                          style={styles.modalSaveButtonText}
+                        >
+                          Save
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </SafeAreaView>
                 </View>
-              </SafeAreaView>
+              </View>
             )}
 
             {/* Navigation Buttons */}
@@ -2754,13 +2763,13 @@ const styles = StyleSheet.create({
   },
   // New styles for plan customization
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
-    marginBottom: 6,
+    marginBottom: 8,
   },
   sectionSubtitle: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   fieldSpacing: {
     marginBottom: 20,
@@ -3154,18 +3163,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.background.primary,
   },
   modalTitle: {
     fontWeight: '700',
+    fontSize: 18,
     flex: 1,
     textAlign: 'center',
   },
   modalBackButton: {
-    padding: 4,
+    padding: 8,
+    marginLeft: -8,
   },
   modalCloseButton: {
     padding: 4,
@@ -3174,24 +3187,25 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 8,
   },
   modalButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 0,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.background.primary,
   },
   modalCancelButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   modalCancelButtonText: {
     fontWeight: '600',
