@@ -9,7 +9,8 @@ const corsHeaders = {
 
 interface SendOtpRequest {
   email: string;
-  password: string;
+  password?: string;
+  phone?: string;
   type?: 'sms' | 'whatsapp';
 }
 
@@ -97,12 +98,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { email, password, type = 'sms' }: SendOtpRequest = await req.json();
+    const { email, password, phone, type = 'sms' }: SendOtpRequest = await req.json();
 
-    if (!email || !password) {
+    if (!email) {
       return new Response(
         JSON.stringify({
-          error: 'Email and password are required',
+          error: 'Email is required',
           requestId,
         }),
         {
@@ -112,62 +113,204 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📱 [${requestId}] Validating credentials for: ${email}`);
+    let userId: string;
+    let phoneNumber: string;
 
-    // Step 1: Validate email and password
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    if (password) {
+      // Existing user login - validate credentials
+      console.log(`📱 [${requestId}] Validating credentials for existing user: ${email}`);
+      
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    if (authError || !authData.user) {
-      console.error(`❌ [${requestId}] Invalid credentials:`, authError);
+      if (authError || !authData.user) {
+        console.error(`❌ [${requestId}] Invalid credentials:`, authError);
+        return new Response(
+          JSON.stringify({
+            error: 'Invalid email or password',
+            requestId,
+          }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      userId = authData.user.id;
+      console.log(`✅ [${requestId}] Credentials validated for user: ${userId}`);
+
+      // Get user's phone number from the database
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('phone_number')
+        .eq('id', userId)
+        .single();
+
+      if (userError || !userData?.phone_number) {
+        console.error(`❌ [${requestId}] Phone number not found:`, userError);
+        return new Response(
+          JSON.stringify({
+            error:
+              'Phone number not found in system. Please update your profile.',
+            requestId,
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      phoneNumber = userData.phone_number;
+    } else if (phone) {
+      // New user registration - use provided phone number
+      console.log(`📱 [${requestId}] New user registration with phone: ${phone}`);
+      
+      // First check if user exists in public.users
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (userError || !userData) {
+        // User doesn't exist in public.users, check if they exist in auth.users
+        console.log(`📱 [${requestId}] User not found in public.users, checking auth.users...`);
+        
+        // Try to get user from auth.users
+        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+        
+        if (authError) {
+          console.error(`❌ [${requestId}] Error checking auth users:`, authError);
+          return new Response(
+            JSON.stringify({
+              error: 'Failed to verify user. Please try again.',
+              requestId,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        const authUser = authUsers.users.find(u => u.email === email);
+        
+        if (!authUser) {
+          console.error(`❌ [${requestId}] User not found in auth.users either`);
+          return new Response(
+            JSON.stringify({
+              error: 'User not found. Please complete registration first.',
+              requestId,
+            }),
+            {
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        // User exists in auth but not in public.users - create them
+        console.log(`📱 [${requestId}] Creating user in public.users...`);
+        const { data: newUserData, error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: authUser.email,
+            full_name: authUser.user_metadata?.full_name || '',
+            phone_number: phone,
+            phone_verified: false
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error(`❌ [${requestId}] Error creating user:`, createError);
+          return new Response(
+            JSON.stringify({
+              error: 'Failed to create user profile. Please try again.',
+              requestId,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        userId = newUserData.id;
+        phoneNumber = phone;
+      } else {
+        // User exists in public.users - check if they have a phone number
+        const { data: fullUserData, error: fullUserError } = await supabase
+          .from('users')
+          .select('id, phone_number')
+          .eq('email', email)
+          .single();
+
+        if (fullUserError || !fullUserData) {
+          console.error(`❌ [${requestId}] Error getting user data:`, fullUserError);
+          return new Response(
+            JSON.stringify({
+              error: 'Failed to get user data. Please try again.',
+              requestId,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        // If user has no phone number, update it
+        if (!fullUserData.phone_number) {
+          console.log(`📱 [${requestId}] User has no phone number, updating with: ${phone}`);
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ phone_number: phone })
+            .eq('id', fullUserData.id);
+
+          if (updateError) {
+            console.error(`❌ [${requestId}] Error updating phone number:`, updateError);
+            return new Response(
+              JSON.stringify({
+                error: 'Failed to update phone number. Please try again.',
+                requestId,
+              }),
+              {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              }
+            );
+          }
+        }
+
+        userId = fullUserData.id;
+        phoneNumber = phone;
+      }
+    } else {
       return new Response(
         JSON.stringify({
-          error: 'Invalid email or password',
+          error: 'Either password (for existing users) or phone (for new users) is required',
           requestId,
         }),
         {
-          status: 401,
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
-
-    const userId = authData.user.id;
-    console.log(`✅ [${requestId}] Credentials validated for user: ${userId}`);
-
-    // Step 2: Get user's phone number from the database
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('phone_number')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !userData?.phone_number) {
-      console.error(`❌ [${requestId}] Phone number not found:`, userError);
-      return new Response(
-        JSON.stringify({
-          error:
-            'Phone number not found in system. Please update your profile.',
-          requestId,
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const phone = userData.phone_number;
     console.log(
-      `📱 [${requestId}] Found phone number for user, sending OTP...`
+      `📱 [${requestId}] Using phone number: ${phoneNumber}, sending OTP...`
     );
 
     // Validate phone number format (basic validation)
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(phone)) {
+    if (!phoneRegex.test(phoneNumber)) {
       return new Response(
         JSON.stringify({
           error:
@@ -187,7 +330,7 @@ serve(async (req) => {
 
     console.log(`🔐 [${requestId}] Generated OTP for user: ${userId}`);
     console.log(`🔐 [${requestId}] OTP code: ${otp}`);
-    console.log(`🔐 [${requestId}] Phone number: ${phone}`);
+    console.log(`🔐 [${requestId}] Phone number: ${phoneNumber}`);
     console.log(`🔐 [${requestId}] Expires at: ${expiresAt.toISOString()}`);
 
     // Step 4: Save OTP to database
@@ -195,7 +338,7 @@ serve(async (req) => {
       .from('otp_verifications')
       .insert({
         user_id: userId,
-        phone_number: phone,
+        phone_number: phoneNumber,
         otp_code: otp,
         expires_at: expiresAt.toISOString(),
         verified: false,
@@ -227,7 +370,7 @@ serve(async (req) => {
     );
 
     // Step 5: Send SMS via Twilio
-    const smsResult = await sendSMSViaTwilio(phone, otp);
+    const smsResult = await sendSMSViaTwilio(phoneNumber, otp);
 
     if (!smsResult.success) {
       console.error(`❌ [${requestId}] Error sending SMS:`, smsResult.error);
@@ -243,13 +386,13 @@ serve(async (req) => {
       );
     }
 
-    console.log(`✅ [${requestId}] OTP sent successfully to ${phone}`);
+    console.log(`✅ [${requestId}] OTP sent successfully to ${phoneNumber}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'OTP sent successfully',
-        phone: phone, // Return full phone number for verification
+        phone: phoneNumber, // Return full phone number for verification
         requestId,
       }),
       {

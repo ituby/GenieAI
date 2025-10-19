@@ -5,7 +5,7 @@ import { Button, TextField, Text, Card } from '../../../components';
 import { useTheme } from '../../../theme/index';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { colors } from '../../../theme/colors';
-import { OtpVerificationScreen } from '../../../screens/OtpVerificationScreen';
+import { PhoneOtpVerification } from '../../../components';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -14,7 +14,7 @@ interface AuthFormProps {
 
 export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
   const theme = useTheme();
-  const { signIn, signUp, signUpWithPhone, sendOtpToUserPhone, loading } =
+  const { signIn, signUp, signUpWithPhone, sendOtpToUserPhone, verifyOtp, verifyOtpForNewUser, loading } =
     useAuthStore();
 
   const [showOtpScreen, setShowOtpScreen] = useState(false);
@@ -22,6 +22,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
   const [pendingAuth, setPendingAuth] = useState<{
     email: string;
     password: string;
+    isNewUser?: boolean;
   } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -86,6 +87,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         setPendingAuth({
           email: formData.email,
           password: formData.password,
+          isNewUser: false,
         });
 
         setPhoneNumber(phone);
@@ -103,6 +105,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         setPendingAuth({
           email: formData.email,
           password: formData.password,
+          isNewUser: true,
         });
 
         setPhoneNumber(phone);
@@ -113,11 +116,19 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     }
   };
 
-  const handleOtpVerified = async () => {
+  const handleOtpVerified = async (otpToken: string) => {
     // אחרי אימות OTP מוצלח, התחבר עם האימייל והסיסמה
     if (pendingAuth) {
       try {
-        await signIn(pendingAuth.email, pendingAuth.password);
+        if (pendingAuth.isNewUser) {
+          // For new users, verify OTP first, then sign in
+          await verifyOtpForNewUser(phoneNumber, otpToken);
+          await signIn(pendingAuth.email, pendingAuth.password);
+        } else {
+          // For existing users, just verify OTP
+          await verifyOtp(phoneNumber, otpToken);
+          await signIn(pendingAuth.email, pendingAuth.password);
+        }
         setShowOtpScreen(false);
         setPendingAuth(null);
       } catch (error: any) {
@@ -149,10 +160,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
   // Show OTP verification screen if needed
   if (showOtpScreen) {
     return (
-      <OtpVerificationScreen
+      <PhoneOtpVerification
         phone={phoneNumber}
         onVerified={handleOtpVerified}
         onResend={handleResendOtp}
+        loading={loading}
       />
     );
   }
@@ -204,7 +216,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
           onChangeText={(value) => updateField('password', value)}
           error={errors.password}
           secureTextEntry
-          textContentType="password"
         />
 
         {mode === 'register' && (
@@ -214,7 +225,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
             onChangeText={(value) => updateField('confirmPassword', value)}
             error={errors.confirmPassword}
             secureTextEntry
-            textContentType="password"
           />
         )}
 

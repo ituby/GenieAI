@@ -53,8 +53,10 @@ serve(async (req) => {
     }
 
     console.log(
-      `🔐 [${requestId}] Verifying OTP for phone: ${phone}, code: ${otp}`
+      `🔐 [${requestId}] Verifying OTP for phone: "${phone}", code: "${otp}"`
     );
+    console.log(`🔐 [${requestId}] Phone length: ${phone.length}`);
+    console.log(`🔐 [${requestId}] OTP length: ${otp.length}`);
     console.log(`🔐 [${requestId}] Current time: ${new Date().toISOString()}`);
 
     // First, check if there are any OTP records for this phone
@@ -88,6 +90,9 @@ serve(async (req) => {
     }
 
     // Find the most recent valid OTP for this phone number
+    console.log(`🔍 [${requestId}] Searching for OTP with phone: "${phone}" and code: "${otp}"`);
+    console.log(`🔍 [${requestId}] Search conditions: verified=false, expires_at > ${new Date().toISOString()}`);
+    
     const { data: otpRecord, error: otpError } = await supabase
       .from('otp_verifications')
       .select('*')
@@ -103,6 +108,13 @@ serve(async (req) => {
       console.error(
         `❌ [${requestId}] Invalid or expired OTP. Error:`,
         otpError
+      );
+      console.error(
+        `❌ [${requestId}] Search failed for phone: "${phone}" and code: "${otp}"`
+      );
+      console.error(
+        `❌ [${requestId}] Error details:`,
+        JSON.stringify(otpError, null, 2)
       );
       return new Response(
         JSON.stringify({

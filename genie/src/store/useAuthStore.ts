@@ -29,6 +29,7 @@ interface AuthState {
   ) => Promise<string>;
   sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
   verifyOtp: (phone: string, token: string) => Promise<void>;
+  verifyOtpForNewUser: (phone: string, token: string) => Promise<void>;
   acceptTerms: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -139,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
               options: {
                 data: {
                   full_name: fullName,
+                  phone_number: phone,
                 },
               },
             });
@@ -149,24 +151,23 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Failed to create user account');
           }
 
-          // Save phone number to users table
-          const { error: userError } = await supabase.from('users').insert({
-            id: authData.user.id,
-            email: email,
-            full_name: fullName,
-            phone_number: phone,
-          });
+          // The user record is automatically created by the trigger
+          // We just need to update the phone number if it wasn't set
+          const { error: userError } = await supabase
+            .from('users')
+            .update({ phone_number: phone })
+            .eq('id', authData.user.id);
 
           if (userError) {
-            console.error('❌ Failed to save user data:', userError);
+            console.error('❌ Failed to update user phone:', userError);
             throw new Error('Failed to save user profile');
           }
 
           console.log('✅ User created with phone number');
 
-          // Send OTP to the phone number
+          // Send OTP to the phone number using the new user's email and phone
           const response = await supabase.functions.invoke('send-otp-sms', {
-            body: { email, password },
+            body: { email, phone, type: 'sms' },
           });
 
           if (response.error) {
@@ -314,6 +315,53 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: false });
         } catch (error: any) {
           console.error('❌ Verify OTP caught error:', error);
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      verifyOtpForNewUser: async (phone: string, token: string) => {
+        set({ loading: true });
+        try {
+          console.log('📱 Verifying OTP for new user:', phone);
+
+          const response = await supabase.functions.invoke('verify-otp', {
+            body: { phone, otp: token },
+          });
+
+          if (response.error) {
+            console.error('❌ Verify OTP error:', response.error);
+            throw new Error(response.error.message || 'Failed to verify OTP');
+          }
+
+          const data = response.data;
+
+          if (data?.error) {
+            console.error('❌ Function returned error:', data.error);
+            throw new Error(data.error);
+          }
+
+          if (!data?.success) {
+            console.error('❌ Verification failed, data:', data);
+            throw new Error('OTP verification failed');
+          }
+
+          console.log('✅ OTP verified successfully for new user:', data.userId);
+          
+          // Mark user as phone verified in the database
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ phone_verified: true })
+            .eq('id', data.userId);
+
+          if (updateError) {
+            console.error('❌ Failed to mark phone as verified:', updateError);
+            throw new Error('Failed to complete phone verification');
+          }
+
+          set({ loading: false });
+        } catch (error: any) {
+          console.error('❌ Verify OTP for new user error:', error);
           set({ loading: false });
           throw error;
         }
