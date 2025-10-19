@@ -2261,7 +2261,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60, // Increased safe area padding
     paddingBottom: 10, // Added padding below header
-    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Less transparent
+    backgroundColor: 'rgba(26, 28, 36, 0.8)', // Dark blue instead of black, matching background color
     minHeight: 110, // Increased minimum height
     overflow: 'hidden',
   },
