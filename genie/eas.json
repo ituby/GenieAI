@@ -37,7 +37,8 @@
     "production": {
       "ios": {
         "appleId": "ituby@icloud.com",
-        "appleTeamId": "NBCWD9X4G4"
+        "appleTeamId": "NBCWD9X4G4",
+        "ascAppId": "6740050769"
       }
     }
   }

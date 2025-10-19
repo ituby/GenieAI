@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.ituby.genie.ai",
+      "package": "com.ituby.genie.ai"
     },
     "web": {
       "favicon": "./assets/favicon.png"
