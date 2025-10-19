@@ -31,38 +31,45 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     const checkForAccessToken = async () => {
       try {
         const url = await Linking.getInitialURL();
-        if (url && url.includes('access_token')) {
-          console.log('🔐 Access token found in URL, verifying token...');
+        console.log('🔗 PasswordResetScreen checking URL:', url);
+        
+        if (url && (url.includes('access_token') || url.includes('reset-password'))) {
+          console.log('🔐 Password reset URL found, processing...');
           
-          // Extract token from URL
-          const tokenMatch = url.match(/access_token=([^&]+)/);
-          if (tokenMatch && tokenMatch[1]) {
-            const token = tokenMatch[1];
-            
-            // Verify the token is valid
-            const isValidToken = await verifyPasswordResetToken(token);
-            
-            if (isValidToken) {
-              console.log('✅ Token is valid, switching to password step');
-              
-              // Try to extract email from the URL if possible
-              try {
-                const parsedUrl = Linking.parse(url);
-                if (parsedUrl.queryParams && parsedUrl.queryParams.email) {
-                  setEmail(parsedUrl.queryParams.email as string);
-                }
-              } catch (parseError) {
-                console.log('Could not parse email from URL');
-              }
-              
-              setStep('password');
-            } else {
-              console.log('❌ Token is invalid, staying on email step');
-              showAlert(
-                'Invalid or expired reset link. Please request a new password reset.',
-                'Invalid Link'
-              );
+          // Try to extract email from the URL first
+          try {
+            const parsedUrl = Linking.parse(url);
+            if (parsedUrl.queryParams && parsedUrl.queryParams.email) {
+              setEmail(parsedUrl.queryParams.email as string);
+              console.log('📧 Email extracted from URL:', parsedUrl.queryParams.email);
             }
+          } catch (parseError) {
+            console.log('Could not parse email from URL');
+          }
+          
+          // If there's an access token, verify it
+          if (url.includes('access_token')) {
+            const tokenMatch = url.match(/access_token=([^&]+)/);
+            if (tokenMatch && tokenMatch[1]) {
+              const token = tokenMatch[1];
+              
+              // Verify the token is valid
+              const isValidToken = await verifyPasswordResetToken(token);
+              
+              if (isValidToken) {
+                console.log('✅ Token is valid, switching to password step');
+                setStep('password');
+              } else {
+                console.log('❌ Token is invalid, staying on email step');
+                showAlert(
+                  'Invalid or expired reset link. Please request a new password reset.',
+                  'Invalid Link'
+                );
+              }
+            }
+          } else {
+            // No access token, but it's a reset-password URL, so show the screen
+            console.log('🔐 Reset password URL without token, showing screen');
           }
         }
       } catch (error) {
@@ -167,7 +174,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
           <Text variant="caption" color="tertiary" style={styles.setupHint}>
             {__DEV__ 
               ? 'Development mode: Email verification will be skipped automatically. In production, you must click the email link to proceed.'
-              : 'Note: If the email link doesn\'t work, make sure the redirect URL is configured in Supabase Dashboard.'
+              : 'Note: Make sure these URLs are configured in Supabase Dashboard > Authentication > URL Configuration:\n• genie://reset-password/\n• genie://reset-password/?email=*'
             }
           </Text>
         )}

@@ -83,7 +83,7 @@ export default function App() {
       
       // Handle password reset deep links
       if (url.includes('reset-password') || url.includes('access_token')) {
-        console.log('🔐 Password reset deep link detected');
+        console.log('🔐 Password reset deep link detected:', url);
         
         // In development mode, always show password reset screen
         if (__DEV__) {
@@ -115,6 +115,7 @@ export default function App() {
           }
         } else {
           // For reset-password deep links without token, show the screen
+          console.log('🔐 Opening password reset screen (no token verification needed)');
           setShowPasswordReset(true);
         }
       }

@@ -472,7 +472,7 @@ export const useAuthStore = create<AuthState>()(
           console.log('🔐 Sending password reset email to:', email);
 
           const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: 'genie://reset-password',
+            redirectTo: 'genie://reset-password/?email=' + encodeURIComponent(email),
           });
 
           if (error) throw error;
