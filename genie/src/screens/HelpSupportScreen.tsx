@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(26, 28, 36, 0.8)', // Dark blue instead of black
   },
   headerLeft: {
     flex: 1,

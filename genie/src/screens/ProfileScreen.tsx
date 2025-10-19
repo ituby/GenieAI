@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Modal,
   View,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  RefreshControl,
-  Modal,
+  StyleSheet,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useTheme } from '../theme/index';
 import { Text } from '../components/primitives/Text';
@@ -50,6 +50,23 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     timezone: '',
     language: '',
   });
+  const [slideAnimation] = useState(new Animated.Value(300));
+  const [fadeAnimation] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     if (user?.id) {
@@ -245,7 +262,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       animationType="slide"
       presentationStyle="fullScreen"
     >
-      <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+      <Animated.View style={[styles.container, { backgroundColor: theme.colors.background.primary, transform: [{ translateY: slideAnimation }], opacity: fadeAnimation }]}>
         {/* Absolute Header */}
         <View style={styles.absoluteHeader}>
         <View style={styles.headerLeft}>
@@ -395,7 +412,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 };
@@ -403,15 +420,16 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 20,
+    paddingTop: 60, // Increased top safe area padding
   },
   scrollView: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: 80, // Space for header
   },
   scrollContent: {
-    paddingTop: 30,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   absoluteHeader: {
     position: 'absolute',
@@ -422,9 +440,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingTop: 60,
+    paddingBottom: 10,
+    backgroundColor: 'rgba(26, 28, 36, 0.8)', // Dark blue instead of black, matching background
+    minHeight: 110,
+    overflow: 'hidden',
   },
   headerLeft: {
     flex: 1,
