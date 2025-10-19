@@ -164,12 +164,12 @@ export default function App() {
     checkOtpStatus();
   }, [isAuthenticated, user?.email, checkPendingOtp]);
 
-  // Reset splash screen when user becomes authenticated and no pending OTP
+  // Reset splash screen when user becomes authenticated
   useEffect(() => {
-    if (isAuthenticated && !needsTermsAcceptance && hasPendingOtp === false) {
+    if (isAuthenticated && !needsTermsAcceptance) {
       setShowSplash(true);
     }
-  }, [isAuthenticated, needsTermsAcceptance, hasPendingOtp]);
+  }, [isAuthenticated, needsTermsAcceptance]);
 
   const handleOnboardingComplete = async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
@@ -282,9 +282,10 @@ export default function App() {
     );
   }
 
-  // Show login screen if authenticated but has pending OTP (user needs to complete phone verification)
-  if (isAuthenticated && hasPendingOtp === true) {
-    console.log('🔄 User authenticated but has pending OTP - showing login screen');
+  // Show login screen if user has pending REGISTRATION OTP (phone not verified yet)
+  // This ensures new users complete phone verification before accessing dashboard
+  if (hasPendingOtp === true) {
+    console.log('📱 User has pending REGISTRATION OTP - must verify phone first');
     return (
       <SafeAreaProvider>
         <ThemeProvider>

@@ -9,6 +9,7 @@ export * from './primitives/Badge';
 export * from './primitives/Dropdown';
 export * from './primitives/FloatingBottomNav/FloatingBottomNav';
 export * from './primitives/Popup/Popup';
+export * from './primitives/PasswordStrengthMeter';
 
 // Complex components (to be added)
 // export * from './complex/HeaderBar';

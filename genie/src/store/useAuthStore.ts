@@ -32,8 +32,8 @@ interface AuthState {
     phone: string
   ) => Promise<string>;
   sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
-  verifyOtp: (phone: string, token: string) => Promise<void>;
-  verifyOtpForNewUser: (phone: string, token: string) => Promise<void>;
+  verifyOtp: (phone: string, token: string, email?: string) => Promise<void>;
+  verifyOtpForNewUser: (phone: string, token: string, email?: string) => Promise<void>;
   checkPendingOtp: (email: string) => Promise<boolean>;
   acceptTerms: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -69,10 +69,6 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           console.log('🔐 Attempting login with:', email);
-          console.log(
-            '🔗 Supabase URL:',
-            Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL
-          );
 
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -84,14 +80,62 @@ export const useAuthStore = create<AuthState>()(
             throw error;
           }
 
-          console.log('✅ Login successful:', data.user?.email);
-          console.log('🔍 User data:', data.user);
-          console.log('🔍 User metadata:', data.user?.user_metadata);
-          console.log('🔍 Terms accepted:', data.user?.user_metadata?.terms_accepted);
+          if (!data.user) {
+            throw new Error('Login failed - no user data received');
+          }
 
+          // Check user's phone status
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('phone_verified, phone_number')
+            .eq('id', data.user.id)
+            .single();
+
+          console.log('🔍 User data from DB:', userData);
+
+          if (userError) {
+            console.error('❌ Failed to check user verification status:', userError);
+            // Don't block login, just proceed
+          }
+
+          const hasPhoneNumber = userData && userData.phone_number;
+          const phoneVerified = userData && userData.phone_verified;
           const needsTerms = !data.user?.user_metadata?.terms_accepted;
-          console.log('🔍 Needs terms acceptance:', needsTerms);
 
+          console.log('✅ Login successful:', data.user.email);
+          console.log('🔍 Phone number:', userData?.phone_number);
+          console.log('🔍 Phone verified:', phoneVerified);
+          console.log('🔍 Needs terms:', needsTerms);
+
+          // If user has phone but NOT verified → REGISTRATION OTP required
+          if (hasPhoneNumber && !phoneVerified) {
+            console.log('🚫 REGISTRATION OTP required - phone not verified!');
+            // Keep session for Edge Function to use
+            set({ 
+              loading: false,
+              user: data.user,
+              session: data.session,
+              isAuthenticated: false // Not authenticated until OTP verified
+            });
+            throw new Error('PHONE_VERIFICATION_REQUIRED');
+          }
+
+          // If user has phone AND verified → LOGIN OTP required (2FA)
+          if (hasPhoneNumber && phoneVerified) {
+            console.log('🚫 LOGIN OTP required - 2FA enabled!');
+            // Keep session for Edge Function to use
+            set({ 
+              loading: false,
+              user: data.user,
+              session: data.session,
+              isAuthenticated: false // Not authenticated until OTP verified
+            });
+            throw new Error('PHONE_VERIFICATION_REQUIRED');
+          }
+
+          console.log('✅ No phone number - allowing direct login');
+
+          // Only allow login without OTP if user has no phone number
           set({
             user: data.user,
             session: data.session,
@@ -100,7 +144,6 @@ export const useAuthStore = create<AuthState>()(
             needsTermsAcceptance: needsTerms,
           });
 
-          console.log('🔍 User set in store:', data.user);
         } catch (error) {
           set({ loading: false });
           throw error;
@@ -143,76 +186,78 @@ export const useAuthStore = create<AuthState>()(
       ) => {
         set({ loading: true });
         try {
-          console.log('📱 Signing up with phone:', phone);
+          console.log('📱 Creating new user account:', email);
 
-          // Create user account without auto-confirming
+          // Create user account with email confirmation disabled
           const { data: authData, error: authError } =
             await supabase.auth.signUp({
               email,
               password,
+              phone, // Save phone directly in auth.users.phone field
               options: {
                 data: {
                   full_name: fullName,
                   phone_number: phone,
-                  terms_accepted: true, // Mark terms as accepted
+                  terms_accepted: true,
                   terms_accepted_at: new Date().toISOString(),
                 },
-                emailRedirectTo: undefined, // Don't send confirmation email
+                emailRedirectTo: undefined, // No email confirmation
               },
             });
 
-          if (authError) throw authError;
+          if (authError) {
+            console.error('❌ Auth signup error:', authError);
+            throw authError;
+          }
 
           if (!authData.user) {
             throw new Error('Failed to create user account');
           }
 
-          // Sign out immediately after sign up to prevent auto-login
-          await supabase.auth.signOut();
+          console.log('✅ User created successfully:', authData.user.id);
 
-          // The user record is automatically created by the trigger
-          // We just need to update the phone number if it wasn't set
-          const { error: userError } = await supabase
-            .from('users')
-            .update({ phone_number: phone })
-            .eq('id', authData.user.id);
+          // Wait a moment for the trigger to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Keep user signed in - don't sign out after registration
+          console.log('✅ User staying signed in for OTP verification');
 
-          if (userError) {
-            console.error('❌ Failed to update user phone:', userError);
-            throw new Error('Failed to save user profile');
-          }
-
-          console.log('✅ User created with phone number');
-
-          // Send OTP to the phone number using the new user's email and phone
-          const response = await supabase.functions.invoke('send-otp-registration', {
-            body: { email, phone },
+          // Send REGISTRATION OTP using unified function
+          const response = await supabase.functions.invoke('manage-otp', {
+            body: { 
+              action: 'send',
+              email,
+              phone
+            },
           });
 
           if (response.error) {
             console.error('❌ Send OTP error:', response.error);
-            throw new Error(response.error.message || 'Failed to send OTP');
+            throw new Error(response.error.message || 'Failed to send verification code');
           }
 
           const data = response.data;
-          if (data?.error) {
-            throw new Error(data.error);
+          
+          if (!data?.success) {
+            throw new Error(data?.error || 'Failed to send verification code');
           }
 
-          if (!data?.phone) {
-            throw new Error('Phone number not found in system');
-          }
-
-          console.log('✅ OTP sent successfully to:', data.phone);
+          console.log(`✅ ${data.type} OTP sent to:`, data.phone);
+          console.log(`⏰ Code expires in ${data.expiresIn} seconds`);
+          
+          // Don't mark as authenticated yet - wait for OTP verification
+          // But keep user and session for after OTP is verified
           set({
             loading: false,
-            isAuthenticated: false, // User is not authenticated until OTP is verified
-            needsTermsAcceptance: false, // Don't show terms screen yet
+            user: authData.user,
+            session: authData.session,
+            isAuthenticated: false,
+            needsTermsAcceptance: false,
           });
 
           return data.phone;
         } catch (error: any) {
-          console.error('❌ Sign up with phone error:', error);
+          console.error('❌ Registration failed:', error);
           set({ loading: false });
           throw error;
         }
@@ -221,52 +266,36 @@ export const useAuthStore = create<AuthState>()(
       sendOtpToUserPhone: async (email: string, password: string) => {
         set({ loading: true });
         try {
-          console.log('📱 Sending OTP to user phone for:', email);
+          console.log('📱 Sending OTP to user:', email);
 
-          // Call our Edge Function to validate credentials and send OTP
-          const response = await supabase.functions.invoke('send-otp-sms', {
-            body: { email, password },
+          // Use unified OTP function (no need to send password - already validated)
+          const response = await supabase.functions.invoke('manage-otp', {
+            body: { 
+              action: 'send',
+              email
+              // Password not needed - signIn already validated credentials
+            },
           });
-
-          console.log(
-            '📱 Function response:',
-            JSON.stringify(response, null, 2)
-          );
 
           if (response.error) {
             console.error('❌ Send OTP error:', response.error);
-
-            // Try to get more details from the response
-            if (response.error.context?._bodyInit) {
-              try {
-                const bodyText = await new Response(
-                  response.error.context._bodyBlob
-                ).text();
-                console.error('❌ Response body:', bodyText);
-                const bodyJson = JSON.parse(bodyText);
-                throw new Error(bodyJson.error || 'Failed to send OTP');
-              } catch (parseError) {
-                console.error('❌ Could not parse error body:', parseError);
-              }
-            }
-
             throw new Error(response.error.message || 'Failed to send OTP');
           }
 
           const data = response.data;
-
-          if (data?.error) {
-            console.error('❌ Function returned error:', data.error);
-            throw new Error(data.error);
+          
+          if (!data?.success) {
+            throw new Error(data?.error || 'Failed to send OTP');
           }
 
-          if (!data?.phone) {
-            console.error('❌ No phone in response:', data);
-            throw new Error('Phone number not found in system');
-          }
-
-          console.log('✅ OTP sent successfully to:', data.phone);
-          set({ loading: false });
+          console.log(`✅ OTP sent successfully - Type: ${data.type}`);
+          
+          // Don't mark as authenticated - user must verify OTP first
+          // Keep user and session for Edge Function use
+          set({ 
+            loading: false,
+            isAuthenticated: false
+          });
 
           return data.phone;
         } catch (error: any) {
@@ -276,63 +305,53 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      verifyOtp: async (phone: string, token: string) => {
+      verifyOtp: async (phone: string, token: string, email?: string) => {
         set({ loading: true });
         try {
           console.log('📱 Verifying OTP for:', phone);
-          console.log('📱 Phone type:', typeof phone, 'length:', phone?.length);
-          console.log('📱 Token:', token);
-          console.log('📱 Token type:', typeof token, 'length:', token?.length);
-          console.log('📱 Token as string:', String(token));
-
-          const response = await supabase.functions.invoke('verify-otp', {
-            body: { phone, otp: token },
+          
+          // Get email from parameter or current user
+          const userEmail = email || get().user?.email;
+          if (!userEmail) {
+            throw new Error('Email is required for OTP verification');
+          }
+          // Use unified OTP function
+          const response = await supabase.functions.invoke('manage-otp', {
+            body: { 
+              action: 'verify',
+              email: userEmail,
+              phone,
+              otp: token
+            },
           });
-
-          console.log('📱 Response status:', response.error?.context?.status);
-          console.log('📱 Full response:', JSON.stringify(response, null, 2));
 
           if (response.error) {
             console.error('❌ Verify OTP error:', response.error);
-
-            // Try to extract the actual error message from the response
-            if (response.error.context?._bodyBlob) {
-              try {
-                const bodyText = await new Response(
-                  response.error.context._bodyBlob
-                ).text();
-                console.error('❌ Error body text:', bodyText);
-                try {
-                  const bodyJson = JSON.parse(bodyText);
-                  console.error('❌ Error details:', bodyJson);
-                  throw new Error(
-                    bodyJson.error || bodyJson.message || 'Failed to verify OTP'
-                  );
-                } catch (parseErr) {
-                  throw new Error(bodyText || 'Failed to verify OTP');
-                }
-              } catch (readErr) {
-                console.error('❌ Could not read error body');
-              }
-            }
-
             throw new Error(response.error.message || 'Failed to verify OTP');
           }
 
           const data = response.data;
 
-          if (data?.error) {
-            console.error('❌ Function returned error:', data.error);
-            throw new Error(data.error);
-          }
-
           if (!data?.success) {
-            console.error('❌ Verification failed, data:', data);
-            throw new Error('OTP verification failed');
+            throw new Error(data?.error || 'OTP verification failed');
           }
 
-          console.log('✅ OTP verified successfully for user:', data.userId);
-          set({ loading: false });
+          console.log('✅ OTP verified successfully');
+          
+          // After successful OTP verification, sign in the user
+          // Re-authenticate with password (we should have it in context)
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            set({ 
+              loading: false,
+              user: session.user,
+              session: session,
+              isAuthenticated: true 
+            });
+            console.log('✅ User marked as authenticated after OTP verification');
+          } else {
+            set({ loading: false });
+          }
         } catch (error: any) {
           console.error('❌ Verify OTP caught error:', error);
           set({ loading: false });
@@ -340,13 +359,25 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      verifyOtpForNewUser: async (phone: string, token: string) => {
+      verifyOtpForNewUser: async (phone: string, token: string, email?: string) => {
         set({ loading: true });
         try {
-          console.log('📱 Verifying OTP for new user:', phone);
+          console.log('📱 Verifying REGISTRATION OTP:', phone);
+          
+          // Get email from parameter or current user
+          const userEmail = email || get().user?.email;
+          if (!userEmail) {
+            throw new Error('Email is required for OTP verification');
+          }
 
-          const response = await supabase.functions.invoke('verify-otp', {
-            body: { phone, otp: token },
+          // Use unified OTP function
+          const response = await supabase.functions.invoke('manage-otp', {
+            body: { 
+              action: 'verify',
+              email: userEmail,
+              phone,
+              otp: token
+            },
           });
 
           if (response.error) {
@@ -356,46 +387,27 @@ export const useAuthStore = create<AuthState>()(
 
           const data = response.data;
 
-          if (data?.error) {
-            console.error('❌ Function returned error:', data.error);
-            throw new Error(data.error);
-          }
-
           if (!data?.success) {
-            console.error('❌ Verification failed, data:', data);
-            throw new Error('OTP verification failed');
+            throw new Error(data?.error || 'OTP verification failed');
           }
 
-          console.log('✅ OTP verified successfully for new user:', data.userId);
+          console.log('✅ REGISTRATION OTP verified successfully');
           
-          // Mark user as phone verified in the database
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ phone_verified: true })
-            .eq('id', data.userId);
-
-          if (updateError) {
-            console.error('❌ Failed to mark phone as verified:', updateError);
-            throw new Error('Failed to complete phone verification');
+          // After successful registration OTP, get current session
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            set({ 
+              loading: false,
+              user: session.user,
+              session: session,
+              isAuthenticated: true 
+            });
+            console.log('✅ New user authenticated after phone verification');
+          } else {
+            set({ loading: false });
           }
-
-          // Also update the auth user metadata to mark terms as accepted
-          const { error: authUpdateError } = await supabase.auth.updateUser({
-            data: {
-              terms_accepted: true,
-              terms_accepted_at: new Date().toISOString(),
-            },
-          });
-
-          if (authUpdateError) {
-            console.error('❌ Failed to update auth user terms status:', authUpdateError);
-            // Don't throw error here, just log it
-          }
-
-          console.log('✅ Phone verification completed for new user');
-          set({ loading: false });
         } catch (error: any) {
-          console.error('❌ Verify OTP for new user error:', error);
+          console.error('❌ Verify registration OTP error:', error);
           set({ loading: false });
           throw error;
         }
@@ -405,10 +417,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔍 Checking for pending OTP for:', email);
 
-          // Get user ID from email
+          // Get user ID and phone verification status
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id')
+            .select('id, phone_verified')
             .eq('email', email)
             .single();
 
@@ -417,7 +429,14 @@ export const useAuthStore = create<AuthState>()(
             return false;
           }
 
-          // Check if there's a pending OTP for this user
+          // ONLY check for pending OTP if phone is NOT verified (registration OTP)
+          // If phone is verified, user can create new login OTPs
+          if (userData.phone_verified) {
+            console.log('✅ Phone already verified - no pending registration OTP');
+            return false;
+          }
+
+          // Check if there's a pending registration OTP for this user
           const { data: otpData, error: otpError } = await supabase
             .from('otp_verifications')
             .select('id, expires_at, verified')
@@ -432,10 +451,10 @@ export const useAuthStore = create<AuthState>()(
             return false;
           }
 
-          const hasPendingOtp = otpData && otpData.length > 0;
-          console.log('🔍 Pending OTP found:', hasPendingOtp);
+          const hasPendingRegistrationOtp = otpData && otpData.length > 0;
+          console.log('🔍 Pending REGISTRATION OTP found:', hasPendingRegistrationOtp);
           
-          return hasPendingOtp;
+          return hasPendingRegistrationOtp;
         } catch (error: any) {
           console.error('❌ Check pending OTP error:', error);
           return false;
@@ -752,14 +771,42 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Listen for auth changes
-          supabase.auth.onAuthStateChange((event, session) => {
+          supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('🔐 Auth state changed:', event, !!session?.user);
 
-            set({
-              user: session?.user || null,
-              session,
-              isAuthenticated: !!session?.user,
-            });
+            // If user signed in, check if they have pending OTP before marking as authenticated
+            if (session?.user) {
+              // Check for any pending OTP (registration or login)
+              const { data: pendingOtp } = await supabase
+                .from('otp_verifications')
+                .select('id, type')
+                .eq('user_id', session.user.id)
+                .eq('verified', false)
+                .gt('expires_at', new Date().toISOString())
+                .limit(1);
+
+              if (pendingOtp && pendingOtp.length > 0) {
+                console.log(`🔐 User has pending ${pendingOtp[0].type} OTP - NOT authenticated yet`);
+                set({
+                  user: session.user,
+                  session,
+                  isAuthenticated: false, // Not authenticated until OTP verified
+                });
+              } else {
+                console.log('🔐 No pending OTP - user is authenticated');
+                set({
+                  user: session.user,
+                  session,
+                  isAuthenticated: true,
+                });
+              }
+            } else {
+              set({
+                user: null,
+                session: null,
+                isAuthenticated: false,
+              });
+            }
           });
         } catch (error) {
           console.error('❌ Auth initialization error:', error);
