@@ -4,6 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase/client';
 import Constants from 'expo-constants';
+
+// Get Supabase URL and key
+const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL as string;
+const supabaseKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
 import { dataLoadingService } from '../services/dataLoadingService';
 
 interface AuthState {

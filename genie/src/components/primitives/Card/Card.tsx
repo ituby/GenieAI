@@ -37,6 +37,8 @@ export const Card: React.FC<CardProps> = ({
         borderColor: theme.colors.border.primary,
       },
       elevated: {
+        borderWidth: 2,
+        borderColor: '#FFFF68', // Yellow border
         shadowColor: theme.colors.primary[500],
         shadowOffset: {
           width: 0,

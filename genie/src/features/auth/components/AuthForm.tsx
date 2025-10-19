@@ -265,7 +265,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
   return (
     <Card variant="elevated" padding="lg" style={styles.container}>
       <View style={styles.header}>
-        <Text variant="h2" style={styles.title}>
+        <Text variant="h2" style={[styles.title, { color: '#FFFF68' }]}>
           {mode === 'login' ? 'Login' : 'Register'}
         </Text>
       </View>
@@ -346,7 +346,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
           onPress={handleSubmit}
           style={mode === 'register' ? styles.registerButton : undefined}
         >
-          {mode === 'login' ? 'Login' : 'Register'}
+          <Text style={{ color: mode === 'login' ? '#000000' : '#FFFF68' }}>
+            {mode === 'login' ? 'Login' : 'Register'}
+          </Text>
         </Button>
 
         {mode === 'login' && (
@@ -366,7 +368,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
             onPress={onToggleMode}
             style={styles.toggleButton}
           >
-            {mode === 'login' ? 'Register' : 'Login'}
+            <Text>
+              {mode === 'login' ? 'Register' : 'Login'}
+            </Text>
           </Button>
         </View>
       </View>

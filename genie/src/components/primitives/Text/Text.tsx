@@ -57,9 +57,13 @@ export const Text: React.FC<TextProps> = ({
       error: { color: theme.colors.status.error },
     };
 
+    // If style contains color, don't override with default color
+    const hasColorInStyle = style && typeof style === 'object' && 'color' in style;
+    const shouldApplyColor = !hasColorInStyle;
+
     return [
       variantStyle,
-      colorStyles[color],
+      shouldApplyColor ? colorStyles[color] : {},
       style,
     ];
   };

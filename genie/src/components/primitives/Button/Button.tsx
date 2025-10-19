@@ -126,7 +126,7 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const renderContent = () => (
-    <View style={[styles.content, rightIcon && styles.contentWithRightIcon]}>
+    <View style={[styles.content, rightIcon ? styles.contentWithRightIcon : null]}>
       {loading ? (
         <ActivityIndicator
           size="small"

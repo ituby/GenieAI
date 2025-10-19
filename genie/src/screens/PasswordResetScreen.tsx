@@ -86,7 +86,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     if (!email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = 'Please enter a valid email address';
     }
 
     setErrors(newErrors);
@@ -170,21 +170,9 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
             : 'You\'ve successfully verified your email. Please enter your new password below.'}
         </Text>
         
-        {step === 'email' && (
-          <Text variant="caption" color="tertiary" style={styles.setupHint}>
-            {__DEV__ 
-              ? 'Development mode: Email verification will be skipped automatically. In production, you must click the email link to proceed.'
-              : 'Note: Make sure these URLs are configured in Supabase Dashboard > Authentication > URL Configuration:\n• genie://reset-password/\n• genie://reset-password/?email=*'
-            }
-          </Text>
-        )}
-        
         {step === 'password' && email && (
           <Text variant="caption" color="tertiary" style={styles.emailHint}>
-            {__DEV__ 
-              ? `Development mode: Resetting password for ${email} (token verification skipped)`
-              : `Resetting password for: ${email}`
-            }
+            Resetting password for: {email}
           </Text>
         )}
       </View>
@@ -201,7 +189,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
             textContentType="emailAddress"
           />
         ) : (
-          <>
+          <View style={styles.passwordFields}>
             <TextField
               placeholder="New Password"
               value={newPassword}
@@ -216,7 +204,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
               error={errors.confirmPassword}
               secureTextEntry
             />
-          </>
+          </View>
         )}
       </View>
 
@@ -227,7 +215,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
           loading={loading}
           onPress={step === 'email' ? handleSendResetEmail : handleUpdatePassword}
         >
-          {step === 'email' ? 'Send Reset Email' : 'Update Password'}
+          {step === 'email' ? 'Reset Password' : 'Update Password'}
         </Button>
 
         <Button
@@ -249,49 +237,37 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     backgroundColor: colors.background.primary,
-    borderWidth: 1,
-    borderColor: '#FFFF68',
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: {
     textAlign: 'center',
     marginBottom: 8,
+    color: colors.text.primary,
   },
   subtitle: {
     textAlign: 'center',
-    lineHeight: 20,
-  },
-  form: {
-    gap: 16,
-    marginBottom: 32,
-  },
-  actions: {
-    gap: 16,
-  },
-  backButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  backButtonText: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    textAlign: 'center',
+    marginBottom: 16,
   },
   emailHint: {
     textAlign: 'center',
     marginTop: 8,
-    fontSize: 12,
-    opacity: 0.7,
   },
-  setupHint: {
-    textAlign: 'center',
-    marginTop: 8,
-    fontSize: 11,
-    opacity: 0.6,
-    fontStyle: 'italic',
+  form: {
+    marginBottom: 24,
+  },
+  passwordFields: {
+    gap: 16,
+  },
+  actions: {
+    gap: 12,
+  },
+  backButton: {
+    alignSelf: 'center',
+  },
+  backButtonText: {
+    color: colors.text.secondary,
+    fontSize: 16,
   },
 });
