@@ -290,6 +290,35 @@ export const useAuthStore = create<AuthState>()(
 
           console.log(`✅ OTP sent successfully - Type: ${data.type}`);
           
+          // Wait for OTP to be saved in database before returning
+          // This ensures UI updates immediately without race conditions
+          let otpFound = false;
+          let attempts = 0;
+          const maxAttempts = 10; // 10 attempts × 200ms = 2 seconds max wait
+          
+          while (!otpFound && attempts < maxAttempts) {
+            attempts++;
+            const { data: otpData } = await supabase
+              .from('otp_verifications')
+              .select('id')
+              .eq('user_id', get().user?.id)
+              .eq('verified', false)
+              .gt('expires_at', new Date().toISOString())
+              .limit(1);
+            
+            if (otpData && otpData.length > 0) {
+              otpFound = true;
+              console.log('✅ OTP confirmed in database');
+            } else {
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+          }
+          
+          if (!otpFound) {
+            console.warn('⚠️ OTP not found in database after retries, but proceeding anyway');
+          }
+          
           // Don't mark as authenticated - user must verify OTP first
           // Keep user and session for Edge Function use
           set({ 
