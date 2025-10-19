@@ -24,6 +24,7 @@ import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal, DailyTasks } from '../types/task';
 import { supabase } from '../services/supabase/client';
 import { useAuthStore } from '../store/useAuthStore';
+import { getCategoryColor, getCategoryIcon } from '../config/categoryConfig';
 
 interface GoalDetailsScreenProps {
   goal: GoalWithProgress;
@@ -334,50 +335,9 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     }
   };
 
-  const getCategoryIcon = (category: string, iconName?: string) => {
-    // Use AI-selected icon if available
-    if (iconName) {
-      return iconName;
-    }
-
-    // Fallback to category-based icons
-    const icons = {
-      lifestyle: 'heart',
-      career: 'briefcase',
-      mindset: 'brain',
-      character: 'star',
-      custom: 'target',
-    };
-    return icons[category as keyof typeof icons] || icons.custom;
-  };
-
-  const getGoalColor = (goalColor?: string) => {
-    // Use AI-selected color if available
-    if (goalColor) {
-      // Check if it's already a hex color
-      if (goalColor.startsWith('#')) {
-        return goalColor;
-      }
-
-      // Map color names to hex values
-      const colorMap = {
-        yellow: '#FFFF68',
-        green: '#00FF88',
-        red: '#FF4444',
-        blue: '#4488FF',
-        orange: '#FF8844',
-        purple: '#8844FF',
-        pink: '#FF4488',
-        cyan: '#44FFFF',
-        lime: '#88FF44',
-        magenta: '#FF44FF',
-      };
-      return colorMap[goalColor as keyof typeof colorMap] || colorMap.yellow;
-    }
-
-    // Fallback to neutral colors when no AI color is provided
-    return theme.colors.text.secondary;
-  };
+  // Get category-based color and icon
+  const categoryColor = getCategoryColor(currentGoal.category);
+  const categoryIcon = getCategoryIcon(currentGoal.category);
 
   const completedTasks = tasks.filter((task) => task.completed).length;
   const totalTasks = tasks.length;
@@ -558,18 +518,13 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                 <View
                   style={[
                     styles.iconContainer,
-                    { backgroundColor: getGoalColor(currentGoal.color) + '20' },
+                    { backgroundColor: categoryColor + '20' },
                   ]}
                 >
                   <Icon
-                    name={
-                      getCategoryIcon(
-                        currentGoal.category,
-                        currentGoal.icon_name
-                      ) as any
-                    }
+                    name={categoryIcon as any}
                     size={24}
-                    color={getGoalColor(currentGoal.color)}
+                    color={categoryColor}
                   />
                 </View>
                 <View>
@@ -580,7 +535,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
                     variant="caption"
                     style={[
                       styles.categoryText,
-                      { color: getGoalColor(currentGoal.color) },
+                      { color: categoryColor },
                     ]}
                   >
                     {currentGoal.category.toUpperCase()}

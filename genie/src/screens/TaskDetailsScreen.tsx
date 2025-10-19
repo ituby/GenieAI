@@ -18,6 +18,7 @@ import { supabase } from '../services/supabase/client';
 import { useAuthStore } from '../store/useAuthStore';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { getCategoryColor } from '../config/categoryConfig';
 
 interface TaskDetailsScreenProps {
   task: TaskWithGoal;
@@ -149,30 +150,8 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     return 'Evening';
   };
 
-  const getGoalColor = (goalColor?: string) => {
-    if (goalColor) {
-      // If it's already a hex color, return it directly
-      if (goalColor.startsWith('#')) {
-        return goalColor;
-      }
-
-      // Otherwise, map color names to hex values
-      const colorMap = {
-        yellow: '#FFFF68',
-        green: '#00FF88',
-        red: '#FF4444',
-        blue: '#4488FF',
-        orange: '#FF8844',
-        purple: '#8844FF',
-        pink: '#FF4488',
-        cyan: '#44FFFF',
-        lime: '#88FF44',
-        magenta: '#FF44FF',
-      };
-      return colorMap[goalColor as keyof typeof colorMap] || colorMap.yellow;
-    }
-    return theme.colors.yellow[500];
-  };
+  // Get category-based color
+  const categoryColor = getCategoryColor(taskData.goal.category);
 
   const isTaskTimeReached = (runAt: string) => {
     const now = new Date();
@@ -395,7 +374,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                   color="primary-color"
                   style={[
                     styles.taskTitle,
-                    { color: getGoalColor(taskData.goal.color) },
+                    { color: categoryColor },
                   ]}
                 >
                   {taskData.title}
