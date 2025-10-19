@@ -126,28 +126,23 @@ serve(async (req) => {
       );
     }
 
-    // Allow multiple tokens per user (up to 2 total, regardless of platform)
-    // No need to check for platform-specific tokens or update existing ones
-    // Just check if we've reached the limit of 2 tokens total
+    // Allow multiple tokens per user (up to 2 total)
+    // If limit is reached, delete the oldest token and add the new one
 
     // Check if user has reached the limit of 2 tokens
-    // But allow updating existing tokens even if limit is reached
     if (existingTokens && existingTokens.length >= 2 && !existingPlatformToken) {
-      console.log(`⚠️ User already has ${existingTokens.length} tokens (limit: 2). Cannot add more tokens.`);
+      console.log(`🗑️ User has ${existingTokens.length} tokens (limit: 2). Deleting oldest token...`);
       
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'User has reached the maximum limit of 2 push tokens. Please remove an existing token first.',
-          action: 'limit_reached',
-          current_tokens: existingTokens.length,
-          max_tokens: 2
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      // Delete the oldest token
+      const oldestToken = existingTokens[0]; // First one is oldest due to ascending order
+      const { error: deleteError } = await supabaseClient
+        .from('push_tokens')
+        .delete()
+        .eq('id', oldestToken.id);
+
+      if (deleteError) throw deleteError;
+      
+      console.log('🗑️ Deleted oldest token from platform:', oldestToken.platform);
     }
 
     // Insert new token
@@ -178,11 +173,16 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('❌ Error saving push token:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error code:', error?.code);
+    console.error('Error details:', JSON.stringify(error));
     
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Failed to save push token' 
+        error: error.message || 'Failed to save push token',
+        error_code: error?.code,
+        error_details: error?.message
       }),
       { 
         status: 500, 
