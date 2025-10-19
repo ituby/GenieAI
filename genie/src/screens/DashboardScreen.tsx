@@ -1679,9 +1679,15 @@ export const DashboardScreen: React.FC = () => {
               <Button
                 variant="ghost"
                 fullWidth
-                onPress={() => {
+                onPress={async () => {
+                  console.log('🔐 Logout button pressed');
                   closeSideMenu();
-                  signOut();
+                  try {
+                    await signOut();
+                    console.log('✅ Logout completed successfully');
+                  } catch (error) {
+                    console.error('❌ Logout failed:', error);
+                  }
                 }}
                 rightIcon={
                   <Icon

@@ -539,15 +539,34 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
 
           // Clear all auth state
+          console.log('🧹 Clearing auth state...');
           set({
             user: null,
             session: null,
             isAuthenticated: false,
             loading: false,
           });
+          console.log('✅ Auth state cleared');
 
           // Clear pre-loaded data cache
           dataLoadingService.clearCache();
+
+          // Force clear persisted store
+          try {
+            await AsyncStorage.removeItem('genie-auth-store');
+            console.log('🧹 Cleared persisted auth store');
+          } catch (err) {
+            console.log('⚠️ Failed to clear persisted auth store:', err);
+          }
+
+          // Verify state is cleared
+          const currentState = get();
+          console.log('🔍 Final auth state after signOut:', {
+            isAuthenticated: currentState.isAuthenticated,
+            user: !!currentState.user,
+            session: !!currentState.session,
+            loading: currentState.loading
+          });
 
           console.log('✅ Sign out successful');
         } catch (error) {

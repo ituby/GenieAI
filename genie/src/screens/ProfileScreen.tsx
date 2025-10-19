@@ -197,7 +197,19 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: signOut },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              console.log('🔐 Profile logout button pressed');
+              await signOut();
+              console.log('✅ Profile logout completed successfully');
+            } catch (error) {
+              console.error('❌ Profile logout failed:', error);
+            }
+          }
+        },
       ]
     );
   };

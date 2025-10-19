@@ -229,6 +229,7 @@ export default function App() {
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
+    console.log('🔐 User not authenticated, showing login screen');
     return (
       <SafeAreaProvider>
         <ThemeProvider>
@@ -289,6 +290,7 @@ export default function App() {
   }
 
   console.log('🎯 Rendering Dashboard - user is fully authenticated and verified');
+  console.log('🔐 Current auth state:', { isAuthenticated, user: !!user });
   return (
     <SafeAreaProvider>
       <ThemeProvider>
