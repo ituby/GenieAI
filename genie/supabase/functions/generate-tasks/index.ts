@@ -1235,16 +1235,6 @@ serve(async (req) => {
       totalWeeks
     );
 
-    if (tasksResult.tasks.length === 0) {
-      console.error(`[${requestId}] No tasks generated`);
-      return errorResponse(
-        500,
-        'Failed to generate tasks',
-        requestId,
-        Date.now() - startTime
-      );
-    }
-
     // Check if fallback tasks were used - this means AI generation failed
     if (tasksResult.usedModel === 'template-fallback') {
       const metadata = tasksResult.metadata || {};
@@ -1302,6 +1292,17 @@ serve(async (req) => {
       goal.preferred_time_ranges,
       requestId
     );
+
+    // Check if tasks were actually inserted
+    if (!insertedTasks || insertedTasks.length === 0) {
+      console.error(`[${requestId}] No tasks were inserted for week ${currentWeek}`);
+      return errorResponse(
+        500,
+        'Failed to insert tasks into database',
+        requestId,
+        Date.now() - startTime
+      );
+    }
 
     const totalTime = Date.now() - startTime;
     console.log(

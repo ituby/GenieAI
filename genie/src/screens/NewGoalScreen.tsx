@@ -1495,21 +1495,78 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           console.log(
             '📝 Tasks will appear in the card once generation is complete'
           );
+          
+          // But let's check if tasks were already created despite the timeout
+          if (createdGoalId) {
+            try {
+              console.log('🔍 Checking if tasks were created despite timeout...');
+              const { data: existingTasks, error: tasksCheckError } = await supabase
+                .from('goal_tasks')
+                .select('id')
+                .eq('goal_id', createdGoalId);
+
+              if (tasksCheckError) {
+                console.error('❌ Error checking for tasks:', tasksCheckError);
+              }
+
+              if (existingTasks && existingTasks.length > 0) {
+                // Tasks were created! Update goal to active
+                console.log(`✅ Found ${existingTasks.length} tasks despite timeout! Updating goal to active`);
+                await supabase
+                  .from('goals')
+                  .update({
+                    status: 'active',
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', createdGoalId);
+                console.log('✅ Goal updated to active successfully');
+              } else {
+                console.log('⏳ No tasks found yet, will continue waiting...');
+              }
+            } catch (updateError) {
+              console.error('❌ Failed to check/update goal status:', updateError);
+            }
+          }
         } else {
-          // Real error - mark goal as failed
+          // Real error - but check if tasks were actually created
           console.error('❌ Tasks generation error:', tasksResponse.error);
 
           if (createdGoalId) {
             try {
-              console.log('⚠️ Marking goal as failed:', createdGoalId);
-              await supabase
-                .from('goals')
-                .update({
-                  status: 'failed',
-                  error_message: errorMessage || 'Task generation failed',
-                })
-                .eq('id', createdGoalId);
-              console.log('✅ Goal marked as failed successfully');
+              // Check if tasks exist in the database
+              console.log('🔍 Checking if tasks were created despite error...');
+              const { data: existingTasks, error: tasksCheckError } = await supabase
+                .from('goal_tasks')
+                .select('id')
+                .eq('goal_id', createdGoalId);
+
+              if (tasksCheckError) {
+                console.error('❌ Error checking for tasks:', tasksCheckError);
+              }
+
+              if (existingTasks && existingTasks.length > 0) {
+                // Tasks were created! Update goal to active
+                console.log(`✅ Found ${existingTasks.length} tasks! Updating goal to active`);
+                await supabase
+                  .from('goals')
+                  .update({
+                    status: 'active',
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', createdGoalId);
+                console.log('✅ Goal updated to active successfully');
+              } else {
+                // No tasks found - mark goal as failed
+                console.log('⚠️ No tasks found, marking goal as failed:', createdGoalId);
+                await supabase
+                  .from('goals')
+                  .update({
+                    status: 'failed',
+                    error_message: errorMessage || 'Task generation failed',
+                  })
+                  .eq('id', createdGoalId);
+                console.log('✅ Goal marked as failed successfully');
+              }
             } catch (updateError) {
               console.error('❌ Failed to update goal status:', updateError);
             }
@@ -1536,24 +1593,81 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         console.log(
           '📝 Tasks will appear in the card once generation is complete'
         );
+        
+        // But let's check if tasks were already created despite the timeout
+        if (createdGoalId) {
+          try {
+            console.log('🔍 Checking if tasks were created despite timeout...');
+            const { data: existingTasks, error: tasksCheckError } = await supabase
+              .from('goal_tasks')
+              .select('id')
+              .eq('goal_id', createdGoalId);
+
+            if (tasksCheckError) {
+              console.error('❌ Error checking for tasks:', tasksCheckError);
+            }
+
+            if (existingTasks && existingTasks.length > 0) {
+              // Tasks were created! Update goal to active
+              console.log(`✅ Found ${existingTasks.length} tasks despite timeout! Updating goal to active`);
+              await supabase
+                .from('goals')
+                .update({
+                  status: 'active',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', createdGoalId);
+              console.log('✅ Goal updated to active successfully');
+            } else {
+              console.log('⏳ No tasks found yet, will continue waiting...');
+            }
+          } catch (updateError) {
+            console.error('❌ Failed to check/update goal status:', updateError);
+          }
+        }
       } else {
-        // Real error - mark goal as failed
+        // Real error - but check if tasks were actually created
         console.error('❌ Error in Stage 2:', error);
 
         if (createdGoalId) {
           try {
-            console.log(
-              '⚠️ Marking goal as failed due to error:',
-              createdGoalId
-            );
-            await supabase
-              .from('goals')
-              .update({
-                status: 'failed',
-                error_message: errorMessage,
-              })
-              .eq('id', createdGoalId);
-            console.log('✅ Goal marked as failed successfully');
+            // Check if tasks exist in the database
+            console.log('🔍 Checking if tasks were created despite error...');
+            const { data: existingTasks, error: tasksCheckError } = await supabase
+              .from('goal_tasks')
+              .select('id')
+              .eq('goal_id', createdGoalId);
+
+            if (tasksCheckError) {
+              console.error('❌ Error checking for tasks:', tasksCheckError);
+            }
+
+            if (existingTasks && existingTasks.length > 0) {
+              // Tasks were created! Update goal to active
+              console.log(`✅ Found ${existingTasks.length} tasks! Updating goal to active`);
+              await supabase
+                .from('goals')
+                .update({
+                  status: 'active',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', createdGoalId);
+              console.log('✅ Goal updated to active successfully');
+            } else {
+              // No tasks found - mark goal as failed
+              console.log(
+                '⚠️ No tasks found, marking goal as failed due to error:',
+                createdGoalId
+              );
+              await supabase
+                .from('goals')
+                .update({
+                  status: 'failed',
+                  error_message: errorMessage,
+                })
+                .eq('id', createdGoalId);
+              console.log('✅ Goal marked as failed successfully');
+            }
           } catch (updateError) {
             console.error('❌ Failed to update goal status:', updateError);
           }
