@@ -14,7 +14,8 @@ interface AuthFormProps {
 
 export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
   const theme = useTheme();
-  const { signIn, signUp, sendOtpToUserPhone, loading } = useAuthStore();
+  const { signIn, signUp, signUpWithPhone, sendOtpToUserPhone, loading } =
+    useAuthStore();
 
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -28,6 +29,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     password: '',
     confirmPassword: '',
     fullName: '',
+    phone: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -49,6 +51,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     if (mode === 'register') {
       if (!formData.fullName) {
         newErrors.fullName = 'Full name is required';
+      }
+
+      if (!formData.phone) {
+        newErrors.phone = 'Phone number is required';
+      } else if (!/^\+?[1-9]\d{1,14}$/.test(formData.phone)) {
+        newErrors.phone =
+          'Please enter a valid phone number (e.g., +1234567890)';
       }
 
       if (!formData.confirmPassword) {
@@ -82,8 +91,22 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         setPhoneNumber(phone);
         setShowOtpScreen(true);
       } else {
-        // רישום רגיל - אין עדיין OTP
-        await signUp(formData.email, formData.password, formData.fullName);
+        // רישום עם OTP - שליחת OTP למספר הטלפון
+        const phone = await signUpWithPhone(
+          formData.email,
+          formData.password,
+          formData.fullName,
+          formData.phone
+        );
+
+        // שמור את פרטי ההתחברות לשימוש אחרי אימות OTP
+        setPendingAuth({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        setPhoneNumber(phone);
+        setShowOtpScreen(true);
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'An error occurred');
@@ -151,6 +174,17 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
             error={errors.fullName}
             autoCapitalize="words"
             textContentType="name"
+          />
+        )}
+
+        {mode === 'register' && (
+          <TextField
+            placeholder={'Phone Number (e.g., +1234567890)'}
+            value={formData.phone}
+            onChangeText={(value) => updateField('phone', value)}
+            error={errors.phone}
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
           />
         )}
 

@@ -11,15 +11,25 @@ interface AuthState {
   session: any;
   loading: boolean;
   isAuthenticated: boolean;
+  termsAccepted: boolean;
+  needsTermsAcceptance: boolean;
 
   // Actions
   setUser: (user: User | null) => void;
   setSession: (session: any) => void;
   setLoading: (loading: boolean) => void;
+  setTermsAccepted: (accepted: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUpWithPhone: (
+    email: string,
+    password: string,
+    fullName: string,
+    phone: string
+  ) => Promise<string>;
   sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
   verifyOtp: (phone: string, token: string) => Promise<void>;
+  acceptTerms: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -31,6 +41,8 @@ export const useAuthStore = create<AuthState>()(
       session: null,
       loading: true,
       isAuthenticated: false,
+      termsAccepted: false,
+      needsTermsAcceptance: false,
 
       setUser: (user) =>
         set({
@@ -41,6 +53,8 @@ export const useAuthStore = create<AuthState>()(
       setSession: (session) => set({ session }),
 
       setLoading: (loading) => set({ loading }),
+
+      setTermsAccepted: (accepted) => set({ termsAccepted: accepted }),
 
       signIn: async (email: string, password: string) => {
         set({ loading: true });
@@ -69,6 +83,7 @@ export const useAuthStore = create<AuthState>()(
             session: data.session,
             isAuthenticated: true,
             loading: false,
+            needsTermsAcceptance: !data.user?.user_metadata?.terms_accepted,
           });
 
           console.log('🔍 User set in store:', data.user);
@@ -98,8 +113,85 @@ export const useAuthStore = create<AuthState>()(
             session: data.session,
             isAuthenticated: !!data.user,
             loading: false,
+            needsTermsAcceptance: true, // New users need to accept terms
           });
         } catch (error) {
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      signUpWithPhone: async (
+        email: string,
+        password: string,
+        fullName: string,
+        phone: string
+      ) => {
+        set({ loading: true });
+        try {
+          console.log('📱 Signing up with phone:', phone);
+
+          // Create user account
+          const { data: authData, error: authError } =
+            await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  full_name: fullName,
+                },
+              },
+            });
+
+          if (authError) throw authError;
+
+          if (!authData.user) {
+            throw new Error('Failed to create user account');
+          }
+
+          // Save phone number to users table
+          const { error: userError } = await supabase.from('users').insert({
+            id: authData.user.id,
+            email: email,
+            full_name: fullName,
+            phone_number: phone,
+          });
+
+          if (userError) {
+            console.error('❌ Failed to save user data:', userError);
+            throw new Error('Failed to save user profile');
+          }
+
+          console.log('✅ User created with phone number');
+
+          // Send OTP to the phone number
+          const response = await supabase.functions.invoke('send-otp-sms', {
+            body: { email, password },
+          });
+
+          if (response.error) {
+            console.error('❌ Send OTP error:', response.error);
+            throw new Error(response.error.message || 'Failed to send OTP');
+          }
+
+          const data = response.data;
+          if (data?.error) {
+            throw new Error(data.error);
+          }
+
+          if (!data?.phone) {
+            throw new Error('Phone number not found in system');
+          }
+
+          console.log('✅ OTP sent successfully to:', data.phone);
+          set({
+            loading: false,
+            needsTermsAcceptance: true, // New users need to accept terms
+          });
+
+          return data.phone;
+        } catch (error: any) {
+          console.error('❌ Sign up with phone error:', error);
           set({ loading: false });
           throw error;
         }
@@ -227,6 +319,34 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      acceptTerms: async () => {
+        set({ loading: true });
+        try {
+          console.log('📋 Accepting terms and conditions...');
+
+          const { error } = await supabase.auth.updateUser({
+            data: {
+              terms_accepted: true,
+              terms_accepted_at: new Date().toISOString(),
+            },
+          });
+
+          if (error) throw error;
+
+          set({
+            termsAccepted: true,
+            needsTermsAcceptance: false,
+            loading: false,
+          });
+
+          console.log('✅ Terms accepted successfully');
+        } catch (error: any) {
+          console.error('❌ Accept terms error:', error);
+          set({ loading: false });
+          throw error;
+        }
+      },
+
       signOut: async () => {
         set({ loading: true });
         try {
@@ -295,8 +415,7 @@ export const useAuthStore = create<AuthState>()(
               // Clear any locally cached tokens and persisted store to recover from invalid refresh token
               try {
                 // Best-effort local sign-out to purge tokens without network
-                // @ts-expect-error scope is supported by supabase-js for local-only sign out
-                await supabase.auth.signOut({ scope: 'local' });
+                await supabase.auth.signOut({ scope: 'local' } as any);
               } catch {}
               await clearSupabaseAuthStorage();
               set({
@@ -342,8 +461,7 @@ export const useAuthStore = create<AuthState>()(
               console.error('❌ Error getting session:', error);
               // If we can't get a session due to invalid refresh token, clear local auth and persisted store
               try {
-                // @ts-expect-error scope is supported by supabase-js for local-only sign out
-                await supabase.auth.signOut({ scope: 'local' });
+                await supabase.auth.signOut({ scope: 'local' } as any);
               } catch {}
               await clearSupabaseAuthStorage();
               try {
@@ -393,6 +511,8 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         session: state.session,
         isAuthenticated: state.isAuthenticated,
+        termsAccepted: state.termsAccepted,
+        needsTermsAcceptance: state.needsTermsAcceptance,
       }),
       onRehydrateStorage: () => (state) => {
         console.log('🔐 Rehydrating auth store:', !!state?.isAuthenticated);

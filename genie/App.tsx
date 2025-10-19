@@ -9,6 +9,7 @@ import { useAuthStore } from './src/store/useAuthStore';
 // useTranslation import removed - no longer needed
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { TermsAcceptanceScreen } from './src/screens/TermsAcceptanceScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SplashScreen } from './src/components/SplashScreen';
 // i18n removed
@@ -16,7 +17,13 @@ import { SplashScreen } from './src/components/SplashScreen';
 const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 export default function App() {
-  const { initialize, loading, isAuthenticated } = useAuthStore();
+  const {
+    initialize,
+    loading,
+    isAuthenticated,
+    needsTermsAcceptance,
+    acceptTerms,
+  } = useAuthStore();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
     null
   );
@@ -71,6 +78,19 @@ export default function App() {
     setShowSplash(false);
   };
 
+  const handleTermsAccept = async () => {
+    try {
+      await acceptTerms();
+    } catch (error) {
+      console.error('Failed to accept terms:', error);
+    }
+  };
+
+  const handleTermsDecline = () => {
+    // User declined terms, sign them out
+    useAuthStore.getState().signOut();
+  };
+
   // Show splash screen first
   if (showSplash) {
     return <SplashScreen onAnimationFinish={handleSplashFinish} />;
@@ -106,7 +126,22 @@ export default function App() {
     );
   }
 
-  // Show main app if authenticated
+  // Show terms acceptance screen if authenticated but needs to accept terms
+  if (isAuthenticated && needsTermsAcceptance) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <TermsAcceptanceScreen
+            onAccept={handleTermsAccept}
+            onDecline={handleTermsDecline}
+          />
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show main app if authenticated and terms accepted
   return (
     <SafeAreaProvider>
       <ThemeProvider>
