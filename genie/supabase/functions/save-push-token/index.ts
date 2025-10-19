@@ -92,6 +92,41 @@ serve(async (req) => {
       );
     }
 
+    // Check if there's an existing token for the same platform (different token)
+    const existingPlatformToken = existingTokens?.find(token => 
+      token.platform === platform
+    );
+    
+    if (existingPlatformToken) {
+      console.log('🔄 Updating existing token for platform:', platform);
+      
+      // Update the existing token for this platform
+      const { error: updateError } = await supabaseClient
+        .from('push_tokens')
+        .update({
+          expo_token,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingPlatformToken.id);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Updated existing push token for platform:', platform, isDevToken ? '(dev token)' : '');
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Push token updated successfully',
+          action: 'updated',
+          is_dev_token: isDevToken
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Allow multiple tokens per user (up to 2 total, regardless of platform)
     // No need to check for platform-specific tokens or update existing ones
     // Just check if we've reached the limit of 2 tokens total
