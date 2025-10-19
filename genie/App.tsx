@@ -15,6 +15,7 @@ import { PasswordResetScreen } from './src/screens/PasswordResetScreen';
 import { TermsAcceptanceScreen } from './src/screens/TermsAcceptanceScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SplashScreen } from './src/components/SplashScreen';
+import { UpdateAvailableModal } from './src/components/UpdateAvailableModal';
 // i18n removed
 
 const ONBOARDING_KEY = 'hasSeenOnboarding';
@@ -35,6 +36,8 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [hasPendingOtp, setHasPendingOtp] = useState<boolean | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -48,10 +51,9 @@ export default function App() {
             console.log('🔄 Checking for updates...');
             const update = await Updates.default.checkForUpdateAsync();
             if (update.isAvailable) {
-              console.log('📱 Update available, downloading...');
-              await Updates.default.fetchUpdateAsync();
-              console.log('✅ Update downloaded, restarting app...');
-              await Updates.default.reloadAsync();
+              console.log('📱 Update available, showing popup...');
+              setUpdateInfo(update);
+              setShowUpdateModal(true);
             } else {
               console.log('✅ App is up to date');
             }
@@ -191,6 +193,25 @@ export default function App() {
     useAuthStore.getState().signOut();
   };
 
+  const handleUpdateApp = async () => {
+    try {
+      const Updates = await import('expo-updates');
+      if (Updates.default && Updates.default.isEnabled) {
+        console.log('📱 Downloading update...');
+        await Updates.default.fetchUpdateAsync();
+        console.log('✅ Update downloaded, restarting app...');
+        await Updates.default.reloadAsync();
+      }
+    } catch (error) {
+      console.log('❌ Error updating app:', error);
+    }
+  };
+
+  const handleDismissUpdate = () => {
+    setShowUpdateModal(false);
+    setUpdateInfo(null);
+  };
+
   // Skip loading screen - go directly to onboarding or login
   if (hasSeenOnboarding === null) {
     // Initialize onboarding state without showing loading screen
@@ -204,6 +225,12 @@ export default function App() {
         <ThemeProvider>
           <PopupProvider>
             <OnboardingScreen onComplete={handleOnboardingComplete} />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
             <StatusBar style="light" />
           </PopupProvider>
         </ThemeProvider>
@@ -221,6 +248,12 @@ export default function App() {
               onBack={() => setShowPasswordReset(false)}
               onSuccess={() => setShowPasswordReset(false)}
             />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
             <StatusBar style="light" />
           </PopupProvider>
         </ThemeProvider>
@@ -236,6 +269,12 @@ export default function App() {
         <ThemeProvider>
           <PopupProvider>
             <LoginScreen />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
             <StatusBar style="light" />
           </PopupProvider>
         </ThemeProvider>
@@ -251,6 +290,12 @@ export default function App() {
         <ThemeProvider>
           <PopupProvider>
             <LoginScreen />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
             <StatusBar style="light" />
           </PopupProvider>
         </ThemeProvider>
@@ -269,6 +314,12 @@ export default function App() {
               onAccept={handleTermsAccept}
               onDecline={handleTermsDecline}
             />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
             <StatusBar style="light" />
           </PopupProvider>
         </ThemeProvider>
@@ -283,6 +334,12 @@ export default function App() {
         <ThemeProvider>
           <PopupProvider>
             <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
             <StatusBar style="light" />
           </PopupProvider>
         </ThemeProvider>
@@ -297,6 +354,12 @@ export default function App() {
       <ThemeProvider>
         <PopupProvider>
           <DashboardScreen />
+          <UpdateAvailableModal
+            visible={showUpdateModal}
+            onUpdate={handleUpdateApp}
+            onDismiss={handleDismissUpdate}
+            updateInfo={updateInfo}
+          />
           <StatusBar style="light" />
         </PopupProvider>
       </ThemeProvider>
