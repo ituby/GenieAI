@@ -7,7 +7,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   Animated,
+  RefreshControl,
+  Alert,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/index';
 import { Text } from '../components/primitives/Text';
 import { Card } from '../components/primitives/Card';
@@ -262,28 +265,29 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       animationType="slide"
       presentationStyle="fullScreen"
     >
-      <Animated.View style={[styles.container, { backgroundColor: theme.colors.background.primary, transform: [{ translateY: slideAnimation }], opacity: fadeAnimation }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         {/* Absolute Header */}
         <View style={styles.absoluteHeader}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.headerCenter}>
+          <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.headerCenter}>
             <Text variant="h4" style={styles.title} numberOfLines={1}>Profile</Text>
+          </View>
+          
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={() => setEditing(!editing)}
+              style={styles.editButton}
+            >
+              <Icon name={editing ? "x" : "pencil"} size={20} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
         </View>
-        
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            onPress={() => setEditing(!editing)}
-            style={styles.editButton}
-          >
-            <Icon name={editing ? "x" : "pencil"} size={20} color={theme.colors.text.secondary} />
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -303,18 +307,9 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <Icon name="user-circle" size={64} color={theme.colors.yellow[500]} />
             </View>
             <View style={styles.profileInfo}>
-              {editing ? (
-                <TextField
-                  value={editForm.full_name}
-                  onChangeText={(text: string) => setEditForm(prev => ({ ...prev, full_name: text }))}
-                  placeholder="Full Name"
-                  inputStyle={styles.editInput}
-                />
-              ) : (
-                <Text variant="h3" color="primary-color" style={styles.profileName}>
-                  {profile.full_name || 'User'}
-                </Text>
-              )}
+              <Text variant="h3" color="primary-color" style={styles.profileName}>
+                {profile.full_name || 'User'}
+              </Text>
               <Text variant="body" color="secondary" style={styles.profileEmail}>
                 {profile.email}
               </Text>
@@ -323,15 +318,17 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </Text>
             </View>
           </View>
-          
+
+          {/* Edit Name Field - Bottom of Card */}
           {editing && (
-            <View style={styles.editActions}>
-              <Button variant="ghost" onPress={() => setEditing(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" onPress={handleSave}>
-                Save
-              </Button>
+            <View style={styles.editSection}>
+              <Text variant="body" color="secondary" style={styles.editLabel}>Full Name</Text>
+              <TextField
+                value={editForm.full_name}
+                onChangeText={(text: string) => setEditForm(prev => ({ ...prev, full_name: text }))}
+                placeholder="Enter your full name"
+                inputStyle={styles.editInput}
+              />
             </View>
           )}
         </Card>
@@ -376,7 +373,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </Text>
           <View style={styles.settingsList}>
             <View style={styles.settingItem}>
-              <Text variant="body" color="secondary">Timezone</Text>
+              <Text variant="body" color="secondary" style={styles.settingLabel}>Timezone</Text>
               {editing ? (
                 <TextField
                   value={editForm.timezone}
@@ -388,8 +385,9 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <Text variant="body" color="primary-color">{profile.timezone}</Text>
               )}
             </View>
+            <View style={styles.settingDivider} />
             <View style={styles.settingItem}>
-              <Text variant="body" color="secondary">Language</Text>
+              <Text variant="body" color="secondary" style={styles.settingLabel}>Language</Text>
               {editing ? (
                 <TextField
                   value={editForm.language}
@@ -404,6 +402,18 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </View>
         </Card>
 
+        {/* Edit Actions - Outside Cards */}
+        {editing && (
+          <View style={styles.editActionsContainer}>
+            <Button variant="ghost" onPress={() => setEditing(false)} style={styles.cancelButton}>
+              Cancel
+            </Button>
+            <Button variant="primary" onPress={handleSave} style={styles.saveButton}>
+              Save Changes
+            </Button>
+          </View>
+        )}
+
         {/* Sign Out */}
         <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
           <Icon name="sign-out" size={20} color={theme.colors.status.error} />
@@ -412,7 +422,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-      </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -420,11 +430,11 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60, // Increased top safe area padding
+    paddingTop: 60,
   },
   scrollView: {
     flex: 1,
-    paddingTop: 80, // Space for header
+    paddingTop: 80,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -442,7 +452,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 10,
-    backgroundColor: 'rgba(26, 28, 36, 0.8)', // Dark blue instead of black, matching background
+    backgroundColor: 'rgba(26, 28, 36, 0.8)',
     minHeight: 110,
     overflow: 'hidden',
   },
@@ -461,11 +471,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  title: {
-    textAlign: 'center',
-  },
   editButton: {
     padding: 8,
+  },
+  title: {
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -496,13 +506,38 @@ const styles = StyleSheet.create({
   profileEmail: {
     marginBottom: 4,
   },
-  editInput: {
-    marginBottom: 8,
+  editSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  editActions: {
+  editLabel: {
+    marginBottom: 8,
+    fontSize: 14,
+  },
+  editInput: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  editActionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     gap: 12,
+    marginVertical: 20,
+    paddingHorizontal: 0,
+  },
+  cancelButton: {
+    flex: 1,
+  },
+  saveButton: {
+    flex: 1,
   },
   statsCard: {
     marginBottom: 16,
@@ -536,15 +571,35 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   settingsList: {
-    gap: 16,
+    gap: 0,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 12,
+  },
+  settingLabel: {
+    flex: 0,
+    marginRight: 16,
+  },
+  settingDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: 4,
   },
   settingInput: {
-    minWidth: 100,
+    flex: 0,
+    width: 120,
+    fontSize: 14,
+    color: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    textAlign: 'center',
   },
   signOutButton: {
     flexDirection: 'row',

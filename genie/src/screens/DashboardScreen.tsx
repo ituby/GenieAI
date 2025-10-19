@@ -2056,7 +2056,7 @@ export const DashboardScreen: React.FC = () => {
                       Unlimited goal creation
                     </Text>
                     <Icon
-                      name="infinity"
+                      name="arrows-clockwise"
                       size={16}
                       color="#FFFF68"
                       weight="fill"

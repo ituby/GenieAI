@@ -9,6 +9,7 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text, Card, Icon, Badge } from '../components';
 import { Button } from '../components/primitives/Button';
@@ -206,14 +207,23 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
             { backgroundColor: theme.colors.background.primary },
           ]}
         >
-          <View style={styles.header}>
-            <Button variant="ghost" onPress={onBack}>
-              <Icon name="arrow-left" size={20} color="#FFFFFF" />
-            </Button>
-            <Text variant="h4" style={styles.headerTitle}>
-              My Subscription
-            </Text>
-            <View style={{ width: 40 }} />
+          <View style={styles.absoluteHeader}>
+            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+            <View style={styles.headerLeft}>
+              <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                <Icon name="arrow-left" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.headerCenter}>
+              <Text variant="h4" style={styles.title} numberOfLines={1}>
+                My Subscription
+              </Text>
+            </View>
+
+            <View style={styles.headerRight}>
+              {/* Empty for balance */}
+            </View>
           </View>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FFFF68" />
@@ -239,14 +249,23 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
             { backgroundColor: theme.colors.background.primary },
           ]}
         >
-          <View style={styles.header}>
-            <Button variant="ghost" onPress={onBack}>
-              <Icon name="arrow-left" size={20} color="#FFFFFF" />
-            </Button>
-            <Text variant="h4" style={styles.headerTitle}>
-              My Subscription
-            </Text>
-            <View style={{ width: 40 }} />
+          <View style={styles.absoluteHeader}>
+            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+            <View style={styles.headerLeft}>
+              <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                <Icon name="arrow-left" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.headerCenter}>
+              <Text variant="h4" style={styles.title} numberOfLines={1}>
+                My Subscription
+              </Text>
+            </View>
+
+            <View style={styles.headerRight}>
+              {/* Empty for balance */}
+            </View>
           </View>
           <View style={styles.errorContainer}>
             <Icon name="exclamation-triangle" size={48} color="#FF6B6B" />
@@ -277,14 +296,23 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
           { backgroundColor: theme.colors.background.primary },
         ]}
       >
-        <View style={styles.header}>
-          <Button variant="ghost" onPress={onBack}>
-            <Icon name="arrow-left" size={20} color="#FFFFFF" />
-          </Button>
-          <Text variant="h4" style={styles.headerTitle}>
-            My Subscription
-          </Text>
-          <View style={{ width: 40 }} />
+        <View style={styles.absoluteHeader}>
+          <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.headerCenter}>
+            <Text variant="h4" style={styles.title} numberOfLines={1}>
+              My Subscription
+            </Text>
+          </View>
+
+          <View style={styles.headerRight}>
+            {/* Empty for balance */}
+          </View>
         </View>
 
         <ScrollView
@@ -491,7 +519,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
+    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
@@ -508,9 +536,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    paddingTop: 80,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 40,
   },
   loadingContainer: {
@@ -744,6 +774,37 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#F44336',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  absoluteHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerLeft: {
+    width: 40,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerRight: {
+    width: 40,
+  },
+  backButton: {
+    padding: 8,
+  },
+  title: {
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 });

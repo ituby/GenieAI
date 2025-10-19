@@ -6,6 +6,7 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Text, Card, Icon, FloatingBottomNav } from '../components';
 import { Button } from '../components/primitives/Button';
 import { TaskItem } from '../components/domain/TaskItem';
@@ -197,123 +198,85 @@ export const DailyGoalsScreen: React.FC<DailyGoalsScreenProps> = ({
     <View style={[styles.fullScreenContainer, { backgroundColor: theme.colors.background.primary }]}>
       <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         {/* Header */}
-        <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Icon name="arrow-left" size={20} color={theme.colors.text.primary} />
-        </TouchableOpacity>
-        <Text variant="h3" style={styles.headerTitle}>
-          Daily Goals
-        </Text>
-        <View style={styles.headerRight} />
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.primary[400]}
-          />
-        }
-      >
-        {/* Stats Card */}
-        <Card variant="gradient" padding="md" style={styles.statsCard}>
-          <View style={styles.statsHeader}>
-            <View style={styles.statsHeaderWithIcon}>
-              <Icon
-                name="calendar"
-                size={20}
-                color={theme.colors.text.primary}
-                weight="fill"
-              />
-              <Text variant="h4">Today's Progress</Text>
-            </View>
+        <View style={styles.absoluteHeader}>
+          <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
+
+          <View style={styles.headerCenter}>
+            <Text variant="h3" style={styles.title} numberOfLines={1}>
+              Daily Goals
+            </Text>
+          </View>
+
+          <View style={styles.headerRight} />
+        </View>
+
+        {/* Stats - Absolute Position */}
+        <View style={styles.statsContainer}>
           <View style={styles.statsContent}>
             <View style={styles.statItem}>
-              <Text variant="h2" style={styles.statNumber}>
-                {completedTasksCount}
-              </Text>
-              <Text variant="caption" color="secondary" style={styles.statLabel}>
-                Completed
-              </Text>
+              <Text variant="h2" style={styles.statNumber}>{completedTasksCount}</Text>
+              <Text variant="caption" color="secondary" style={styles.statLabel}>Done</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text variant="h2" style={styles.statNumber}>
-                {todaysTasksCount - completedTasksCount}
-              </Text>
-              <Text variant="caption" color="secondary" style={styles.statLabel}>
-                Remaining
-              </Text>
+              <Text variant="h2" style={styles.statNumber}>{todaysTasksCount - completedTasksCount}</Text>
+              <Text variant="caption" color="secondary" style={styles.statLabel}>Remaining</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text variant="h2" style={styles.statNumber}>
-                {getCompletionPercentage()}%
-              </Text>
-              <Text variant="caption" color="secondary" style={styles.statLabel}>
-                Progress
-              </Text>
+              <Text variant="h2" style={styles.statNumber}>{getCompletionPercentage()}%</Text>
+              <Text variant="caption" color="secondary" style={styles.statLabel}>Progress</Text>
             </View>
           </View>
-        </Card>
-
-        {/* Tasks List */}
-        <View style={styles.section}>
-          {todaysTasksCount === 0 ? (
-            <Card variant="gradient" padding="lg" style={styles.emptyStateCard}>
-              <View style={styles.sectionHeaderWithIcon}>
-                <Icon
-                  name="clipboard-text"
-                  size={20}
-                  color="#FFFF68"
-                  weight="fill"
-                />
-                <Text variant="h4">Today's Tasks</Text>
-              </View>
-              <View style={styles.emptyStateContent}>
-                <Icon
-                  name="calendar"
-                  size={48}
-                  color="rgba(255, 255, 255, 0.6)"
-                  weight="fill"
-                />
-                <Text variant="h3" style={styles.emptyStateTitle}>
-                  No Tasks Today
-                </Text>
-                <Text variant="body" color="secondary" style={styles.emptyStateDescription}>
-                  Create your first plan to get personalized daily tasks
-                </Text>
-              </View>
-            </Card>
-          ) : (
-            <Card variant="gradient" padding="md" style={styles.tasksListCard}>
-              <View style={styles.sectionHeaderWithIcon}>
-                <Icon
-                  name="clipboard-text"
-                  size={20}
-                  color="#FFFF68"
-                  weight="fill"
-                />
-                <Text variant="h4">Today's Tasks</Text>
-              </View>
-              <View style={styles.tasksList}>
-                {todaysTasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    allTasks={todaysTasks}
-                    onPress={() => handleTaskPress(task)}
-                  />
-                ))}
-              </View>
-            </Card>
-          )}
         </View>
-      </ScrollView>
+
+        {/* Divider - Absolute Position */}
+        <View style={styles.dividerBelow} />
+
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.primary[400]} />
+          }
+        >
+
+          {/* Section Header */}
+          <View style={styles.sectionHeaderContainer}>
+            <View style={styles.sectionHeaderWithIcon}>
+              <Icon name="clipboard-text" size={20} color="#FFFF68" weight="fill" />
+              <Text variant="h4">Today's Tasks</Text>
+            </View>
+          </View>
+
+          {/* Content */}
+          {todaysTasksCount === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <Icon name="calendar" size={48} color="rgba(255, 255, 255, 0.6)" weight="fill" />
+              <Text variant="h3" style={styles.emptyStateTitle}>No Tasks Today</Text>
+              <Text variant="body" color="secondary" style={styles.emptyStateDescription}>
+                Create your first plan to get personalized daily tasks
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.itemsList}>
+              {todaysTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  allTasks={todaysTasks}
+                  onPress={() => handleTaskPress(task)}
+                />
+              ))}
+            </View>
+          )}
+        </ScrollView>
       </View>
 
       {/* Floating Bottom Navigation */}
@@ -339,51 +302,60 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: 50,
+    paddingTop: 60,
   },
-  header: {
+  absoluteHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    position: 'relative',
+    paddingTop: 60,
+    paddingBottom: 10,
+    backgroundColor: 'rgba(26, 28, 36, 0.8)',
+    minHeight: 110,
+    overflow: 'hidden',
   },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
+  headerLeft: {
+    width: 40,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
   },
   headerRight: {
     width: 40,
   },
   backButton: {
     padding: 8,
-    zIndex: 1,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
   },
   scrollView: {
     flex: 1,
+    paddingTop: 190,
   },
   scrollContent: {
-    paddingBottom: 100, // Extra padding for bottom navigation
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 120,
   },
-  statsCard: {
-    margin: 20,
-    marginBottom: 16,
-  },
-  statsHeader: {
-    marginBottom: 16,
-  },
-  statsHeaderWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  statsContainer: {
+    position: 'absolute',
+    top: 110,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(26, 28, 36, 1)',
   },
   statsContent: {
     flexDirection: 'row',
@@ -409,9 +381,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     marginHorizontal: 16,
   },
+  dividerBelow: {
+    position: 'absolute',
+    top: 175,
+    left: 20,
+    right: 20,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 99,
+  },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 16,
+    marginHorizontal: 16,
   },
   sectionHeader: {
     marginBottom: 16,
@@ -421,17 +402,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 16,
+    paddingHorizontal: 0,
   },
   tasksListCard: {
+    marginHorizontal: 0,
     marginBottom: 0,
     paddingBottom: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   tasksList: {
-    gap: 6,
+    gap: 12,
   },
   emptyStateCard: {
+    marginHorizontal: 0,
     alignItems: 'center',
     paddingVertical: 40,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   emptyStateContent: {
     alignItems: 'center',
@@ -445,5 +433,19 @@ const styles = StyleSheet.create({
   emptyStateDescription: {
     textAlign: 'center',
     lineHeight: 20,
+  },
+  sectionHeaderContainer: {
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  itemsList: {
+    gap: 12,
+    marginHorizontal: 16,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    maxWidth: 280,
+    alignSelf: 'center',
+    paddingVertical: 40,
   },
 });

@@ -9,6 +9,7 @@ import {
   Linking,
   Modal,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/index';
 import { Text } from '../components/primitives/Text';
 import { Card } from '../components/primitives/Card';
@@ -194,20 +195,21 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
       <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         {/* Absolute Header */}
         <View style={styles.absoluteHeader}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Icon name="arrow-left" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.headerCenter}>
+            <Text variant="h4" style={styles.title} numberOfLines={1}>Help & Support</Text>
+          </View>
+          
+          <View style={styles.headerRight}>
+            {/* Empty for balance */}
+          </View>
         </View>
-        
-        <View style={styles.headerCenter}>
-          <Text variant="h4" style={styles.title} numberOfLines={1}>Help & Support</Text>
-        </View>
-        
-        <View style={styles.headerRight}>
-          {/* Empty for balance */}
-        </View>
-      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -409,15 +411,16 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 20,
+    paddingTop: 60,
   },
   scrollView: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: 80,
   },
   scrollContent: {
-    paddingTop: 40,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   absoluteHeader: {
     position: 'absolute',
@@ -428,9 +431,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
-    backgroundColor: 'rgba(26, 28, 36, 0.8)', // Dark blue instead of black
+    paddingTop: 60,
+    paddingBottom: 10,
+    backgroundColor: 'rgba(26, 28, 36, 0.8)',
+    minHeight: 110,
+    overflow: 'hidden',
   },
   headerLeft: {
     flex: 1,
