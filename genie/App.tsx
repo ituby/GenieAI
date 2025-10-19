@@ -23,11 +23,14 @@ export default function App() {
     isAuthenticated,
     needsTermsAcceptance,
     acceptTerms,
+    checkPendingOtp,
+    user,
   } = useAuthStore();
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
     null
   );
   const [showSplash, setShowSplash] = useState(true);
+  const [hasPendingOtp, setHasPendingOtp] = useState<boolean | null>(null);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -69,6 +72,34 @@ export default function App() {
     initializeApp();
   }, [initialize]);
 
+  // Check for pending OTP when user becomes authenticated
+  useEffect(() => {
+    const checkOtpStatus = async () => {
+      if (isAuthenticated && user?.email) {
+        console.log('🔍 Checking for pending OTP for user:', user.email);
+        try {
+          const pendingOtp = await checkPendingOtp(user.email);
+          setHasPendingOtp(pendingOtp);
+          console.log('🔍 Pending OTP status:', pendingOtp);
+          console.log('🔍 User authenticated:', isAuthenticated);
+          console.log('🔍 Needs terms acceptance:', needsTermsAcceptance);
+        } catch (error) {
+          console.error('❌ Error checking pending OTP:', error);
+          setHasPendingOtp(false);
+        }
+      }
+    };
+
+    checkOtpStatus();
+  }, [isAuthenticated, user?.email, checkPendingOtp]);
+
+  // Reset splash screen when user becomes authenticated and no pending OTP
+  useEffect(() => {
+    if (isAuthenticated && !needsTermsAcceptance && hasPendingOtp === false) {
+      setShowSplash(true);
+    }
+  }, [isAuthenticated, needsTermsAcceptance, hasPendingOtp]);
+
   const handleOnboardingComplete = async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     setHasSeenOnboarding(true);
@@ -90,11 +121,6 @@ export default function App() {
     // User declined terms, sign them out
     useAuthStore.getState().signOut();
   };
-
-  // Show splash screen first
-  if (showSplash) {
-    return <SplashScreen onAnimationFinish={handleSplashFinish} />;
-  }
 
   // Skip loading screen - go directly to onboarding or login
   if (hasSeenOnboarding === null) {
@@ -126,8 +152,22 @@ export default function App() {
     );
   }
 
+  // Show login screen if authenticated but has pending OTP (user needs to complete phone verification)
+  if (isAuthenticated && hasPendingOtp === true) {
+    console.log('🔄 User authenticated but has pending OTP - showing login screen');
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <LoginScreen />
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
   // Show terms acceptance screen if authenticated but needs to accept terms
   if (isAuthenticated && needsTermsAcceptance) {
+    console.log('📋 User needs to accept terms - showing terms screen');
     return (
       <SafeAreaProvider>
         <ThemeProvider>
@@ -141,7 +181,19 @@ export default function App() {
     );
   }
 
-  // Show main app if authenticated and terms accepted
+  // Show splash screen before dashboard if authenticated and terms accepted
+  if (showSplash) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  console.log('🎯 Rendering Dashboard - user is fully authenticated and verified');
   return (
     <SafeAreaProvider>
       <ThemeProvider>

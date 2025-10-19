@@ -30,6 +30,7 @@ interface AuthState {
   sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
   verifyOtp: (phone: string, token: string) => Promise<void>;
   verifyOtpForNewUser: (phone: string, token: string) => Promise<void>;
+  checkPendingOtp: (email: string) => Promise<boolean>;
   acceptTerms: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -78,13 +79,18 @@ export const useAuthStore = create<AuthState>()(
 
           console.log('✅ Login successful:', data.user?.email);
           console.log('🔍 User data:', data.user);
+          console.log('🔍 User metadata:', data.user?.user_metadata);
+          console.log('🔍 Terms accepted:', data.user?.user_metadata?.terms_accepted);
+
+          const needsTerms = !data.user?.user_metadata?.terms_accepted;
+          console.log('🔍 Needs terms acceptance:', needsTerms);
 
           set({
             user: data.user,
             session: data.session,
             isAuthenticated: true,
             loading: false,
-            needsTermsAcceptance: !data.user?.user_metadata?.terms_accepted,
+            needsTermsAcceptance: needsTerms,
           });
 
           console.log('🔍 User set in store:', data.user);
@@ -132,7 +138,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('📱 Signing up with phone:', phone);
 
-          // Create user account
+          // Create user account without auto-confirming
           const { data: authData, error: authError } =
             await supabase.auth.signUp({
               email,
@@ -141,7 +147,10 @@ export const useAuthStore = create<AuthState>()(
                 data: {
                   full_name: fullName,
                   phone_number: phone,
+                  terms_accepted: true, // Mark terms as accepted
+                  terms_accepted_at: new Date().toISOString(),
                 },
+                emailRedirectTo: undefined, // Don't send confirmation email
               },
             });
 
@@ -150,6 +159,9 @@ export const useAuthStore = create<AuthState>()(
           if (!authData.user) {
             throw new Error('Failed to create user account');
           }
+
+          // Sign out immediately after sign up to prevent auto-login
+          await supabase.auth.signOut();
 
           // The user record is automatically created by the trigger
           // We just need to update the phone number if it wasn't set
@@ -166,8 +178,8 @@ export const useAuthStore = create<AuthState>()(
           console.log('✅ User created with phone number');
 
           // Send OTP to the phone number using the new user's email and phone
-          const response = await supabase.functions.invoke('send-otp-sms', {
-            body: { email, phone, type: 'sms' },
+          const response = await supabase.functions.invoke('send-otp-registration', {
+            body: { email, phone },
           });
 
           if (response.error) {
@@ -187,7 +199,8 @@ export const useAuthStore = create<AuthState>()(
           console.log('✅ OTP sent successfully to:', data.phone);
           set({
             loading: false,
-            needsTermsAcceptance: true, // New users need to accept terms
+            isAuthenticated: false, // User is not authenticated until OTP is verified
+            needsTermsAcceptance: false, // Don't show terms screen yet
           });
 
           return data.phone;
@@ -359,11 +372,66 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Failed to complete phone verification');
           }
 
+          // Also update the auth user metadata to mark terms as accepted
+          const { error: authUpdateError } = await supabase.auth.updateUser({
+            data: {
+              terms_accepted: true,
+              terms_accepted_at: new Date().toISOString(),
+            },
+          });
+
+          if (authUpdateError) {
+            console.error('❌ Failed to update auth user terms status:', authUpdateError);
+            // Don't throw error here, just log it
+          }
+
+          console.log('✅ Phone verification completed for new user');
           set({ loading: false });
         } catch (error: any) {
           console.error('❌ Verify OTP for new user error:', error);
           set({ loading: false });
           throw error;
+        }
+      },
+
+      checkPendingOtp: async (email: string) => {
+        try {
+          console.log('🔍 Checking for pending OTP for:', email);
+
+          // Get user ID from email
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .single();
+
+          if (userError || !userData) {
+            console.log('❌ User not found for email:', email);
+            return false;
+          }
+
+          // Check if there's a pending OTP for this user
+          const { data: otpData, error: otpError } = await supabase
+            .from('otp_verifications')
+            .select('id, expires_at, verified')
+            .eq('user_id', userData.id)
+            .eq('verified', false)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (otpError) {
+            console.error('❌ Error checking pending OTP:', otpError);
+            return false;
+          }
+
+          const hasPendingOtp = otpData && otpData.length > 0;
+          console.log('🔍 Pending OTP found:', hasPendingOtp);
+          
+          return hasPendingOtp;
+        } catch (error: any) {
+          console.error('❌ Check pending OTP error:', error);
+          return false;
         }
       },
 
@@ -481,7 +549,35 @@ export const useAuthStore = create<AuthState>()(
             }
 
             if (session?.user?.id === currentState.user.id) {
-              console.log('✅ Persisted session valid, restoring...');
+              console.log('✅ Persisted session valid, checking if user exists in database...');
+              
+              // Check if user exists in public.users table
+              const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', session.user.id)
+                .single();
+
+              if (userError || !userData) {
+                console.log('❌ User not found in database, clearing session...');
+                // User was deleted from database, clear everything
+                await supabase.auth.signOut();
+                await clearSupabaseAuthStorage();
+                set({
+                  user: null,
+                  session: null,
+                  isAuthenticated: false,
+                  loading: false,
+                });
+                // Clear persisted store
+                try {
+                  await AsyncStorage.removeItem('genie-auth-store');
+                  console.log('🧹 Cleared persisted auth store');
+                } catch {}
+                return;
+              }
+
+              console.log('✅ User exists in database, restoring session...');
               set({
                 user: session.user,
                 session,
@@ -526,6 +622,36 @@ export const useAuthStore = create<AuthState>()(
 
             console.log('🔐 Supabase session found:', !!session?.user);
             console.log('🔐 User email:', session?.user?.email);
+
+            if (session?.user) {
+              // Check if user exists in public.users table
+              const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', session.user.id)
+                .single();
+
+              if (userError || !userData) {
+                console.log('❌ User not found in database, clearing session...');
+                // User was deleted from database, clear everything
+                await supabase.auth.signOut();
+                await clearSupabaseAuthStorage();
+                set({
+                  user: null,
+                  session: null,
+                  isAuthenticated: false,
+                  loading: false,
+                });
+                // Clear persisted store
+                try {
+                  await AsyncStorage.removeItem('genie-auth-store');
+                  console.log('🧹 Cleared persisted auth store');
+                } catch {}
+                return;
+              }
+
+              console.log('✅ User exists in database, setting session...');
+            }
 
             set({
               user: session?.user || null,

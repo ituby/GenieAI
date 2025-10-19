@@ -59,11 +59,18 @@ serve(async (req) => {
     console.log(`🔐 [${requestId}] OTP length: ${otp.length}`);
     console.log(`🔐 [${requestId}] Current time: ${new Date().toISOString()}`);
 
+    // Normalize phone number - ensure it starts with +
+    let normalizedPhone = phone;
+    if (!phone.startsWith('+')) {
+      normalizedPhone = '+' + phone;
+    }
+    console.log(`🔐 [${requestId}] Normalized phone: "${normalizedPhone}"`);
+
     // First, check if there are any OTP records for this phone
     const { data: allOtps, error: allOtpsError } = await supabase
       .from('otp_verifications')
       .select('*')
-      .eq('phone_number', phone)
+      .eq('phone_number', normalizedPhone)
       .order('created_at', { ascending: false })
       .limit(5);
 
@@ -90,13 +97,13 @@ serve(async (req) => {
     }
 
     // Find the most recent valid OTP for this phone number
-    console.log(`🔍 [${requestId}] Searching for OTP with phone: "${phone}" and code: "${otp}"`);
+    console.log(`🔍 [${requestId}] Searching for OTP with phone: "${normalizedPhone}" and code: "${otp}"`);
     console.log(`🔍 [${requestId}] Search conditions: verified=false, expires_at > ${new Date().toISOString()}`);
     
     const { data: otpRecord, error: otpError } = await supabase
       .from('otp_verifications')
       .select('*')
-      .eq('phone_number', phone)
+      .eq('phone_number', normalizedPhone)
       .eq('otp_code', otp)
       .eq('verified', false)
       .gt('expires_at', new Date().toISOString())
@@ -110,7 +117,7 @@ serve(async (req) => {
         otpError
       );
       console.error(
-        `❌ [${requestId}] Search failed for phone: "${phone}" and code: "${otp}"`
+        `❌ [${requestId}] Search failed for phone: "${normalizedPhone}" and code: "${otp}"`
       );
       console.error(
         `❌ [${requestId}] Error details:`,

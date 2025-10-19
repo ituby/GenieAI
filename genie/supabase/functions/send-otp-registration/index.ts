@@ -7,11 +7,9 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 };
 
-interface SendOtpRequest {
+interface SendOtpRegistrationRequest {
   email: string;
-  password?: string;
-  phone?: string;
-  type?: 'sms' | 'whatsapp';
+  phone: string;
 }
 
 // Generate a 6-digit OTP
@@ -20,56 +18,49 @@ function generateOTP(): string {
 }
 
 // Send SMS via Twilio
-async function sendSMSViaTwilio(
-  to: string,
-  otp: string
-): Promise<{ success: boolean; error?: string }> {
+async function sendSMSViaTwilio(phoneNumber: string, otp: string) {
   const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
   const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const messagingServiceSid = Deno.env.get('TWILIO_MESSAGING_SERVICE_SID');
-  const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+  const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
 
-  if (!accountSid || !authToken) {
-    return { success: false, error: 'Twilio credentials not configured' };
-  }
-
-  if (!messagingServiceSid && !twilioPhoneNumber) {
+  if (!accountSid || !authToken || !fromNumber) {
     return {
       success: false,
-      error: 'Twilio phone number or messaging service not configured',
+      error: 'Twilio configuration missing',
     };
   }
 
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-
-  const body = new URLSearchParams({
-    To: to,
-    Body: `Your Genie verification code is: ${otp}. Valid for 10 minutes.`,
-    ...(messagingServiceSid
-      ? { MessagingServiceSid: messagingServiceSid }
-      : { From: twilioPhoneNumber! }),
-  });
-
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Basic ' + btoa(`${accountSid}:${authToken}`),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          To: phoneNumber,
+          From: fromNumber,
+          Body: `Your Genie verification code is: ${otp}`,
+        }),
+      }
+    );
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Twilio error:', error);
-      return { success: false, error: 'Failed to send SMS' };
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `Twilio API error: ${response.status} - ${errorText}`,
+      };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Error sending SMS:', error);
-    return { success: false, error: 'Failed to send SMS' };
+    return {
+      success: false,
+      error: `Failed to send SMS: ${error.message}`,
+    };
   }
 }
 
@@ -84,7 +75,7 @@ serve(async (req) => {
 
   try {
     const requestId = crypto.randomUUID();
-    console.log(`📱 [${requestId}] Send OTP SMS request received`);
+    console.log(`📱 [${requestId}] Send OTP Registration request received`);
 
     // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -98,12 +89,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { email, password, phone, type = 'sms' }: SendOtpRequest = await req.json();
+    const { email, phone }: SendOtpRegistrationRequest = await req.json();
 
-    if (!email) {
+    if (!email || !phone) {
       return new Response(
         JSON.stringify({
-          error: 'Email is required',
+          error: 'Email and phone are required',
           requestId,
         }),
         {
@@ -113,71 +104,53 @@ serve(async (req) => {
       );
     }
 
-    let userId: string;
-    let phoneNumber: string;
+    console.log(`📱 [${requestId}] Registration OTP for: ${email}, phone: ${phone}`);
 
-    if (password) {
-      // Existing user login - validate credentials
-      console.log(`📱 [${requestId}] Validating credentials for existing user: ${email}`);
-      
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+    // Check if user exists in public.users
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, phone_number')
+      .eq('email', email)
+      .single();
 
-      if (authError || !authData.user) {
-        console.error(`❌ [${requestId}] Invalid credentials:`, authError);
-        return new Response(
-          JSON.stringify({
-            error: 'Invalid email or password',
-            requestId,
-          }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-
-      userId = authData.user.id;
-      console.log(`✅ [${requestId}] Credentials validated for user: ${userId}`);
-
-      // Get user's phone number from the database
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('phone_number')
-        .eq('id', userId)
-        .single();
-
-      if (userError || !userData?.phone_number) {
-        console.error(`❌ [${requestId}] Phone number not found:`, userError);
-        return new Response(
-          JSON.stringify({
-            error:
-              'Phone number not found in system. Please update your profile.',
-            requestId,
-          }),
-          {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-
-      phoneNumber = userData.phone_number;
-    } else {
+    if (userError || !userData) {
+      console.error(`❌ [${requestId}] User not found in public.users:`, userError);
       return new Response(
         JSON.stringify({
-          error: 'Password is required for existing users',
+          error: 'User not found. Please complete registration first.',
           requestId,
         }),
         {
-          status: 400,
+          status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+
+    // Always update phone number for registration
+    console.log(`📱 [${requestId}] Updating phone number for user: ${userData.id}`);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ phone_number: phone })
+      .eq('id', userData.id);
+
+    if (updateError) {
+      console.error(`❌ [${requestId}] Error updating phone number:`, updateError);
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to update phone number. Please try again.',
+          requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const userId = userData.id;
+    const phoneNumber = phone;
+
     console.log(
       `📱 [${requestId}] Using phone number: ${phoneNumber}, sending OTP...`
     );
@@ -187,8 +160,7 @@ serve(async (req) => {
     if (!phoneRegex.test(phoneNumber)) {
       return new Response(
         JSON.stringify({
-          error:
-            'Invalid phone number format in database. Please update your profile.',
+          error: 'Invalid phone number format',
           requestId,
         }),
         {
@@ -198,7 +170,7 @@ serve(async (req) => {
       );
     }
 
-    // Step 3: Generate OTP
+    // Generate OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
@@ -207,7 +179,7 @@ serve(async (req) => {
     console.log(`🔐 [${requestId}] Phone number: ${phoneNumber}`);
     console.log(`🔐 [${requestId}] Expires at: ${expiresAt.toISOString()}`);
 
-    // Step 4: Save OTP to database
+    // Save OTP to database
     const { data: insertedOtp, error: otpError } = await supabase
       .from('otp_verifications')
       .insert({
@@ -222,10 +194,6 @@ serve(async (req) => {
 
     if (otpError) {
       console.error(`❌ [${requestId}] Error saving OTP:`, otpError);
-      console.error(
-        `❌ [${requestId}] Error details:`,
-        JSON.stringify(otpError)
-      );
       return new Response(
         JSON.stringify({
           error: 'Failed to generate OTP',
@@ -243,7 +211,7 @@ serve(async (req) => {
       JSON.stringify(insertedOtp)
     );
 
-    // Step 5: Send SMS via Twilio
+    // Send SMS via Twilio
     const smsResult = await sendSMSViaTwilio(phoneNumber, otp);
 
     if (!smsResult.success) {
@@ -266,7 +234,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'OTP sent successfully',
-        phone: phoneNumber, // Return full phone number for verification
+        phone: phoneNumber,
         requestId,
       }),
       {

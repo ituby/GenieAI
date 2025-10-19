@@ -16,6 +16,7 @@ interface OtpVerificationScreenProps {
   phone: string;
   onVerified: () => void;
   onResend: () => void;
+  onBackToPhone?: () => void;
 }
 
 const OTP_LENGTH = 6;
@@ -24,6 +25,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   phone,
   onVerified,
   onResend,
+  onBackToPhone,
 }) => {
   const theme = useTheme();
   const { verifyOtp, loading } = useAuthStore();
@@ -209,6 +211,14 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
             </Button>
           )}
         </View>
+
+        {onBackToPhone && (
+          <View style={styles.backContainer}>
+            <Button variant="ghost" onPress={onBackToPhone}>
+              Change Phone Number
+            </Button>
+          </View>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -266,5 +276,9 @@ const styles = StyleSheet.create({
   },
   timer: {
     fontSize: 14,
+  },
+  backContainer: {
+    alignItems: 'center',
+    marginTop: 16,
   },
 });

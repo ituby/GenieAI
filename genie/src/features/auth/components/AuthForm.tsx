@@ -6,6 +6,7 @@ import { useTheme } from '../../../theme/index';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { colors } from '../../../theme/colors';
 import { PhoneOtpVerification } from '../../../components';
+import { TermsAcceptanceScreen } from '../../../screens/TermsAcceptanceScreen';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -14,14 +15,17 @@ interface AuthFormProps {
 
 export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
   const theme = useTheme();
-  const { signIn, signUp, signUpWithPhone, sendOtpToUserPhone, verifyOtp, verifyOtpForNewUser, loading } =
+  const { signIn, signUp, signUpWithPhone, sendOtpToUserPhone, verifyOtp, verifyOtpForNewUser, checkPendingOtp, loading } =
     useAuthStore();
 
   const [showOtpScreen, setShowOtpScreen] = useState(false);
+  const [showTermsScreen, setShowTermsScreen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pendingAuth, setPendingAuth] = useState<{
     email: string;
     password: string;
+    fullName?: string;
+    phone?: string;
     isNewUser?: boolean;
   } | null>(null);
 
@@ -77,7 +81,27 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
 
     try {
       if (mode === 'login') {
-        // שלב 1: שלח OTP למספר הטלפון השמור בדאטהבייס
+        // בדוק אם יש OTP ממתין לאימות
+        const hasPendingOtp = await checkPendingOtp(formData.email);
+        if (hasPendingOtp) {
+          Alert.alert(
+            'Pending Verification',
+            'You have a pending phone verification. Please complete it first.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Show OTP screen for pending verification
+                  setPhoneNumber(formData.phone || '');
+                  setShowOtpScreen(true);
+                }
+              }
+            ]
+          );
+          return;
+        }
+
+        // אם אין OTP ממתין, שלח OTP חדש
         const phone = await sendOtpToUserPhone(
           formData.email,
           formData.password
@@ -93,45 +117,77 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         setPhoneNumber(phone);
         setShowOtpScreen(true);
       } else {
-        // רישום עם OTP - שליחת OTP למספר הטלפון
-        const phone = await signUpWithPhone(
-          formData.email,
-          formData.password,
-          formData.fullName,
-          formData.phone
-        );
-
-        // שמור את פרטי ההתחברות לשימוש אחרי אימות OTP
+        // עבור הרשמה - שמור את הפרטים והצג מסך אישור תקנון
         setPendingAuth({
           email: formData.email,
           password: formData.password,
+          fullName: formData.fullName,
+          phone: formData.phone,
           isNewUser: true,
         });
 
-        setPhoneNumber(phone);
-        setShowOtpScreen(true);
+        setPhoneNumber(formData.phone);
+        setShowTermsScreen(true);
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'An error occurred');
     }
   };
 
+  const handleTermsAccepted = async () => {
+    if (!pendingAuth) return;
+
+    try {
+      // אחרי אישור תקנון - יצור משתמש ושלח OTP
+      const phone = await signUpWithPhone(
+        pendingAuth.email,
+        pendingAuth.password,
+        pendingAuth.fullName!,
+        pendingAuth.phone!
+      );
+
+      setPhoneNumber(phone);
+      setShowTermsScreen(false);
+      setShowOtpScreen(true);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create account');
+      setShowTermsScreen(false);
+      setPendingAuth(null);
+    }
+  };
+
+  const handleTermsDeclined = () => {
+    setShowTermsScreen(false);
+    setPendingAuth(null);
+  };
+
   const handleOtpVerified = async (otpToken: string) => {
     // אחרי אימות OTP מוצלח, התחבר עם האימייל והסיסמה
     if (pendingAuth) {
       try {
+        console.log('🔐 OTP verified successfully, proceeding to sign in...');
+        
         if (pendingAuth.isNewUser) {
           // For new users, verify OTP first, then sign in
+          console.log('👤 New user - verifying OTP and signing in...');
           await verifyOtpForNewUser(phoneNumber, otpToken);
+          console.log('✅ OTP verified for new user, now signing in...');
           await signIn(pendingAuth.email, pendingAuth.password);
+          console.log('✅ New user signed in successfully');
         } else {
           // For existing users, just verify OTP
+          console.log('👤 Existing user - verifying OTP and signing in...');
           await verifyOtp(phoneNumber, otpToken);
+          console.log('✅ OTP verified for existing user, now signing in...');
           await signIn(pendingAuth.email, pendingAuth.password);
+          console.log('✅ Existing user signed in successfully');
         }
+        
+        console.log('✅ Sign in completed, user should be redirected to dashboard');
         setShowOtpScreen(false);
         setPendingAuth(null);
       } catch (error: any) {
+        console.error('❌ OTP verification or sign in failed:', error);
         Alert.alert('Login Error', error.message);
         setShowOtpScreen(false);
         setPendingAuth(null);
@@ -143,11 +199,40 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     if (!pendingAuth) return;
 
     try {
-      await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
+      if (pendingAuth.isNewUser) {
+        // For new users, resend OTP using the registration function
+        const phone = await signUpWithPhone(
+          pendingAuth.email,
+          pendingAuth.password,
+          pendingAuth.fullName!,
+          pendingAuth.phone!
+        );
+        setPhoneNumber(phone);
+      } else {
+        // For existing users, check if there's a pending OTP first
+        const hasPendingOtp = await checkPendingOtp(pendingAuth.email);
+        if (hasPendingOtp) {
+          Alert.alert(
+            'Pending Verification',
+            'You already have a pending verification. Please use the existing code or wait for it to expire.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        // If no pending OTP, send new one
+        const phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
+        setPhoneNumber(phone);
+      }
       Alert.alert('Success', 'A new code has been sent');
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
+  };
+
+  const handleBackToPhone = () => {
+    setShowOtpScreen(false);
+    setPendingAuth(null);
   };
 
   const updateField = (field: string, value: string) => {
@@ -157,6 +242,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
     }
   };
 
+  // Show terms acceptance screen for registration
+  if (showTermsScreen) {
+    return (
+      <TermsAcceptanceScreen
+        onAccept={handleTermsAccepted}
+        onDecline={handleTermsDeclined}
+      />
+    );
+  }
+
   // Show OTP verification screen if needed
   if (showOtpScreen) {
     return (
@@ -165,6 +260,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         onVerified={handleOtpVerified}
         onResend={handleResendOtp}
         loading={loading}
+        onBackToPhone={pendingAuth?.isNewUser ? handleBackToPhone : undefined}
       />
     );
   }

@@ -16,6 +16,7 @@ interface PhoneOtpVerificationProps {
   onVerified: (otpToken: string) => void;
   onResend: () => void;
   loading?: boolean;
+  onBackToPhone?: () => void;
 }
 
 const OTP_LENGTH = 6;
@@ -25,6 +26,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
   onVerified,
   onResend,
   loading = false,
+  onBackToPhone,
 }) => {
   const theme = useTheme();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
@@ -201,6 +203,14 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
               {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
             </Button>
           </View>
+
+          {onBackToPhone && (
+            <View style={styles.backContainer}>
+              <Button variant="ghost" onPress={onBackToPhone}>
+                Change Phone Number
+              </Button>
+            </View>
+          )}
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -274,5 +284,9 @@ const styles = StyleSheet.create({
   },
   resendButton: {
     paddingHorizontal: 0,
+  },
+  backContainer: {
+    alignItems: 'center',
+    marginTop: 16,
   },
 });
