@@ -5,6 +5,7 @@ import { Text } from '../../primitives/Text';
 import { Card } from '../../primitives/Card';
 import { Icon } from '../../primitives/Icon';
 import { GoalWithProgress } from '../../../types/goal';
+import { getCategoryColor, getCategoryIcon } from '../../../config/categoryConfig';
 
 export interface GoalCardProps {
   goal: GoalWithProgress;
@@ -87,50 +88,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
     }
   }, [isLoading, dot1Opacity, dot2Opacity, dot3Opacity, textOpacity]);
 
-  const getGoalColor = (goalColor?: string) => {
-    // Use AI-selected color if available
-    if (goalColor) {
-      // Check if it's already a hex color
-      if (goalColor.startsWith('#')) {
-        return goalColor;
-      }
-
-      // Map color names to hex values
-      const colorMap = {
-        yellow: '#FFFF68',
-        green: '#00FF88',
-        red: '#FF4444',
-        blue: '#4488FF',
-        orange: '#FF8844',
-        purple: '#8844FF',
-        pink: '#FF4488',
-        cyan: '#44FFFF',
-        lime: '#88FF44',
-        magenta: '#FF44FF',
-      };
-      return colorMap[goalColor as keyof typeof colorMap] || colorMap.yellow;
-    }
-
-    // Fallback to neutral colors when no AI color is provided
-    return theme.colors.text.secondary;
-  };
-
-  const getCategoryIcon = (category: string, iconName?: string) => {
-    // Use AI-selected icon if available
-    if (iconName) {
-      return iconName;
-    }
-
-    // Fallback to category-based icons
-    const icons = {
-      lifestyle: 'heart',
-      career: 'briefcase',
-      mindset: 'brain',
-      character: 'star',
-      custom: 'target',
-    };
-    return icons[category as keyof typeof icons] || icons.custom;
-  };
+  // Get category-based color and icon
+  const categoryColor = getCategoryColor(goal.category);
+  const categoryIcon = getCategoryIcon(goal.category);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -219,7 +179,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                     variant="caption"
                     style={[
                       styles.category,
-                      { color: getGoalColor(goal.color) },
+                      { color: categoryColor },
                     ]}
                   >
                     {goal.category.toUpperCase()}
@@ -230,13 +190,13 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               <View
                 style={[
                   styles.iconContainer,
-                  { backgroundColor: getGoalColor(goal.color) + '20' },
+                  { backgroundColor: categoryColor + '20' },
                 ]}
               >
                 <Icon
-                  name={getCategoryIcon(goal.category, goal.icon_name) as any}
+                  name={categoryIcon as any}
                   size={20}
-                  color={getGoalColor(goal.color)}
+                  color={categoryColor}
                 />
               </View>
             </View>
@@ -268,7 +228,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                     styles.progressFill,
                     {
                       width: `${goal.completion_percentage}%`,
-                      backgroundColor: getGoalColor(goal.color),
+                      backgroundColor: categoryColor,
                     },
                   ]}
                 />
