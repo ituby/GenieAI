@@ -340,11 +340,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingTop: 190,
+    paddingTop: 180,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 120,
   },
   statsContainer: {
@@ -440,7 +440,6 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     gap: 12,
-    marginHorizontal: 16,
   },
   emptyStateContainer: {
     alignItems: 'center',
