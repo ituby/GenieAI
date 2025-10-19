@@ -12,6 +12,7 @@ import {
 // import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '../components';
 import { AuthForm } from '../features/auth/components/AuthForm';
+import { PasswordResetScreen } from './PasswordResetScreen';
 import { useTheme } from '../theme/index';
 
 const FULL_TEXT = 'Your AI-powered goal companion';
@@ -22,6 +23,7 @@ const PAUSE_TIME = 5000; // 5 seconds
 export const LoginScreen: React.FC = () => {
   const theme = useTheme();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const breathingAnimation = useRef(new Animated.Value(1)).current;
   const fadeAnimation = useRef(new Animated.Value(0)).current;
   const slideAnimation = useRef(new Animated.Value(0)).current;
@@ -29,6 +31,19 @@ export const LoginScreen: React.FC = () => {
 
   const toggleAuthMode = () => {
     setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'));
+  };
+
+  const handleForgotPassword = () => {
+    setShowPasswordReset(true);
+  };
+
+  const handlePasswordResetBack = () => {
+    setShowPasswordReset(false);
+  };
+
+  const handlePasswordResetSuccess = () => {
+    setShowPasswordReset(false);
+    setAuthMode('login');
   };
 
   useEffect(() => {
@@ -114,6 +129,35 @@ export const LoginScreen: React.FC = () => {
     };
   }, []);
 
+  // Show password reset screen if needed
+  if (showPasswordReset) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background.primary },
+        ]}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formContainer}>
+              <PasswordResetScreen
+                onBack={handlePasswordResetBack}
+                onSuccess={handlePasswordResetSuccess}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -156,7 +200,11 @@ export const LoginScreen: React.FC = () => {
           </View>
 
           <View style={styles.formContainer}>
-            <AuthForm mode={authMode} onToggleMode={toggleAuthMode} />
+            <AuthForm 
+              mode={authMode} 
+              onToggleMode={toggleAuthMode}
+              onForgotPassword={handleForgotPassword}
+            />
           </View>
 
           <View style={styles.footer}>

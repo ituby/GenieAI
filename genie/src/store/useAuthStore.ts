@@ -32,6 +32,9 @@ interface AuthState {
   verifyOtpForNewUser: (phone: string, token: string) => Promise<void>;
   checkPendingOtp: (email: string) => Promise<boolean>;
   acceptTerms: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+  verifyPasswordResetToken: (token: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -460,6 +463,70 @@ export const useAuthStore = create<AuthState>()(
           console.error('❌ Accept terms error:', error);
           set({ loading: false });
           throw error;
+        }
+      },
+
+      resetPassword: async (email: string) => {
+        set({ loading: true });
+        try {
+          console.log('🔐 Sending password reset email to:', email);
+
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: 'genie://reset-password',
+          });
+
+          if (error) throw error;
+
+          set({ loading: false });
+          console.log('✅ Password reset email sent successfully');
+        } catch (error: any) {
+          console.error('❌ Reset password error:', error);
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      updatePassword: async (newPassword: string) => {
+        set({ loading: true });
+        try {
+          console.log('🔐 Updating password...');
+
+          const { error } = await supabase.auth.updateUser({
+            password: newPassword,
+          });
+
+          if (error) throw error;
+
+          set({ loading: false });
+          console.log('✅ Password updated successfully');
+        } catch (error: any) {
+          console.error('❌ Update password error:', error);
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      verifyPasswordResetToken: async (token: string) => {
+        try {
+          console.log('🔐 Verifying password reset token...');
+
+          // Verify the token by trying to get the user session
+          const { data, error } = await supabase.auth.getUser(token);
+          
+          if (error) {
+            console.log('❌ Token verification failed:', error.message);
+            return false;
+          }
+
+          if (data.user) {
+            console.log('✅ Token is valid, user can reset password');
+            return true;
+          }
+
+          return false;
+        } catch (error: any) {
+          console.error('❌ Token verification error:', error);
+          return false;
         }
       },
 

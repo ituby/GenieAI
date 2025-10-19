@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 // i18n removed
 import { Button, TextField, Text, Card } from '../../../components';
 import { useTheme } from '../../../theme/index';
@@ -7,14 +7,17 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { colors } from '../../../theme/colors';
 import { PhoneOtpVerification } from '../../../components';
 import { TermsAcceptanceScreen } from '../../../screens/TermsAcceptanceScreen';
+import { usePopupContext } from '../../../contexts/PopupContext';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
   onToggleMode: () => void;
+  onForgotPassword?: () => void;
 }
 
-export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
+export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgotPassword }) => {
   const theme = useTheme();
+  const { showAlert } = usePopupContext();
   const { signIn, signUp, signUpWithPhone, sendOtpToUserPhone, verifyOtp, verifyOtpForNewUser, checkPendingOtp, loading } =
     useAuthStore();
 
@@ -84,19 +87,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         // בדוק אם יש OTP ממתין לאימות
         const hasPendingOtp = await checkPendingOtp(formData.email);
         if (hasPendingOtp) {
-          Alert.alert(
-            'Pending Verification',
+          showAlert(
             'You have a pending phone verification. Please complete it first.',
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Show OTP screen for pending verification
-                  setPhoneNumber(formData.phone || '');
-                  setShowOtpScreen(true);
-                }
-              }
-            ]
+            'Pending Verification',
+            () => {
+              // Show OTP screen for pending verification
+              setPhoneNumber(formData.phone || '');
+              setShowOtpScreen(true);
+            }
           );
           return;
         }
@@ -130,7 +128,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         setShowTermsScreen(true);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'An error occurred');
+      showAlert(error.message || 'An error occurred', 'Error');
     }
   };
 
@@ -150,7 +148,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
       setShowTermsScreen(false);
       setShowOtpScreen(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create account');
+      showAlert(error.message || 'Failed to create account', 'Error');
       setShowTermsScreen(false);
       setPendingAuth(null);
     }
@@ -188,7 +186,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         setPendingAuth(null);
       } catch (error: any) {
         console.error('❌ OTP verification or sign in failed:', error);
-        Alert.alert('Login Error', error.message);
+        showAlert(error.message, 'Login Error');
         setShowOtpScreen(false);
         setPendingAuth(null);
       }
@@ -212,10 +210,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         // For existing users, check if there's a pending OTP first
         const hasPendingOtp = await checkPendingOtp(pendingAuth.email);
         if (hasPendingOtp) {
-          Alert.alert(
-            'Pending Verification',
+          showAlert(
             'You already have a pending verification. Please use the existing code or wait for it to expire.',
-            [{ text: 'OK' }]
+            'Pending Verification'
           );
           return;
         }
@@ -224,9 +221,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         const phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
         setPhoneNumber(phone);
       }
-      Alert.alert('Success', 'A new code has been sent');
+      showAlert('A new code has been sent', 'Success');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert(error.message, 'Error');
     }
   };
 
@@ -314,6 +311,22 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
           secureTextEntry
         />
 
+        {mode === 'login' && (
+          <Button
+            variant="ghost"
+            onPress={() => {
+              if (onForgotPassword) {
+                onForgotPassword();
+              } else {
+                console.log('Forgot password clicked - no handler provided');
+              }
+            }}
+            style={styles.forgotPasswordButton}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot password? Click here to reset</Text>
+          </Button>
+        )}
+
         {mode === 'register' && (
           <TextField
             placeholder={'Confirm Password'}
@@ -323,23 +336,24 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
             secureTextEntry
           />
         )}
-
-        {mode === 'login' && (
-          <Text variant="caption" color="tertiary" style={styles.otpHint}>
-            A verification code will be sent to your registered phone number
-          </Text>
-        )}
       </View>
 
       <View style={styles.actions}>
         <Button
-          variant="primary"
+          variant={mode === 'login' ? 'primary' : 'outline'}
           fullWidth
           loading={loading}
           onPress={handleSubmit}
+          style={mode === 'register' ? styles.registerButton : undefined}
         >
           {mode === 'login' ? 'Login' : 'Register'}
         </Button>
+
+        {mode === 'login' && (
+          <Text variant="caption" color="tertiary" style={styles.otpHint}>
+            Verification code will be sent to your phone
+          </Text>
+        )}
 
         <View style={styles.toggleContainer}>
           <Text variant="body" color="secondary">
@@ -384,9 +398,26 @@ const styles = StyleSheet.create({
   },
   otpHint: {
     textAlign: 'center',
-    marginTop: -8,
-    fontSize: 10,
+    marginTop: 8,
+    fontSize: 12,
     opacity: 0.7,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'center',
+    marginTop: -8,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  registerButton: {
+    borderWidth: 2,
+    borderColor: '#FFFF68',
+    backgroundColor: 'transparent',
   },
   actions: {
     gap: 16,

@@ -3,12 +3,15 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 import { ThemeProvider } from './src/theme/index';
+import { PopupProvider } from './src/contexts/PopupContext';
 import { useAuthStore } from './src/store/useAuthStore';
 // Text and Icon imports removed - no longer needed
 // useTranslation import removed - no longer needed
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { PasswordResetScreen } from './src/screens/PasswordResetScreen';
 import { TermsAcceptanceScreen } from './src/screens/TermsAcceptanceScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SplashScreen } from './src/components/SplashScreen';
@@ -31,6 +34,7 @@ export default function App() {
   );
   const [showSplash, setShowSplash] = useState(true);
   const [hasPendingOtp, setHasPendingOtp] = useState<boolean | null>(null);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -71,6 +75,70 @@ export default function App() {
 
     initializeApp();
   }, [initialize]);
+
+  // Handle deep links for password reset
+  useEffect(() => {
+    const handleDeepLink = async (url: string) => {
+      console.log('🔗 Deep link received:', url);
+      
+      // Handle password reset deep links
+      if (url.includes('reset-password') || url.includes('access_token')) {
+        console.log('🔐 Password reset deep link detected');
+        
+        // In development mode, always show password reset screen
+        if (__DEV__) {
+          console.log('🔧 Development mode: Auto-opening password reset screen');
+          setShowPasswordReset(true);
+          return;
+        }
+        
+        // In production, verify the token first
+        if (url.includes('access_token')) {
+          const tokenMatch = url.match(/access_token=([^&]+)/);
+          if (tokenMatch && tokenMatch[1]) {
+            const token = tokenMatch[1];
+            
+            try {
+              // Import the auth store to verify token
+              const { verifyPasswordResetToken } = useAuthStore.getState();
+              const isValidToken = await verifyPasswordResetToken(token);
+              
+              if (isValidToken) {
+                console.log('✅ Token is valid, opening password reset screen');
+                setShowPasswordReset(true);
+              } else {
+                console.log('❌ Token is invalid, not opening password reset screen');
+              }
+            } catch (error) {
+              console.log('❌ Error verifying token:', error);
+            }
+          }
+        } else {
+          // For reset-password deep links without token, show the screen
+          setShowPasswordReset(true);
+        }
+      }
+    };
+
+    // Handle initial URL if app was opened via deep link
+    const getInitialURL = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        handleDeepLink(initialUrl);
+      }
+    };
+
+    // Handle URL when app is already running
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    getInitialURL();
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   // Check for pending OTP when user becomes authenticated
   useEffect(() => {
@@ -133,8 +201,27 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
-          <OnboardingScreen onComplete={handleOnboardingComplete} />
-          <StatusBar style="light" />
+          <PopupProvider>
+            <OnboardingScreen onComplete={handleOnboardingComplete} />
+            <StatusBar style="light" />
+          </PopupProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show password reset screen if deep link was triggered
+  if (showPasswordReset) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <PopupProvider>
+            <PasswordResetScreen
+              onBack={() => setShowPasswordReset(false)}
+              onSuccess={() => setShowPasswordReset(false)}
+            />
+            <StatusBar style="light" />
+          </PopupProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     );
@@ -145,8 +232,10 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
-          <LoginScreen />
-          <StatusBar style="light" />
+          <PopupProvider>
+            <LoginScreen />
+            <StatusBar style="light" />
+          </PopupProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     );
@@ -158,8 +247,10 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
-          <LoginScreen />
-          <StatusBar style="light" />
+          <PopupProvider>
+            <LoginScreen />
+            <StatusBar style="light" />
+          </PopupProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     );
@@ -171,11 +262,13 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
-          <TermsAcceptanceScreen
-            onAccept={handleTermsAccept}
-            onDecline={handleTermsDecline}
-          />
-          <StatusBar style="light" />
+          <PopupProvider>
+            <TermsAcceptanceScreen
+              onAccept={handleTermsAccept}
+              onDecline={handleTermsDecline}
+            />
+            <StatusBar style="light" />
+          </PopupProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     );
@@ -186,8 +279,10 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
-          <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
-          <StatusBar style="light" />
+          <PopupProvider>
+            <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
+            <StatusBar style="light" />
+          </PopupProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     );
@@ -197,8 +292,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <DashboardScreen />
-        <StatusBar style="light" />
+        <PopupProvider>
+          <DashboardScreen />
+          <StatusBar style="light" />
+        </PopupProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

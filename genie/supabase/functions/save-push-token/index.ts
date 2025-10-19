@@ -104,8 +104,7 @@ serve(async (req) => {
       const { error: updateError } = await supabaseClient
         .from('push_tokens')
         .update({
-          expo_token,
-          updated_at: new Date().toISOString()
+          expo_token
         })
         .eq('id', existingPlatformToken.id);
 
@@ -132,7 +131,8 @@ serve(async (req) => {
     // Just check if we've reached the limit of 2 tokens total
 
     // Check if user has reached the limit of 2 tokens
-    if (existingTokens && existingTokens.length >= 2) {
+    // But allow updating existing tokens even if limit is reached
+    if (existingTokens && existingTokens.length >= 2 && !existingPlatformToken) {
       console.log(`⚠️ User already has ${existingTokens.length} tokens (limit: 2). Cannot add more tokens.`);
       
       return new Response(
