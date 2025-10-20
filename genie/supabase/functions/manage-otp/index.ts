@@ -28,6 +28,8 @@ async function sendResendEmail(email: string, otp: string, isRegistration: boole
   }
 
   try {
+    console.log(`📧 Preparing to send email to: ${email}, Type: ${isRegistration ? 'REGISTRATION' : 'LOGIN'}`);
+    
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -74,26 +76,39 @@ async function sendResendEmail(email: string, otp: string, isRegistration: boole
       </html>
     `;
 
+    console.log(`📤 Calling Resend API...`);
+    console.log(`📧 To: ${email}`);
+    console.log(`🔑 API Key starts with: ${resendApiKey.substring(0, 10)}...`);
+    
+    const emailPayload = {
+      from: 'Genie AI <auth@askgenie.info>',
+      to: email,
+      subject: `Your Genie Verification Code: ${otp}`,
+      html: emailHtml,
+    };
+    
+    console.log(`📦 Email payload:`, JSON.stringify({ ...emailPayload, html: '[HTML CONTENT]' }));
+    
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'Genie AI <noreply@askgenie.info>',
-        to: email,
-        subject: `Your Genie Verification Code: ${otp}`,
-        html: emailHtml,
-      })
+      body: JSON.stringify(emailPayload)
     });
 
+    console.log(`📨 Resend response status: ${response.status}`);
+    
+    const responseData = await response.json();
+    console.log(`📬 Resend response data:`, responseData);
+
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`❌ Resend error: ${response.status} - ${errorData}`);
-      return { success: false, error: 'Email delivery failed' };
+      console.error(`❌ Resend API error: ${response.status}`, responseData);
+      return { success: false, error: `Email delivery failed: ${responseData.message || response.statusText}` };
     }
 
+    console.log(`✅ Email sent successfully via Resend! ID: ${responseData.id}`);
     return { success: true };
   } catch (error) {
     console.error('❌ Resend request failed:', error);
@@ -227,6 +242,22 @@ serve(async (req) => {
           );
         }
         authStatus = newRecord;
+      }
+
+      // If this is a LOGIN request, reset login_verified to false
+      // This handles cases where user was logged out but login_verified wasn't reset
+      if (otpType === 'login' && authStatus.login_verified) {
+        console.log(`🔄 [${requestId}] Resetting login_verified for new login attempt`);
+        await supabase
+          .from('otp_verifications')
+          .update({
+            login_verified: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId);
+        
+        // Update local authStatus object
+        authStatus.login_verified = false;
       }
 
       // Check for cooldown (60 seconds)

@@ -82,7 +82,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
           currentPeriodEnd: tokenData.is_subscribed ? '2024-02-15' : 'N/A',
           tokensUsed: tokenData.tokens_used,
           tokensRemaining: tokenData.tokens_remaining,
-          monthlyTokens: tokenData.monthly_tokens || 10, // Default to 10 for free users
+          monthlyTokens: tokenData.monthly_tokens || (tokenData.is_subscribed ? 1000 : 100),
           nextBillingDate: tokenData.is_subscribed ? '2024-02-15' : 'N/A',
           lastPaymentDate: tokenData.is_subscribed ? '2024-01-15' : 'N/A',
           lastPaymentStatus: tokenData.is_subscribed ? 'succeeded' : 'none',
@@ -96,8 +96,8 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
           status: 'inactive',
           currentPeriodEnd: 'N/A',
           tokensUsed: 0,
-          tokensRemaining: 3,
-          monthlyTokens: 3,
+          tokensRemaining: 100,
+          monthlyTokens: 100,
           nextBillingDate: 'N/A',
           lastPaymentDate: 'N/A',
           lastPaymentStatus: 'none',
@@ -396,19 +396,19 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
             <View style={styles.usageStats}>
               <View style={styles.usageStat}>
                 <Text variant="h2" style={styles.usageNumber}>
-                  {subscriptionData.tokensUsed}
+                  {subscriptionData.tokensRemaining}
                 </Text>
                 <Text variant="caption" style={styles.usageLabel}>
-                  Used
+                  Remaining
                 </Text>
               </View>
               <View style={styles.usageDivider} />
               <View style={styles.usageStat}>
                 <Text variant="h2" style={styles.usageNumber}>
-                  {subscriptionData.tokensRemaining}
+                  {subscriptionData.tokensUsed}
                 </Text>
                 <Text variant="caption" style={styles.usageLabel}>
-                  Remaining
+                  Used
                 </Text>
               </View>
               <View style={styles.usageDivider} />
@@ -501,7 +501,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Icon name="x-circle" size={20} color="#FFFFFF" />
+                    <Icon name="x-circle" size={20} color="rgba(255, 255, 255, 0.8)" />
                     <Text style={styles.cancelButtonText}>
                       Cancel Subscription
                     </Text>
@@ -766,13 +766,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(244, 67, 54, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   cancelButtonText: {
-    color: '#F44336',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -786,9 +786,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 60,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    minHeight: 110,
+    backgroundColor: 'rgba(26, 28, 36, 0.95)',
   },
   headerLeft: {
     width: 40,

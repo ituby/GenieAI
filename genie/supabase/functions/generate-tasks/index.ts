@@ -956,19 +956,7 @@ async function checkAndDeductTokens(
       };
     }
 
-    let currentTokens = tokenData.tokens_remaining || 0;
-
-    // Add monthly tokens for subscribers
-    if (tokenData.is_subscribed && tokenData.monthly_tokens > 0) {
-      currentTokens += tokenData.monthly_tokens;
-      await supabase
-        .from('user_tokens')
-        .update({
-          tokens_remaining: currentTokens,
-          monthly_tokens: 0,
-        })
-        .eq('user_id', userId);
-    }
+    const currentTokens = tokenData.tokens_remaining || 0;
 
     if (currentTokens < tokensRequired) {
       return {
@@ -1064,23 +1052,8 @@ serve(async (req) => {
     // Week number: default to 1 if not provided
     const currentWeek = week_number || 1;
 
-    // Check and deduct tokens
-    const tokenCheck = await checkAndDeductTokens(
-      supabase,
-      user_id,
-      1,
-      requestId
-    );
-
-    if (!tokenCheck.success) {
-      console.log(`[${requestId}] Token check failed: ${tokenCheck.message}`);
-      return errorResponse(
-        402,
-        tokenCheck.message || 'Insufficient tokens',
-        requestId,
-        Date.now() - startTime
-      );
-    }
+    // Note: Token deduction moved to AFTER task generation
+    // We'll deduct 1 token per task created
 
     // Fetch goal with all necessary fields
     console.log(`[${requestId}] Fetching goal: ${goal_id}`);
@@ -1304,9 +1277,26 @@ serve(async (req) => {
       );
     }
 
+    // NOW deduct tokens based on actual number of tasks created
+    const tasksCreated = insertedTasks.length;
+    console.log(`[${requestId}] Deducting ${tasksCreated} tokens for ${tasksCreated} tasks created`);
+    
+    const tokenCheck = await checkAndDeductTokens(
+      supabase,
+      user_id,
+      tasksCreated,  // 1 token per task
+      requestId
+    );
+
+    if (!tokenCheck.success) {
+      console.error(`[${requestId}] Failed to deduct tokens after task creation: ${tokenCheck.message}`);
+      // Tasks already created, just log the error - don't fail the request
+      console.warn(`[${requestId}] Tasks created but token deduction failed`);
+    }
+
     const totalTime = Date.now() - startTime;
     console.log(
-      `[${requestId}] Week ${currentWeek} completed in ${totalTime}ms`
+      `[${requestId}] Week ${currentWeek} completed in ${totalTime}ms - ${tasksCreated} tasks, ${tasksCreated} tokens used`
     );
 
     // Calculate days for this week (for metadata)

@@ -56,7 +56,7 @@ export const useTokens = () => {
             tokensUsed: 0,
             totalTokens: 0,
             isSubscribed: false,
-            monthlyTokens: 0,
+            monthlyTokens: 100,  // Free users default
             lastResetAt: null,
             canUseTokens: false,
             canPurchaseTokens: false,

@@ -892,13 +892,35 @@ export const useAuthStore = create<AuthState>()(
                   session,
                   isAuthenticated: isLoggedIn, // Only authenticated if login_verified = true
                 });
+              } else if (event === 'TOKEN_REFRESHED') {
+                // Token was refreshed - update session but keep auth state
+                console.log('🔄 Token refreshed - updating session');
+                set({
+                  session,
+                  user: session.user,
+                });
               } else {
                 // For other events (like USER_UPDATED), don't change auth state
                 console.log('⏩ Auth event ignored - keeping current state');
               }
             } else {
-              // User signed out
-              console.log('🚪 User signed out - clearing state');
+              // User signed out (automatically or manually)
+              console.log('🚪 User signed out - clearing state and resetting login verification');
+              
+              // Get the current user before clearing state
+              const currentUser = get().user;
+              
+              // Reset login_verified when user is signed out
+              if (currentUser?.id) {
+                console.log('🔄 Resetting login_verified for user:', currentUser.id);
+                await supabase
+                  .from('otp_verifications')
+                  .update({
+                    login_verified: false,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('user_id', currentUser.id);
+              }
               
               set({
                 user: null,

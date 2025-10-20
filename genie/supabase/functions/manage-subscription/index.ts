@@ -63,7 +63,7 @@ serve(async (req) => {
     // ============================================
     if (action === 'subscribe') {
       console.log(`💳 [${requestId}] Activating subscription for user: ${user.id}`);
-      const tokensToAdd = monthlyTokens || 10;  // Default: 10 tokens for subscribers
+      const tokensToAdd = monthlyTokens || 1000;  // Default: 1000 tokens for subscribers
 
       const { error: subscribeError } = await supabase.rpc('subscribe_user', {
         p_user_id: user.id,

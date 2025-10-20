@@ -1184,6 +1184,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         body: {
           category: formData.category,
           userContext: '',
+          userId: user?.id,  // Send userId for token deduction
         },
       });
 

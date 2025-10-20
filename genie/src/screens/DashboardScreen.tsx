@@ -159,7 +159,7 @@ export const DashboardScreen: React.FC = () => {
     remaining: 0,
     total: 0,
     isSubscribed: false,
-    monthlyTokens: 0,
+    monthlyTokens: 100,
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
   const [refreshBreathingAnimation] = useState(new Animated.Value(1));
@@ -478,7 +478,7 @@ export const DashboardScreen: React.FC = () => {
           remaining: 3,
           total: 3,
           isSubscribed: false,
-          monthlyTokens: 0,
+          monthlyTokens: 100,
         });
       }
     } catch (error) {
@@ -1067,19 +1067,6 @@ export const DashboardScreen: React.FC = () => {
               <View style={styles.usageRateStats}>
                 <View style={styles.usageRateStat}>
                   <Text variant="h2" style={styles.usageRateNumber}>
-                    {userTokens.used}
-                  </Text>
-                  <Text
-                    variant="caption"
-                    color="secondary"
-                    style={styles.usageRateLabel}
-                  >
-                    Used
-                  </Text>
-                </View>
-                <View style={styles.usageRateDivider} />
-                <View style={styles.usageRateStat}>
-                  <Text variant="h2" style={styles.usageRateNumber}>
                     {userTokens.remaining}
                   </Text>
                   <Text
@@ -1088,6 +1075,19 @@ export const DashboardScreen: React.FC = () => {
                     style={styles.usageRateLabel}
                   >
                     Remaining
+                  </Text>
+                </View>
+                <View style={styles.usageRateDivider} />
+                <View style={styles.usageRateStat}>
+                  <Text variant="h2" style={styles.usageRateNumber}>
+                    {userTokens.used}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.usageRateLabel}
+                  >
+                    Used
                   </Text>
                 </View>
               </View>
@@ -1846,21 +1846,21 @@ export const DashboardScreen: React.FC = () => {
                     <TouchableOpacity
                       style={[
                         styles.tokenOption,
-                        selectedPackage === 5 && styles.tokenOptionSelected,
+                        selectedPackage === 100 && styles.tokenOptionSelected,
                       ]}
                       activeOpacity={0.7}
                       onPress={() => {
-                        setSelectedPackage(5);
-                        setCustomTokenAmount('5');
-                        setCustomTokenPrice(5.0);
+                        setSelectedPackage(100);
+                        setCustomTokenAmount('100');
+                        setCustomTokenPrice(4.99);
                       }}
                     >
                       <View style={styles.tokenOptionHeader}>
                         <Text variant="h4" style={styles.tokenAmount}>
-                          5 Tokens
+                          100 Tokens
                         </Text>
                         <Text variant="h3" style={styles.tokenPrice}>
-                          $5.00
+                          $4.99
                         </Text>
                       </View>
                       <Text
@@ -1868,20 +1868,20 @@ export const DashboardScreen: React.FC = () => {
                         color="secondary"
                         style={styles.tokenDescription}
                       >
-                        Perfect for trying out premium features
+                        Like 1 free month - perfect for testing
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[
                         styles.tokenOption,
-                        selectedPackage === 10 && styles.tokenOptionSelected,
+                        selectedPackage === 500 && styles.tokenOptionSelected,
                       ]}
                       activeOpacity={0.7}
                       onPress={() => {
-                        setSelectedPackage(10);
-                        setCustomTokenAmount('10');
-                        setCustomTokenPrice(8.5);
+                        setSelectedPackage(500);
+                        setCustomTokenAmount('500');
+                        setCustomTokenPrice(19.99);
                       }}
                     >
                       <View style={styles.popularBadge}>
@@ -1891,10 +1891,10 @@ export const DashboardScreen: React.FC = () => {
                       </View>
                       <View style={styles.tokenOptionHeader}>
                         <Text variant="h4" style={styles.tokenAmount}>
-                          10 Tokens
+                          500 Tokens
                         </Text>
                         <Text variant="h3" style={styles.tokenPrice}>
-                          $8.50
+                          $19.99
                         </Text>
                       </View>
                       <Text
@@ -1902,28 +1902,28 @@ export const DashboardScreen: React.FC = () => {
                         color="secondary"
                         style={styles.tokenDescription}
                       >
-                        Best value for regular users
+                        Best value - ~2 detailed goals
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[
                         styles.tokenOption,
-                        selectedPackage === 25 && styles.tokenOptionSelected,
+                        selectedPackage === 1000 && styles.tokenOptionSelected,
                       ]}
                       activeOpacity={0.7}
                       onPress={() => {
-                        setSelectedPackage(25);
-                        setCustomTokenAmount('25');
-                        setCustomTokenPrice(20.0);
+                        setSelectedPackage(1000);
+                        setCustomTokenAmount('1000');
+                        setCustomTokenPrice(34.99);
                       }}
                     >
                       <View style={styles.tokenOptionHeader}>
                         <Text variant="h4" style={styles.tokenAmount}>
-                          25 Tokens
+                          1000 Tokens
                         </Text>
                         <Text variant="h3" style={styles.tokenPrice}>
-                          $20.00
+                          $34.99
                         </Text>
                       </View>
                       <Text
@@ -1931,13 +1931,14 @@ export const DashboardScreen: React.FC = () => {
                         color="secondary"
                         style={styles.tokenDescription}
                       >
-                        Great for power users
+                        Like premium month - for power users
                       </Text>
                     </TouchableOpacity>
                   </View>
+                </View>
 
-                  {/* Custom Token Amount Input */}
-                  <View style={styles.customTokenSection}>
+                {/* Custom Token Amount Input - Outside modal content card */}
+                <View style={styles.customTokenSection}>
                     <Text variant="h4" style={styles.customTokenTitle}>
                       Custom Amount
                     </Text>
@@ -1946,10 +1947,10 @@ export const DashboardScreen: React.FC = () => {
                         style={styles.customTokenInput}
                         value={customTokenAmount}
                         onChangeText={handleCustomTokenChange}
-                        placeholder="Enter amount (1-100)"
+                        placeholder="Enter amount (50-5000)"
                         placeholderTextColor={theme.colors.text.secondary}
                         keyboardType="numeric"
-                        maxLength={3}
+                        maxLength={4}
                       />
                       <Text
                         variant="caption"
@@ -1973,9 +1974,10 @@ export const DashboardScreen: React.FC = () => {
                         </Text>
                       </View>
                     )}
-                  </View>
+                </View>
 
-                  {/* Purchase Button */}
+                {/* Purchase Button */}
+                <View style={styles.modalContent}>
                   <View style={styles.purchaseButtonContainer}>
                     <TouchableOpacity
                       style={styles.purchaseButton}
@@ -2000,12 +2002,11 @@ export const DashboardScreen: React.FC = () => {
 
                   {/* Description */}
                   <Text
-                    variant="body"
+                    variant="caption"
                     color="secondary"
-                    style={styles.modalDescription}
+                    style={[styles.modalDescription, { fontSize: 11 }]}
                   >
-                    Each token allows you to create one goal. Tokens are
-                    consumed when you create a new goal and cannot be refunded.
+                    1 token = 1 task • ~70 tokens per goal • Non-refundable
                   </Text>
                 </View>
               </ScrollView>
@@ -2967,8 +2968,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingBottom: 16,
+    padding: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     gap: 12,
@@ -3028,7 +3029,7 @@ const styles = StyleSheet.create({
   },
   modalScrollView: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   modalScrollContent: {
     paddingBottom: 20,
@@ -3036,9 +3037,9 @@ const styles = StyleSheet.create({
   modalActions: {
     width: '100%',
     gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
   },
   modalSubscribeButton: {
     backgroundColor: '#FFFF68',
@@ -3056,10 +3057,9 @@ const styles = StyleSheet.create({
   // Token Purchase Modal Styles
   tokenOptions: {
     width: '100%',
-    flexDirection: 'row',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 12,
     marginBottom: 16,
-    justifyContent: 'space-between',
   },
   tokenOption: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -3068,11 +3068,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     position: 'relative',
-    flex: 1,
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 80,
-    maxWidth: '30%',
+    justifyContent: 'space-between',
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -3090,9 +3089,8 @@ const styles = StyleSheet.create({
   },
   popularBadge: {
     position: 'absolute',
-    top: -6,
-    left: '50%',
-    transform: [{ translateX: -18 }],
+    top: 8,
+    right: 8,
     backgroundColor: '#FFFF68',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -3113,44 +3111,32 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   tokenOptionHeader: {
-    alignItems: 'center',
-    marginBottom: 6,
+    flex: 1,
+    alignItems: 'flex-start',
   },
   tokenAmount: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 11,
-    marginBottom: 2,
+    fontSize: 16,
+    textAlign: 'left',
   },
   tokenPrice: {
     color: '#FFFF68',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 18,
+    textAlign: 'right',
   },
   tokenDescription: {
-    textAlign: 'center',
-    fontSize: 8,
-    lineHeight: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500',
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '400',
+    marginTop: 2,
+    textAlign: 'left',
   },
   // Custom Token Input Styles
   customTokenSection: {
     width: '100%',
     marginBottom: 16,
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   customTokenTitle: {
     color: '#FFFFFF',

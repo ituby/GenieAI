@@ -1132,28 +1132,42 @@ serve(async (req) => {
       return errorResponse(400, 'Missing required fields', requestId);
     }
 
-    // Check and deduct tokens for outline generation
-    const tokensRequired = 1; // 1 token for outline generation
-    const tokenCheck = await checkAndDeductTokens(
-      supabase,
-      user_id,
-      tokensRequired,
-      requestId
-    );
+    // Verify goal and get plan duration FIRST
+    const { data: goal, error: goalPreCheckError } = await supabase
+      .from('goals')
+      .select('plan_duration_days')
+      .eq('id', goal_id)
+      .eq('user_id', user_id)
+      .single();
 
-    if (!tokenCheck.success) {
-      console.log(`[${requestId}] Token check failed: ${tokenCheck.message}`);
+    if (goalPreCheckError || !goal) {
+      return errorResponse(404, 'Goal not found', requestId);
+    }
+
+    // Calculate tokens needed: 3 tokens per milestone
+    const totalWeeks = Math.ceil((goal.plan_duration_days || 21) / 7);
+    const tokensNeeded = totalWeeks * 3;
+    
+    console.log(`📊 Plan will have ${totalWeeks} milestones, requiring ${tokensNeeded} tokens (3 per milestone)`);
+
+    // Check if user has enough tokens
+    const { data: tokenData } = await supabase
+      .from('user_tokens')
+      .select('tokens_remaining, tokens_used')
+      .eq('user_id', user_id)
+      .single();
+
+    if (!tokenData || tokenData.tokens_remaining < tokensNeeded) {
+      console.log(`[${requestId}] Insufficient tokens: has ${tokenData?.tokens_remaining || 0}, needs ${tokensNeeded}`);
       return errorResponse(
         402,
-        tokenCheck.message || 'Insufficient tokens',
+        `Insufficient tokens. You need ${tokensNeeded} tokens (${totalWeeks} milestones × 3 tokens). You have ${tokenData?.tokens_remaining || 0} tokens.`,
         requestId,
         Date.now() - startTime
       );
     }
-
-    console.log(
-      `[${requestId}] Tokens deducted: ${tokensRequired}, remaining: ${tokenCheck.remainingTokens}`
-    );
+    
+    console.log(`[${requestId}] User has ${tokenData.tokens_remaining} tokens - sufficient for ${totalWeeks} milestones`);
 
     if (!VALID_CATEGORIES.includes(category)) {
       return errorResponse(400, `Invalid category: ${category}`, requestId);
@@ -1163,24 +1177,24 @@ serve(async (req) => {
       return errorResponse(400, `Invalid intensity: ${intensity}`, requestId);
     }
 
-    // Verify goal and get advanced settings
-    const { data: goal, error: goalError } = await supabase
+    // Get advanced settings from goal (already fetched above for token check)
+    const { data: goalDetails, error: goalError } = await supabase
       .from('goals')
       .select('id, plan_duration_days, preferred_time_ranges, preferred_days')
       .eq('id', goal_id)
       .eq('user_id', user_id)
       .single();
 
-    if (goalError || !goal) {
+    if (goalError || !goalDetails) {
       return errorResponse(404, 'Goal not found', requestId);
     }
 
     console.log(`[${requestId}] Generating outline for: ${title}`);
 
     // Use goal's advanced settings if available, otherwise use request parameters
-    const finalPlanDuration = goal.plan_duration_days || plan_duration_days;
-    const finalTimeRanges = goal.preferred_time_ranges || preferred_time_ranges;
-    const finalPreferredDays = goal.preferred_days || preferred_days;
+    const finalPlanDuration = goalDetails.plan_duration_days || plan_duration_days;
+    const finalTimeRanges = goalDetails.preferred_time_ranges || preferred_time_ranges;
+    const finalPreferredDays = goalDetails.preferred_days || preferred_days;
 
     console.log(
       `[${requestId}] Using settings: duration=${finalPlanDuration}, timeRanges=${JSON.stringify(finalTimeRanges)}, preferredDays=${JSON.stringify(finalPreferredDays)}`
@@ -1248,6 +1262,21 @@ serve(async (req) => {
       console.warn('Failed to send push notification:', pushError);
     }
 
+    // Deduct tokens: 3 tokens per milestone
+    const milestonesCount = result.milestones?.length || 0;
+    const tokensToDeduct = milestonesCount * 3;
+    
+    console.log(`💳 Deducting ${tokensToDeduct} tokens (${milestonesCount} milestones × 3 tokens)`);
+    
+    await supabase
+      .from('user_tokens')
+      .update({
+        tokens_remaining: tokenData.tokens_remaining - tokensToDeduct,
+        tokens_used: (tokenData.tokens_used || 0) + tokensToDeduct,
+        last_used_at: new Date().toISOString(),
+      })
+      .eq('user_id', user_id);
+
     const totalTime = Date.now() - startTime;
 
     return new Response(
@@ -1256,8 +1285,8 @@ serve(async (req) => {
         stage: 'outline',
         request_id: requestId,
         processing_time_ms: totalTime,
-        tokens_used: tokensRequired,
-        tokens_remaining: tokenCheck.remainingTokens,
+        tokens_used: tokensToDeduct,
+        tokens_remaining: tokenData.tokens_remaining - tokensToDeduct,
         icon_name: result.iconName,
         color: result.color,
         category: result.category,

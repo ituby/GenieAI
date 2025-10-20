@@ -26,14 +26,41 @@ serve(async (req) => {
   try {
     console.log('🎲 Suggest Goal Function - Starting...');
 
+    // Parse request body first to get user_id and preferences
+    const { category, userContext, userId } = await req.json().catch(() => ({}));
+
+    // Get Supabase client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // If userId provided, check and deduct 1 token for Surprise Me
+    let userTokens: { tokens_remaining: number; tokens_used: number } | null = null;
+    if (userId) {
+      console.log(`👤 User: ${userId}`);
+      
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('user_tokens')
+        .select('tokens_remaining, tokens_used')
+        .eq('user_id', userId)
+        .single();
+
+      if (tokenError || !tokenData || tokenData.tokens_remaining < 1) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Insufficient tokens. Need 1 token for Surprise Me.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      userTokens = tokenData;
+    }
+
     // Get Anthropic API key
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
       throw new Error('ANTHROPIC_API_KEY is missing');
     }
-
-    // Parse request body to get user preferences
-    const { category, userContext } = await req.json().catch(() => ({}));
 
     console.log('📝 Selected category:', category || 'None');
     console.log('📝 User context:', userContext || 'None');
@@ -227,14 +254,23 @@ CRITICAL: BOTH title and description MUST start with "I want to..." - first pers
       category: suggestion.category,
     });
 
+    // Deduct 1 token if user provided
+    if (userId && userTokens) {
+      await supabase
+        .from('user_tokens')
+        .update({
+          tokens_remaining: userTokens.tokens_remaining - 1,
+          tokens_used: (userTokens.tokens_used || 0) + 1,
+          last_used_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      console.log(`💳 Token deducted: 1 token for Surprise Me. Remaining: ${userTokens.tokens_remaining - 1}`);
+    }
+
     // Save to ai_runs for tracking (optional - no goal_id yet)
     if (tokenUsage) {
       try {
-        const supabase = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-
         const { data: costData } = await supabase.rpc('calculate_ai_cost', {
           model_name: 'claude-3-7-sonnet-20250219',
           input_tokens_count: tokenUsage.input,
