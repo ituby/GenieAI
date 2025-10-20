@@ -5,9 +5,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  RefreshControl,
   Modal,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/index';
@@ -15,24 +15,9 @@ import { Text } from '../components/primitives/Text';
 import { Card } from '../components/primitives/Card';
 import { Icon } from '../components/primitives/Icon';
 import { Button } from '../components/primitives/Button';
-import { Switch } from '../components/primitives/Switch';
 import { supabase } from '../services/supabase/client';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNotifications } from '../hooks/useNotifications';
-
-interface UserSettings {
-  id: string;
-  user_id: string;
-  notifications_enabled: boolean;
-  push_notifications: boolean;
-  email_notifications: boolean;
-  reminder_time: string;
-  theme: 'light' | 'dark' | 'auto';
-  language: 'en' | 'he' | 'ar' | 'es' | 'fr' | 'de';
-  timezone: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
   onBack,
@@ -46,60 +31,42 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
     requestPermissions,
     sendTestNotification,
   } = useNotifications();
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [timezone, setTimezone] = useState<string>('UTC');
+  const [language, setLanguage] = useState<string>('en');
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [timezoneInput, setTimezoneInput] = useState('');
+  const [languageInput, setLanguageInput] = useState('');
 
   useEffect(() => {
     if (user?.id) {
-      fetchSettings();
+      fetchUserSettings();
     }
   }, [user?.id]);
 
-  const fetchSettings = async () => {
+  const fetchUserSettings = async () => {
     if (!user?.id) return;
-
+    
     try {
+      setLoading(true);
       const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
+        .from('users')
+        .select('timezone, language')
+        .eq('id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        // Not found error
-        throw error;
-      }
-
-      if (!data) {
-        // Create default settings
-        const { data: newSettings, error: createError } = await supabase
-          .from('user_settings')
-          .insert([
-            {
-              user_id: user.id,
-              notifications_enabled: true,
-              push_notifications: true,
-              email_notifications: false,
-              reminder_time: '09:00',
-              theme: 'dark',
-              language: 'en',
-              timezone: 'UTC',
-            },
-          ])
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        setSettings(newSettings);
-      } else {
-        setSettings(data);
+      if (error) throw error;
+      
+      if (data) {
+        setTimezone(data.timezone || 'UTC');
+        setLanguage(data.language || 'en');
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
-      Alert.alert('Error', 'Failed to load settings');
+      console.error('Error fetching user settings:', error);
     } finally {
       setLoading(false);
     }
@@ -107,36 +74,53 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchSettings();
+    await fetchUserSettings();
     setRefreshing(false);
   };
 
-  const updateSetting = async (key: keyof UserSettings, value: any) => {
-    if (!user?.id || !settings) return;
-
+  const updateTimezone = async (newTimezone: string) => {
+    if (!user?.id) return;
+    
     try {
       const { error } = await supabase
-        .from('user_settings')
-        .update({
-          [key]: value,
-          updated_at: new Date().toISOString(),
+        .from('users')
+        .update({ 
+          timezone: newTimezone,
+          updated_at: new Date().toISOString()
         })
-        .eq('user_id', user.id);
+        .eq('id', user.id);
 
       if (error) throw error;
-
-      setSettings((prev) =>
-        prev
-          ? {
-              ...prev,
-              [key]: value,
-              updated_at: new Date().toISOString(),
-            }
-          : null
-      );
+      
+      setTimezone(newTimezone);
+      setShowTimezoneModal(false);
+      Alert.alert('Success', 'Timezone updated successfully');
     } catch (error) {
-      console.error('Error updating setting:', error);
-      Alert.alert('Error', 'Failed to update setting');
+      console.error('Error updating timezone:', error);
+      Alert.alert('Error', 'Failed to update timezone');
+    }
+  };
+
+  const updateLanguage = async (newLanguage: string) => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          language: newLanguage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
+      setLanguage(newLanguage);
+      setShowLanguageModal(false);
+      Alert.alert('Success', 'Language updated successfully');
+    } catch (error) {
+      console.error('Error updating language:', error);
+      Alert.alert('Error', 'Failed to update language');
     }
   };
 
@@ -184,38 +168,6 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
     }
   };
 
-  if (!settings) {
-    return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: theme.colors.background.primary },
-        ]}
-      >
-        <View style={styles.absoluteHeader}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={onBack} style={styles.backButton}>
-              <Icon name="arrow-left" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.headerCenter}>
-            <Text variant="h4" style={styles.title} numberOfLines={1}>
-              Settings
-            </Text>
-          </View>
-
-          <View style={styles.headerRight}>{/* Empty for balance */}</View>
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text variant="body" color="secondary">
-            Loading...
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <Modal visible={true} animationType="slide" presentationStyle="fullScreen">
       <View
@@ -253,74 +205,48 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
             />
           }
         >
-          {/* Notifications */}
+          {/* Push Notifications */}
           <Card variant="gradient" padding="lg" style={styles.settingsCard}>
             <Text
               variant="h4"
               color="primary-color"
               style={styles.sectionTitle}
             >
-              Notifications
+              Push Notifications
             </Text>
             <View style={styles.settingsList}>
-              <View style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Enable Notifications
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    Receive push notifications
-                  </Text>
-                </View>
-                <Switch
-                  value={settings.notifications_enabled}
-                  onValueChange={(value: boolean) =>
-                    updateSetting('notifications_enabled', value)
-                  }
-                />
+              <View style={styles.infoRow}>
+                <Text variant="body" color="secondary">
+                  Status:
+                </Text>
+                <Text variant="body" color="primary-color" style={styles.infoValue}>
+                  {isEnabled ? '✓ Enabled' : '✗ Disabled'}
+                </Text>
               </View>
-              <View style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Push Notifications
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    {pushToken ? 'Registered' : 'Not registered'} •{' '}
-                    {isEnabled ? 'Enabled' : 'Disabled'}
-                  </Text>
-                </View>
-                <Switch
-                  value={settings.push_notifications}
-                  onValueChange={async (value: boolean) => {
-                    if (value && !isEnabled) {
-                      const granted = await requestPermissions();
-                      if (granted) {
-                        updateSetting('push_notifications', true);
-                      }
+              <View style={styles.infoRow}>
+                <Text variant="body" color="secondary">
+                  Registration:
+                </Text>
+                <Text variant="body" color="primary-color" style={styles.infoValue}>
+                  {pushToken ? '✓ Registered' : '✗ Not registered'}
+                </Text>
+              </View>
+              {!isEnabled && (
+                <Button
+                  variant="primary"
+                  onPress={async () => {
+                    const granted = await requestPermissions();
+                    if (granted) {
+                      Alert.alert('Success', 'Notifications enabled successfully!');
                     } else {
-                      updateSetting('push_notifications', value);
+                      Alert.alert('Error', 'Failed to enable notifications. Please check your device settings.');
                     }
                   }}
-                  disabled={!settings.notifications_enabled}
-                />
-              </View>
-              <View style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Email Notifications
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    Email updates and summaries
-                  </Text>
-                </View>
-                <Switch
-                  value={settings.email_notifications}
-                  onValueChange={(value: boolean) =>
-                    updateSetting('email_notifications', value)
-                  }
-                  disabled={!settings.notifications_enabled}
-                />
-              </View>
+                  style={styles.enableButton}
+                >
+                  Enable Notifications
+                </Button>
+              )}
             </View>
           </Card>
 
@@ -335,6 +261,9 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
                 Test Notifications
               </Text>
               <View style={styles.settingsList}>
+                <Text variant="body" color="secondary" style={styles.testDescription}>
+                  Send a test notification to verify that notifications are working correctly.
+                </Text>
                 <Button
                   variant="outline"
                   onPress={async () => {
@@ -357,66 +286,29 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
             </Card>
           )}
 
-          {/* Appearance */}
+          {/* Preferences */}
           <Card variant="gradient" padding="lg" style={styles.settingsCard}>
             <Text
               variant="h4"
               color="primary-color"
               style={styles.sectionTitle}
             >
-              Appearance
+              Preferences
             </Text>
             <View style={styles.settingsList}>
-              <TouchableOpacity style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Theme
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    Current: {settings.theme}
-                  </Text>
-                </View>
-                <Icon
-                  name="caret-right"
-                  size={16}
-                  color={theme.colors.text.disabled}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Language
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    Current: {settings.language}
-                  </Text>
-                </View>
-                <Icon
-                  name="caret-right"
-                  size={16}
-                  color={theme.colors.text.disabled}
-                />
-              </TouchableOpacity>
-            </View>
-          </Card>
-
-          {/* Time & Location */}
-          <Card variant="gradient" padding="lg" style={styles.settingsCard}>
-            <Text
-              variant="h4"
-              color="primary-color"
-              style={styles.sectionTitle}
-            >
-              Time & Location
-            </Text>
-            <View style={styles.settingsList}>
-              <TouchableOpacity style={styles.settingItem}>
+              <TouchableOpacity 
+                style={styles.settingItem}
+                onPress={() => {
+                  setTimezoneInput(timezone);
+                  setShowTimezoneModal(true);
+                }}
+              >
                 <View style={styles.settingInfo}>
                   <Text variant="body" color="primary-color">
                     Timezone
                   </Text>
                   <Text variant="caption" color="secondary">
-                    Current: {settings.timezone}
+                    Current: {timezone}
                   </Text>
                 </View>
                 <Icon
@@ -425,13 +317,19 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
                   color={theme.colors.text.disabled}
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.settingItem}>
+              <TouchableOpacity 
+                style={styles.settingItem}
+                onPress={() => {
+                  setLanguageInput(language);
+                  setShowLanguageModal(true);
+                }}
+              >
                 <View style={styles.settingInfo}>
                   <Text variant="body" color="primary-color">
-                    Reminder Time
+                    Language
                   </Text>
                   <Text variant="caption" color="secondary">
-                    Daily reminders at {settings.reminder_time}
+                    Current: {language}
                   </Text>
                 </View>
                 <Icon
@@ -443,7 +341,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
             </View>
           </Card>
 
-          {/* Account */}
+          {/* Account Actions */}
           <Card variant="gradient" padding="lg" style={styles.settingsCard}>
             <Text
               variant="h4"
@@ -453,43 +351,14 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
               Account
             </Text>
             <View style={styles.settingsList}>
-              <TouchableOpacity style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Privacy Policy
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    View our privacy policy
-                  </Text>
-                </View>
-                <Icon
-                  name="caret-right"
-                  size={16}
-                  color={theme.colors.text.disabled}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.settingItem}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Terms of Service
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    View terms and conditions
-                  </Text>
-                </View>
-                <Icon
-                  name="caret-right"
-                  size={16}
-                  color={theme.colors.text.disabled}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.settingItem} onPress={handleDeleteAccount}>
-                <View style={styles.settingInfo}>
-                  <Text variant="body" style={{ color: theme.colors.status.error }}>
+              <TouchableOpacity style={styles.dangerButton} onPress={handleDeleteAccount}>
+                <Icon name="trash" size={20} color={theme.colors.status.error} />
+                <View style={styles.dangerButtonInfo}>
+                  <Text variant="body" style={{ color: theme.colors.status.error, fontWeight: '600' }}>
                     Delete Account
                   </Text>
                   <Text variant="caption" color="secondary">
-                    Permanently delete your account
+                    Permanently delete your account and all data
                   </Text>
                 </View>
                 <Icon
@@ -566,6 +435,98 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
                   ]}
                 >
                   Confirm
+                </Button>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Timezone Edit Modal */}
+        {showTimezoneModal && (
+          <View style={styles.deleteModalOverlay}>
+            <View style={styles.editModal}>
+              <View style={styles.editModalHeader}>
+                <Icon name="clock" size={24} color="#FFFF68" weight="fill" />
+                <Text variant="h3" style={styles.editModalTitle}>
+                  Update Timezone
+                </Text>
+              </View>
+
+              <Text variant="body" color="secondary" style={styles.editModalDescription}>
+                Enter your timezone (e.g., UTC, America/New_York, Europe/London, Asia/Jerusalem)
+              </Text>
+
+              <TextInput
+                style={styles.editModalInput}
+                value={timezoneInput}
+                onChangeText={setTimezoneInput}
+                placeholder="UTC"
+                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.editModalActions}>
+                <Button
+                  variant="ghost"
+                  onPress={() => setShowTimezoneModal(false)}
+                  style={styles.editModalCancelButton}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={() => updateTimezone(timezoneInput)}
+                  disabled={!timezoneInput.trim()}
+                  style={styles.editModalConfirmButton}
+                >
+                  Save
+                </Button>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Language Edit Modal */}
+        {showLanguageModal && (
+          <View style={styles.deleteModalOverlay}>
+            <View style={styles.editModal}>
+              <View style={styles.editModalHeader}>
+                <Icon name="translate" size={24} color="#FFFF68" weight="fill" />
+                <Text variant="h3" style={styles.editModalTitle}>
+                  Update Language
+                </Text>
+              </View>
+
+              <Text variant="body" color="secondary" style={styles.editModalDescription}>
+                Enter your language code (en, he, ar, es, fr, de)
+              </Text>
+
+              <TextInput
+                style={styles.editModalInput}
+                value={languageInput}
+                onChangeText={setLanguageInput}
+                placeholder="en"
+                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.editModalActions}>
+                <Button
+                  variant="ghost"
+                  onPress={() => setShowLanguageModal(false)}
+                  style={styles.editModalCancelButton}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={() => updateLanguage(languageInput)}
+                  disabled={!languageInput.trim()}
+                  style={styles.editModalConfirmButton}
+                >
+                  Save
                 </Button>
               </View>
             </View>
@@ -650,8 +611,37 @@ const styles = StyleSheet.create({
   settingInfo: {
     flex: 1,
   },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  infoValue: {
+    fontWeight: '600',
+  },
+  testDescription: {
+    marginBottom: 12,
+    lineHeight: 20,
+  },
   testButton: {
     marginTop: 8,
+  },
+  enableButton: {
+    marginTop: 8,
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(255, 68, 68, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.2)',
+    gap: 12,
+  },
+  dangerButtonInfo: {
+    flex: 1,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -733,5 +723,48 @@ const styles = StyleSheet.create({
   deleteModalConfirmButtonDisabled: {
     backgroundColor: '#666666',
     opacity: 0.5,
+  },
+  editModal: {
+    backgroundColor: '#1A1C24',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: '#FFFF68',
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  editModalTitle: {
+    color: '#FFFF68',
+    fontWeight: 'bold',
+  },
+  editModalDescription: {
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  editModalInput: {
+    backgroundColor: '#2A2C36',
+    borderWidth: 1,
+    borderColor: '#FFFF68',
+    borderRadius: 8,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  editModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editModalCancelButton: {
+    flex: 1,
+  },
+  editModalConfirmButton: {
+    flex: 1,
   },
 });

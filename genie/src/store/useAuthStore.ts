@@ -4,6 +4,45 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase/client';
 import Constants from 'expo-constants';
+import * as Localization from 'expo-localization';
+
+// Helper function to get device timezone
+const getDeviceTimezone = (): string => {
+  try {
+    // Get timezone from Expo Localization - use getCalendars() or getLocales()
+    const calendars = Localization.getCalendars();
+    const timezone = calendars?.[0]?.timeZone;
+    console.log('🌍 Device timezone:', timezone);
+    return timezone || 'UTC';
+  } catch (error) {
+    console.error('❌ Error getting device timezone:', error);
+    return 'UTC';
+  }
+};
+
+// Helper function to update user timezone
+const updateUserTimezone = async (userId: string) => {
+  try {
+    const deviceTimezone = getDeviceTimezone();
+    console.log(`🌍 Updating user timezone to: ${deviceTimezone}`);
+    
+    const { error } = await supabase
+      .from('users')
+      .update({ 
+        timezone: deviceTimezone,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('❌ Error updating timezone:', error);
+    } else {
+      console.log('✅ Timezone updated successfully');
+    }
+  } catch (error) {
+    console.error('❌ Error in updateUserTimezone:', error);
+  }
+};
 
 // Get Supabase URL and key
 const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL as string;
@@ -351,6 +390,9 @@ export const useAuthStore = create<AuthState>()(
           // Re-authenticate with password (we should have it in context)
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
+            // Update timezone on successful login
+            await updateUserTimezone(session.user.id);
+            
             set({ 
               loading: false,
               user: session.user,
@@ -768,6 +810,9 @@ export const useAuthStore = create<AuthState>()(
               console.log(`📱 Account verified: ${userData.account_verified}`);
               console.log(`🔐 Login verified: ${isLoggedIn}`);
               
+              // Update timezone on every login
+              await updateUserTimezone(session.user.id);
+              
               set({
                 user: session.user,
                 session,
@@ -854,6 +899,9 @@ export const useAuthStore = create<AuthState>()(
               console.log('✅ User exists in database, setting session...');
               console.log(`📱 Account verified: ${userData.account_verified}`);
               console.log(`🔐 Login verified: ${isLoggedIn}`);
+              
+              // Update timezone on every login
+              await updateUserTimezone(session.user.id);
             }
 
             set({

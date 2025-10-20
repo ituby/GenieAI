@@ -5,8 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  Animated,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -45,7 +43,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { user, signOut } = useAuthStore();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -53,23 +51,6 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     timezone: '',
     language: '',
   });
-  const [slideAnimation] = useState(new Animated.Value(300));
-  const [fadeAnimation] = useState(new Animated.Value(0));
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(slideAnimation, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnimation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   useEffect(() => {
     if (user?.id) {
@@ -82,6 +63,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!user?.id) return;
     
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -97,7 +79,24 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
-      Alert.alert('Error', 'Failed to load profile');
+      // Create default profile if user doesn't exist
+      const defaultProfile = {
+        id: user.id,
+        email: user.email || '',
+        full_name: user.user_metadata?.full_name || '',
+        timezone: 'UTC',
+        language: 'en',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setProfile(defaultProfile);
+      setEditForm({
+        full_name: defaultProfile.full_name,
+        timezone: defaultProfile.timezone,
+        language: defaultProfile.language,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -141,6 +140,15 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
+      // Set default stats if fetch fails
+      setStats({
+        totalGoals: 0,
+        completedGoals: 0,
+        totalTasks: 0,
+        completedTasks: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+      });
     }
   };
 
@@ -234,31 +242,6 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     );
   };
 
-  if (!profile || !stats) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
-        <View style={styles.absoluteHeader}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={onBack} style={styles.backButton}>
-              <Icon name="arrow-left" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.headerCenter}>
-            <Text variant="h4" style={styles.title} numberOfLines={1}>Profile</Text>
-          </View>
-          
-          <View style={styles.headerRight}>
-            {/* Empty for balance */}
-          </View>
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text variant="body" color="secondary">Loading...</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <Modal
       visible={true}
@@ -308,13 +291,13 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </View>
             <View style={styles.profileInfo}>
               <Text variant="h3" color="primary-color" style={styles.profileName}>
-                {profile.full_name || 'User'}
+                {profile?.full_name || user?.user_metadata?.full_name || 'User'}
               </Text>
               <Text variant="body" color="secondary" style={styles.profileEmail}>
-                {profile.email}
+                {profile?.email || user?.email || ''}
               </Text>
               <Text variant="caption" color="tertiary">
-                Member since {formatDistanceToNow(new Date(profile.created_at), { addSuffix: true })}
+                Member since {profile?.created_at ? formatDistanceToNow(new Date(profile.created_at), { addSuffix: true }) : 'recently'}
               </Text>
             </View>
           </View>
@@ -341,25 +324,25 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text variant="h2" color="primary-color" style={styles.statNumber}>
-                {stats.totalGoals}
+                {stats?.totalGoals || 0}
               </Text>
               <Text variant="caption" color="secondary">Goals Created</Text>
             </View>
             <View style={styles.statItem}>
               <Text variant="h2" color="primary-color" style={styles.statNumber}>
-                {stats.completedGoals}
+                {stats?.completedGoals || 0}
               </Text>
               <Text variant="caption" color="secondary">Goals Completed</Text>
             </View>
             <View style={styles.statItem}>
               <Text variant="h2" color="primary-color" style={styles.statNumber}>
-                {stats.completedTasks}
+                {stats?.completedTasks || 0}
               </Text>
               <Text variant="caption" color="secondary">Tasks Done</Text>
             </View>
             <View style={styles.statItem}>
               <Text variant="h2" color="primary-color" style={styles.statNumber}>
-                {stats.currentStreak}
+                {stats?.currentStreak || 0}
               </Text>
               <Text variant="caption" color="secondary">Day Streak</Text>
             </View>
@@ -382,7 +365,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   inputStyle={styles.settingInput}
                 />
               ) : (
-                <Text variant="body" color="primary-color">{profile.timezone}</Text>
+                <Text variant="body" color="primary-color">{profile?.timezone || 'UTC'}</Text>
               )}
             </View>
             <View style={styles.settingDivider} />
@@ -396,7 +379,7 @@ export const ProfileScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   inputStyle={styles.settingInput}
                 />
               ) : (
-                <Text variant="body" color="primary-color">{profile.language}</Text>
+                <Text variant="body" color="primary-color">{profile?.language || 'en'}</Text>
               )}
             </View>
           </View>

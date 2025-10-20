@@ -1067,19 +1067,6 @@ export const DashboardScreen: React.FC = () => {
               <View style={styles.usageRateStats}>
                 <View style={styles.usageRateStat}>
                   <Text variant="h2" style={styles.usageRateNumber}>
-                    {userTokens.remaining}
-                  </Text>
-                  <Text
-                    variant="caption"
-                    color="secondary"
-                    style={styles.usageRateLabel}
-                  >
-                    Remaining
-                  </Text>
-                </View>
-                <View style={styles.usageRateDivider} />
-                <View style={styles.usageRateStat}>
-                  <Text variant="h2" style={styles.usageRateNumber}>
                     {userTokens.used}
                   </Text>
                   <Text
@@ -1088,6 +1075,19 @@ export const DashboardScreen: React.FC = () => {
                     style={styles.usageRateLabel}
                   >
                     Used
+                  </Text>
+                </View>
+                <View style={styles.usageRateDivider} />
+                <View style={styles.usageRateStat}>
+                  <Text variant="h2" style={styles.usageRateNumber}>
+                    {userTokens.remaining}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.usageRateLabel}
+                  >
+                    Remaining
                   </Text>
                 </View>
               </View>
@@ -2653,7 +2653,7 @@ const styles = StyleSheet.create({
   },
   usageRateProgressFill: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFF68',
     borderRadius: 3,
   },
   usageRateProgressText: {

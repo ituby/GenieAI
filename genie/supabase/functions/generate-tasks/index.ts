@@ -306,6 +306,14 @@ async function generateTasksWithAI(
 
     const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks that TEACH and GUIDE, not just instruct.
 
+🌍 LANGUAGE INSTRUCTION:
+CRITICAL: Detect the language used in the goal title and description.
+Always respond in the EXACT SAME LANGUAGE as the user's input.
+If the goal title/description is in Hebrew - respond in Hebrew.
+If the goal title/description is in English - respond in English.
+If the goal title/description is in Spanish - respond in Spanish.
+Match the user's language EXACTLY for all task titles, descriptions, subtasks, and summaries.
+
 CATEGORY-SPECIFIC APPROACH:
 ${taskGuidance}
 

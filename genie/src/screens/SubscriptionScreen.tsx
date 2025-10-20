@@ -396,19 +396,19 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
             <View style={styles.usageStats}>
               <View style={styles.usageStat}>
                 <Text variant="h2" style={styles.usageNumber}>
-                  {subscriptionData.tokensRemaining}
+                  {subscriptionData.tokensUsed}
                 </Text>
                 <Text variant="caption" style={styles.usageLabel}>
-                  Remaining
+                  Used
                 </Text>
               </View>
               <View style={styles.usageDivider} />
               <View style={styles.usageStat}>
                 <Text variant="h2" style={styles.usageNumber}>
-                  {subscriptionData.tokensUsed}
+                  {subscriptionData.tokensRemaining}
                 </Text>
                 <Text variant="caption" style={styles.usageLabel}>
-                  Used
+                  Remaining
                 </Text>
               </View>
               <View style={styles.usageDivider} />

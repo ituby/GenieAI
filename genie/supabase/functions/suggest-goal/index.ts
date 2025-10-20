@@ -27,7 +27,7 @@ serve(async (req) => {
     console.log('🎲 Suggest Goal Function - Starting...');
 
     // Parse request body first to get user_id and preferences
-    const { category, userContext, userId } = await req.json().catch(() => ({}));
+    const { category, userContext, userId, title } = await req.json().catch(() => ({}));
 
     // Get Supabase client
     const supabase = createClient(
@@ -64,6 +64,10 @@ serve(async (req) => {
 
     console.log('📝 Selected category:', category || 'None');
     console.log('📝 User context:', userContext || 'None');
+    console.log('📝 User title:', title || 'None (will suggest both title and description)');
+
+    // Determine the mode: autocomplete description OR suggest full goal
+    const isAutocompletingDescription = title && title.trim().length > 0;
 
     // Category-specific guidance for Claude
     const categoryGuidance: Record<string, string> = {
@@ -91,7 +95,61 @@ serve(async (req) => {
     const timestamp = Date.now();
 
     // Prepare enhanced prompt for Claude
-    const prompt = `You are helping someone write their goal in simple, natural language.
+    const prompt = isAutocompletingDescription 
+      ? `You are helping someone complete their goal description based on the title they wrote.
+
+🌍 LANGUAGE INSTRUCTION:
+CRITICAL: Detect the language used in the title that the user wrote.
+Always respond in the EXACT SAME LANGUAGE as the title.
+If the title is in Hebrew - respond in Hebrew.
+If the title is in English - respond in English.
+If the title is in Spanish - respond in Spanish.
+Match the user's language EXACTLY for the description.
+
+🎯 YOUR MISSION:
+The user wrote this title: "${title}"
+Complete the description that matches this title - same language, same context, more specific details.
+
+CATEGORY: ${category || 'custom'}
+${selectedGuidance}
+
+WRITING STYLE:
+- Description in FIRST PERSON ("I want to...")
+- Expand the title with MORE specific details
+- Like the person is explaining their goal to a friend
+- Keep the same language as the title
+- Be specific about methods or what exactly they'll do
+
+STRUCTURE:
+- DESCRIPTION: "I want to [specific details matching the title, methods, or what exactly they'll do]"
+
+EXAMPLES:
+
+If title is: "I want to wake up at 6am daily"
+Description: "I want to build a morning routine with exercise, meditation, and healthy breakfast"
+
+If title is: "אני רוצה ללמוד גיטרה"
+Description: "אני רוצה ללמוד אקורדים בסיסיים ולנגן 3 שירים שלמים"
+
+If title is: "Quiero aprender Python"
+Description: "Quiero dominar la sintaxis básica y construir 3 proyectos para mi portafolio"
+
+${userContext ? `USER CONTEXT: ${userContext}\n` : ''}
+
+Return ONLY valid JSON (no markdown):
+{
+  "title": "${title}",
+  "description": "I want to... (specific expansion in the SAME LANGUAGE as title, 50-75 chars)",
+  "category": "${category || 'custom'}"
+}
+
+CRITICAL: The description MUST be in the SAME LANGUAGE as the title "${title}"!`
+      : `You are helping someone write their goal in simple, natural language.
+
+🌍 LANGUAGE INSTRUCTION:
+CRITICAL: Since no title was provided, use English as the default language.
+Return both title and description in English.
+If userContext is provided in another language, detect it and use that language instead.
 
 🎲 CREATIVITY SEED: ${creativitySeed} | Timestamp: ${timestamp}
 

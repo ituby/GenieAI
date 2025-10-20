@@ -6,6 +6,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   TextInput,
+  Modal,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text, Card, Icon, FloatingBottomNav } from '../components';
@@ -116,7 +117,11 @@ export const MyPlansScreen: React.FC<MyPlansScreenProps> = ({
   };
 
   return (
-    <View style={[styles.fullScreenContainer, { backgroundColor: theme.colors.background.primary }]}>
+    <Modal
+      visible={true}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
       <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         {/* Header */}
         <View style={styles.absoluteHeader}>
@@ -214,7 +219,7 @@ export const MyPlansScreen: React.FC<MyPlansScreenProps> = ({
         onCreatePress={onCreatePress || (() => {})}
         activeTab="plans"
       />
-    </View>
+    </Modal>
   );
 
   // Helper Component: Goal Menu
@@ -307,14 +312,6 @@ export const MyPlansScreen: React.FC<MyPlansScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  fullScreenContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 2000,
-  },
   container: {
     flex: 1,
     paddingTop: 60,

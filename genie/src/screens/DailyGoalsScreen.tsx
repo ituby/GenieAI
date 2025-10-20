@@ -5,6 +5,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text, Card, Icon, FloatingBottomNav } from '../components';
@@ -195,7 +196,11 @@ export const DailyGoalsScreen: React.FC<DailyGoalsScreenProps> = ({
   };
 
   return (
-    <View style={[styles.fullScreenContainer, { backgroundColor: theme.colors.background.primary }]}>
+    <Modal
+      visible={true}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
       <View style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
         {/* Header */}
         <View style={styles.absoluteHeader}>
@@ -287,19 +292,11 @@ export const DailyGoalsScreen: React.FC<DailyGoalsScreenProps> = ({
         onCreatePress={onCreatePress || (() => {})}
         activeTab="goals"
       />
-    </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  fullScreenContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 2000,
-  },
   container: {
     flex: 1,
     paddingTop: 60,

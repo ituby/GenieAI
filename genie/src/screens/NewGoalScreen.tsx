@@ -208,13 +208,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   // Surprise Me feature
   const [isSurprisingMe, setIsSurprisingMe] = useState(false);
-  const [showSurpriseButton, setShowSurpriseButton] = useState(true);
+  // Surprise Me button is always visible now
 
   // Animation for gradient
   const gradientAnimation = useRef(new Animated.Value(0)).current;
-
-  // Animation for Surprise Me button fade
-  const surpriseMeOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // Cleanup interval on unmount
@@ -225,27 +222,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     };
   }, [loadingInterval]);
 
-  // Animate Surprise Me button based on title field
-  useEffect(() => {
-    if (formData.title) {
-      // Fade out, then hide
-      Animated.timing(surpriseMeOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowSurpriseButton(false);
-      });
-    } else {
-      // Show first, then fade in
-      setShowSurpriseButton(true);
-      Animated.timing(surpriseMeOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [formData.title]);
+  // Keep Surprise Me button always visible
+  // Removed animation that hides button when title is filled
 
   // Keys for persisting progress
   const PROGRESS_KEY = 'genie:new-goal-progress';
@@ -1179,12 +1157,16 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     try {
       setIsSurprisingMe(true);
 
-      // Call the Supabase Edge Function with selected category
+      // Check if user has entered a title
+      const hasTitle = formData.title.trim().length > 0;
+
+      // Call the Supabase Edge Function with selected category and optional title
       const { data, error } = await supabase.functions.invoke('suggest-goal', {
         body: {
           category: formData.category,
           userContext: '',
           userId: user?.id,  // Send userId for token deduction
+          title: hasTitle ? formData.title.trim() : undefined, // Send title if exists
         },
       });
 
@@ -1200,25 +1182,44 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (data?.success && data?.data) {
         const suggestion = data.data;
 
-        // Update form with the suggestion
-        setFormData((prev) => ({
-          ...prev,
-          title: suggestion.title,
-          description: suggestion.description,
-          category: suggestion.category as GoalCategory,
-        }));
+        // If user had a title, only update description (keep their title)
+        // If no title, update both title and description
+        if (hasTitle) {
+          setFormData((prev) => ({
+            ...prev,
+            description: suggestion.description,
+            category: suggestion.category as GoalCategory,
+          }));
+
+          // Show feedback about description completion
+          setTimeout(() => {
+            Alert.alert(
+              '✨ Description Added!',
+              'I completed the description based on your title. Feel free to edit it!',
+              [{ text: 'Got it!', style: 'default' }]
+            );
+          }, 300);
+        } else {
+          // No title - update everything
+          setFormData((prev) => ({
+            ...prev,
+            title: suggestion.title,
+            description: suggestion.description,
+            category: suggestion.category as GoalCategory,
+          }));
+
+          // Show feedback about full suggestion
+          setTimeout(() => {
+            Alert.alert(
+              '✨ Surprise!',
+              `How about this goal: "${suggestion.title}"?\n\nFeel free to edit it to make it your own!`,
+              [{ text: 'Got it!', style: 'default' }]
+            );
+          }, 300);
+        }
 
         // Clear any errors
         setErrors({});
-
-        // Show a nice feedback
-        setTimeout(() => {
-          Alert.alert(
-            '✨ Surprise!',
-            `How about this goal: "${suggestion.title}"?\n\nFeel free to edit it to make it your own!`,
-            [{ text: 'Got it!', style: 'default' }]
-          );
-        }, 300);
       }
     } catch (error) {
       console.error('Error in handleSurpriseMe:', error);
@@ -1885,39 +1886,31 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     placeholderTextColor="rgba(255, 255, 255, 0.3)"
                     containerStyle={styles.darkInputContainer}
                     rightIcon={
-                      showSurpriseButton ? (
-                        <Animated.View
-                          style={{
-                            opacity: surpriseMeOpacity,
-                          }}
-                        >
-                          <TouchableOpacity
-                            onPress={handleSurpriseMe}
-                            disabled={isSurprisingMe}
-                            activeOpacity={0.7}
-                            style={styles.surpriseMeInlineButton}
-                          >
-                            {isSurprisingMe ? (
-                              <ActivityIndicator size="small" color="#FFFF68" />
-                            ) : (
-                              <>
-                                <Text
-                                  variant="body"
-                                  style={styles.surpriseMeText}
-                                >
-                                  Surprise Me
-                                </Text>
-                                <Icon
-                                  name="sparkle"
-                                  size={16}
-                                  color="#FFFF68"
-                                  weight="fill"
-                                />
-                              </>
-                            )}
-                          </TouchableOpacity>
-                        </Animated.View>
-                      ) : null
+                      <TouchableOpacity
+                        onPress={handleSurpriseMe}
+                        disabled={isSurprisingMe}
+                        activeOpacity={0.7}
+                        style={styles.surpriseMeInlineButton}
+                      >
+                        {isSurprisingMe ? (
+                          <ActivityIndicator size="small" color="#FFFF68" />
+                        ) : (
+                          <>
+                            <Text
+                              variant="body"
+                              style={styles.surpriseMeText}
+                            >
+                              Surprise Me
+                            </Text>
+                            <Icon
+                              name="sparkle"
+                              size={16}
+                              color="#FFFF68"
+                              weight="fill"
+                            />
+                          </>
+                        )}
+                      </TouchableOpacity>
                     }
                   />
                 </View>

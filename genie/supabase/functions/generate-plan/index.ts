@@ -562,6 +562,14 @@ async function generatePlanOutlineWithAI(
 
   const systemPrompt = `You are an expert goal transformation architect specialized in ${category} goals. Your mission is to create comprehensive, week-by-week roadmaps that guide real people to achieve their goals.
 
+🌍 LANGUAGE INSTRUCTION:
+CRITICAL: Detect the language used in the goal title and description.
+Always respond in the EXACT SAME LANGUAGE as the user's input.
+If the goal title/description is in Hebrew - respond in Hebrew.
+If the goal title/description is in English - respond in English.
+If the goal title/description is in Spanish - respond in Spanish.
+Match the user's language EXACTLY for all plan_outline titles and descriptions, milestones, and deliverables.
+
 ${categoryApproach}
 
 UNIVERSAL PRINCIPLES:

@@ -20,8 +20,8 @@ export const Switch: React.FC<SwitchProps> = ({
       }}
       thumbColor={
         props.value 
-          ? theme.colors.text.primary 
-          : theme.colors.text.disabled
+          ? '#000000'  // Black when active (on)
+          : '#FFFFFF'  // White when inactive (off)
       }
       disabled={disabled}
       {...props}
