@@ -162,6 +162,11 @@ serve(async (req) => {
         isRegistration = !userData.phone_verified; // If not verified, it's registration OTP
       }
 
+      // Ensure phone number has + prefix
+      if (!userPhone.startsWith('+')) {
+        userPhone = '+' + userPhone;
+      }
+
       console.log(`📱 [${requestId}] User: ${userId}, Phone: ${userPhone}, Type: ${isRegistration ? 'REGISTRATION' : 'LOGIN'}`);
 
       // Check for existing valid OTP of the same type
