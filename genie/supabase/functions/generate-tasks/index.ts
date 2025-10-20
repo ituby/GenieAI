@@ -332,32 +332,38 @@ WRITING GUIDELINES:
 - Descriptions: This is the MOST IMPORTANT part - write rich, valuable content:
   
   DESCRIPTION REQUIREMENTS:
-  • Write 2-3 concise, informative sentences
-  • Explain WHAT the user will do and WHY it matters
-  • Include ONE key tip or insight that adds real value
-  • Be direct and actionable - no fluff
-  • For learning tasks: Focus on one main concept or technique to master
-  • Keep it focused - comprehensive but not overwhelming
+  • Write 3-5 informative sentences with specific details
+  • Explain WHAT the user will do, WHY it matters, and HOW to approach it effectively
+  • Include practical tips, techniques, or insights that add real value
+  • Be direct and actionable - provide specific guidance, not just general advice
+  • For learning tasks: Explain key concepts, common pitfalls, and what success looks like
+  • For skill-building tasks: Include technique pointers and progression markers
+  • Make it educational and empowering - teach, don't just instruct
   
   BAD description: "Complete the first module exercises."
-  GOOD description: "Complete the first module exercises to build foundational understanding. Focus on understanding each example rather than rushing through - notice the pattern of how solutions are structured. This pattern will be your template for future problems."
+  GOOD description: "Complete the first module exercises to build foundational understanding. Focus on understanding each example rather than rushing through - notice the pattern of how solutions are structured. Pay attention to the reasoning behind each step, as this will help you tackle similar problems independently. Start with easier problems to build confidence, then gradually move to more challenging ones."
   
-  TOO LONG (avoid): "Complete the first module exercises to build foundational understanding of core concepts. Focus on truly understanding each example rather than rushing through. Pay special attention to the pattern of how solutions are structured - this will be your template for future problems. Take notes on any concepts that feel unclear. Review difficult sections multiple times. Compare your solutions with the provided answers."
+  EXCELLENT (aim for this): "Complete the first module exercises focusing on truly understanding the underlying principles, not just getting the right answers. Work through each problem systematically: read carefully, identify what's being asked, break it down into steps, then solve. Notice how solutions follow specific patterns - recognizing these patterns is key to mastering the material. If you get stuck, review the concept explanation first before checking the answer. This deep learning approach takes longer initially but builds lasting understanding."
   
 - Subtasks: Concrete, sequential steps
 - Be encouraging but realistic
 - Consider user's timezone: morning tasks for fresh energy, evening for reflection/lighter work
 
 SEARCH SUGGESTIONS & RESOURCES:
-When appropriate (especially for learning, career, fitness, creativity goals):
-- Provide Google search keywords that will help users find relevant resources
+This is CRITICAL - search tags help users discover valuable resources:
+- Provide 0-3 search tags per task, or even MORE when highly beneficial
+- For learning/skill tasks: Aim for 2-3 relevant search tags
+- For simple routine tasks: 0-1 tags are fine
 - Use this EXACT format: [SEARCH:Button Title|search keywords]
   Example: [SEARCH:Sword Grip Tutorial|medieval longsword grip technique demonstration]
   Example: [SEARCH:React Hooks Guide|react hooks tutorial useState useEffect]
-- The search keywords should be specific and likely to return high-quality results
+  Example: [SEARCH:Common Mistakes|typical beginner mistakes in [topic]]
+  Example: [SEARCH:Video Walkthrough|step by step [skill] tutorial for beginners]
+- The search keywords should be specific and likely to return high-quality, actionable results
 - Include YouTube-specific searches when video demonstrations would help
+- Vary the types of resources: tutorials, common mistakes, best practices, tools, templates
 - Place search suggestions at the end of task descriptions
-- Maximum 1-2 search suggestions per task - quality over quantity
+- Quality over quantity - but don't be stingy with helpful resources
 - Users will click the button and see Google search results with these keywords
 
 AVOID:
@@ -385,7 +391,7 @@ REQUIRED JSON STRUCTURE:
         {
           "time": "09:00",
           "title": "Action-oriented task title",
-          "description": "Concise explanation (2-3 sentences). State what to do and why. Include one key tip. [SEARCH:Find Tutorial|search keywords here] (optional)",
+          "description": "Detailed, educational explanation (3-5 sentences). Explain what to do, why it matters, and how to approach it. Include practical tips and insights that teach, not just instruct. Add 0-3 search tags (or more if helpful): [SEARCH:Tutorial Name|search keywords] [SEARCH:Common Mistakes|error keywords] [SEARCH:Best Practices|technique keywords]",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 10},
             {"title": "Specific step 2", "estimated_minutes": 15}

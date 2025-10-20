@@ -15,6 +15,8 @@ import { Text } from '../components/primitives/Text';
 import { Card } from '../components/primitives/Card';
 import { Icon } from '../components/primitives/Icon';
 import { Button } from '../components/primitives/Button';
+import { Switch } from '../components/primitives/Switch';
+import { Dropdown } from '../components/primitives/Dropdown';
 import { supabase } from '../services/supabase/client';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNotifications } from '../hooks/useNotifications';
@@ -37,10 +39,6 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
   const [language, setLanguage] = useState<string>('en');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [timezoneInput, setTimezoneInput] = useState('');
-  const [languageInput, setLanguageInput] = useState('');
 
   useEffect(() => {
     if (user?.id) {
@@ -76,29 +74,6 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
     setRefreshing(true);
     await fetchUserSettings();
     setRefreshing(false);
-  };
-
-  const updateTimezone = async (newTimezone: string) => {
-    if (!user?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ 
-          timezone: newTimezone,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-      
-      setTimezone(newTimezone);
-      setShowTimezoneModal(false);
-      Alert.alert('Success', 'Timezone updated successfully');
-    } catch (error) {
-      console.error('Error updating timezone:', error);
-      Alert.alert('Error', 'Failed to update timezone');
-    }
   };
 
   const updateLanguage = async (newLanguage: string) => {
@@ -215,37 +190,36 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
               Push Notifications
             </Text>
             <View style={styles.settingsList}>
-              <View style={styles.infoRow}>
-                <Text variant="body" color="secondary">
-                  Status:
-                </Text>
-                <Text variant="body" color="primary-color" style={styles.infoValue}>
-                  {isEnabled ? '✓ Enabled' : '✗ Disabled'}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text variant="body" color="secondary">
-                  Registration:
-                </Text>
-                <Text variant="body" color="primary-color" style={styles.infoValue}>
-                  {pushToken ? '✓ Registered' : '✗ Not registered'}
-                </Text>
-              </View>
-              {!isEnabled && (
-                <Button
-                  variant="primary"
-                  onPress={async () => {
-                    const granted = await requestPermissions();
-                    if (granted) {
-                      Alert.alert('Success', 'Notifications enabled successfully!');
-                    } else {
-                      Alert.alert('Error', 'Failed to enable notifications. Please check your device settings.');
+              <View style={styles.settingItemRow}>
+                <View style={styles.settingInfo}>
+                  <Text variant="body" color="primary-color">
+                    Enable Notifications
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    {isEnabled ? 'Notifications are enabled' : 'Notifications are disabled'}
+                  </Text>
+                </View>
+                <Switch
+                  value={isEnabled}
+                  onValueChange={async (value) => {
+                    if (value) {
+                      const granted = await requestPermissions();
+                      if (!granted) {
+                        Alert.alert('Error', 'Failed to enable notifications. Please check your device settings.');
+                      }
                     }
                   }}
-                  style={styles.enableButton}
-                >
-                  Enable Notifications
-                </Button>
+                />
+              </View>
+              {isEnabled && pushToken && (
+                <View style={styles.infoRow}>
+                  <Text variant="body" color="secondary">
+                    Status:
+                  </Text>
+                  <Text variant="body" color="primary-color" style={styles.infoValue}>
+                    ✓ Registered
+                  </Text>
+                </View>
               )}
             </View>
           </Card>
@@ -296,48 +270,41 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
               Preferences
             </Text>
             <View style={styles.settingsList}>
-              <TouchableOpacity 
-                style={styles.settingItem}
-                onPress={() => {
-                  setTimezoneInput(timezone);
-                  setShowTimezoneModal(true);
-                }}
-              >
+              <View style={styles.settingItem}>
                 <View style={styles.settingInfo}>
                   <Text variant="body" color="primary-color">
                     Timezone
                   </Text>
                   <Text variant="caption" color="secondary">
-                    Current: {timezone}
+                    {timezone} (Auto-detected from device)
                   </Text>
                 </View>
                 <Icon
-                  name="caret-right"
+                  name="info"
                   size={16}
                   color={theme.colors.text.disabled}
                 />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.settingItem}
-                onPress={() => {
-                  setLanguageInput(language);
-                  setShowLanguageModal(true);
-                }}
-              >
-                <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
-                    Language
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    Current: {language}
-                  </Text>
-                </View>
-                <Icon
-                  name="caret-right"
-                  size={16}
-                  color={theme.colors.text.disabled}
+              </View>
+              <View style={styles.settingItemColumn}>
+                <Text variant="body" color="primary-color" style={styles.dropdownLabel}>
+                  Language
+                </Text>
+                <Dropdown
+                  options={[
+                    { label: 'English', value: 'en' },
+                    { label: 'עברית', value: 'he' },
+                    { label: 'العربية', value: 'ar' },
+                    { label: 'Español', value: 'es' },
+                    { label: 'Français', value: 'fr' },
+                    { label: 'Deutsch', value: 'de' },
+                  ]}
+                  value={language}
+                  onValueChange={async (value) => {
+                    await updateLanguage(value);
+                  }}
+                  placeholder="Select language"
                 />
-              </TouchableOpacity>
+              </View>
             </View>
           </Card>
 
@@ -440,98 +407,6 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
             </View>
           </View>
         )}
-
-        {/* Timezone Edit Modal */}
-        {showTimezoneModal && (
-          <View style={styles.deleteModalOverlay}>
-            <View style={styles.editModal}>
-              <View style={styles.editModalHeader}>
-                <Icon name="clock" size={24} color="#FFFF68" weight="fill" />
-                <Text variant="h3" style={styles.editModalTitle}>
-                  Update Timezone
-                </Text>
-              </View>
-
-              <Text variant="body" color="secondary" style={styles.editModalDescription}>
-                Enter your timezone (e.g., UTC, America/New_York, Europe/London, Asia/Jerusalem)
-              </Text>
-
-              <TextInput
-                style={styles.editModalInput}
-                value={timezoneInput}
-                onChangeText={setTimezoneInput}
-                placeholder="UTC"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <View style={styles.editModalActions}>
-                <Button
-                  variant="ghost"
-                  onPress={() => setShowTimezoneModal(false)}
-                  style={styles.editModalCancelButton}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onPress={() => updateTimezone(timezoneInput)}
-                  disabled={!timezoneInput.trim()}
-                  style={styles.editModalConfirmButton}
-                >
-                  Save
-                </Button>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Language Edit Modal */}
-        {showLanguageModal && (
-          <View style={styles.deleteModalOverlay}>
-            <View style={styles.editModal}>
-              <View style={styles.editModalHeader}>
-                <Icon name="translate" size={24} color="#FFFF68" weight="fill" />
-                <Text variant="h3" style={styles.editModalTitle}>
-                  Update Language
-                </Text>
-              </View>
-
-              <Text variant="body" color="secondary" style={styles.editModalDescription}>
-                Enter your language code (en, he, ar, es, fr, de)
-              </Text>
-
-              <TextInput
-                style={styles.editModalInput}
-                value={languageInput}
-                onChangeText={setLanguageInput}
-                placeholder="en"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <View style={styles.editModalActions}>
-                <Button
-                  variant="ghost"
-                  onPress={() => setShowLanguageModal(false)}
-                  style={styles.editModalCancelButton}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onPress={() => updateLanguage(languageInput)}
-                  disabled={!languageInput.trim()}
-                  style={styles.editModalConfirmButton}
-                >
-                  Save
-                </Button>
-              </View>
-            </View>
-          </View>
-        )}
       </View>
     </Modal>
   );
@@ -607,6 +482,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 4,
+  },
+  settingItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  settingItemColumn: {
+    flexDirection: 'column',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  dropdownLabel: {
+    marginBottom: 4,
   },
   settingInfo: {
     flex: 1,

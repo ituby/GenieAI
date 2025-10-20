@@ -1229,6 +1229,32 @@ export const DashboardScreen: React.FC = () => {
           <Card variant="gradient" padding="md" style={styles.statCard}>
             <View style={styles.statIconContainer}>
               <Icon
+                name="clipboard-text"
+                size={20}
+                color="rgba(255, 255, 255, 0.8)"
+                weight="fill"
+              />
+            </View>
+            <View style={styles.statProgressContainer}>
+              <ProgressRing
+                progress={0}
+                size={40}
+                strokeWidth={3}
+                showPercentage={false}
+              >
+                <Text variant="h4" style={{ color: '#FFFFFF' }}>
+                  {todaysTasksCount}
+                </Text>
+              </ProgressRing>
+            </View>
+            <Text variant="caption" color="secondary" style={styles.statLabel}>
+              Daily Tasks
+            </Text>
+          </Card>
+
+          <Card variant="gradient" padding="md" style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Icon
                 name="fire"
                 size={20}
                 color="rgba(255, 255, 255, 0.8)"
@@ -1249,32 +1275,6 @@ export const DashboardScreen: React.FC = () => {
             </View>
             <Text variant="caption" color="secondary" style={styles.statLabel}>
               Day Streak
-            </Text>
-          </Card>
-
-          <Card variant="gradient" padding="md" style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Icon
-                name="clipboard-text"
-                size={20}
-                color="rgba(255, 255, 255, 0.8)"
-                weight="fill"
-              />
-            </View>
-            <View style={styles.statProgressContainer}>
-              <ProgressRing
-                progress={0}
-                size={40}
-                strokeWidth={3}
-                showPercentage={false}
-              >
-                <Text variant="h4" style={{ color: '#FFFFFF' }}>
-                  {todaysTasksCount}
-                </Text>
-              </ProgressRing>
-            </View>
-            <Text variant="caption" color="secondary" style={styles.statLabel}>
-              Today's Tasks
             </Text>
           </Card>
         </View>

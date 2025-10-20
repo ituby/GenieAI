@@ -56,6 +56,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     }
   };
 
+  // Count the number of search tags in the description
+  const countSearchTags = (description: string): number => {
+    const searchTagPattern = /\[SEARCH:[^\]]+\]/g;
+    const matches = description.match(searchTagPattern);
+    return matches ? matches.length : 0;
+  };
+
   // Get category-based color
   const categoryColor = getCategoryColor(task.goal.category);
 
@@ -178,31 +185,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 {task.title}
               </Text>
 
-              <View style={styles.timeContainer}>
-                <Icon
-                  name={getTimeOfDayIcon(task.run_at) as any}
-                  size={16}
-                  color={theme.colors.text.secondary}
-                />
-                <Text
-                  variant="caption"
-                  color={canCompleteTask ? undefined : 'tertiary'}
-                  style={
-                    canCompleteTask
-                      ? { color: '#FFFF68', fontWeight: '600' }
-                      : undefined
-                  }
-                >
-                  {canCompleteTask ? 'Do it now' : formatTime(task.run_at)}
+              {/* Points Display - Top Right */}
+              <View style={styles.pointsContainer}>
+                <Icon name="trophy" size={12} color="#FFFF68" weight="fill" />
+                <Text variant="caption" style={styles.pointsText}>
+                  +{getTaskPoints(task.intensity)}
                 </Text>
-                {timeLeft !== null && !isExpired && (
-                  <View style={styles.timerContainer}>
-                    <Icon name="clock" size={12} color="#FF4444" />
-                    <Text variant="caption" style={styles.timerText}>
-                      {formatTimeLeft(timeLeft)}
-                    </Text>
-                  </View>
-                )}
               </View>
             </View>
 
@@ -219,26 +207,23 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               {cleanDescription(task.description)}
             </Text>
 
-            {/* Goal Info */}
-            <View style={styles.goalInfo}>
-              <Text
-                variant="caption"
-                color="primary-color"
-                numberOfLines={1}
-                style={{ flex: 1 }}
-              >
-                {truncateWords(task.goal.title, 6)}
-              </Text>
+            {/* Resources Row */}
+            <View style={styles.resourcesRow}>
+              <Icon
+                name="link"
+                size={12}
+                color={theme.colors.text.tertiary}
+              />
               <Text
                 variant="caption"
                 color="tertiary"
-                style={{ textAlign: 'right' }}
+                numberOfLines={1}
               >
-                • {getTimeOfDayText(task.run_at)}
+                {countSearchTags(task.description)} resources
               </Text>
             </View>
 
-            {/* Bottom Row - Status and Points */}
+            {/* Bottom Row - Status and Time */}
             <View style={styles.bottomRow}>
               {/* Status Badge - Left Side */}
               {task.completed ? (
@@ -291,11 +276,37 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 <View style={styles.emptySpace} />
               )}
 
-              {/* Points Display - Right Side */}
-              <View style={styles.pointsContainer}>
-                <Icon name="trophy" size={12} color="#FFFF68" weight="fill" />
-                <Text variant="caption" style={styles.pointsText}>
-                  +{getTaskPoints(task.intensity)}
+              {/* Time Info - Right Side */}
+              <View style={styles.timeInfoSection}>
+                <Icon
+                  name={getTimeOfDayIcon(task.run_at) as any}
+                  size={14}
+                  color={theme.colors.text.secondary}
+                />
+                <Text
+                  variant="caption"
+                  color={canCompleteTask ? undefined : 'tertiary'}
+                  style={
+                    canCompleteTask
+                      ? { color: '#FFFF68', fontWeight: '600' }
+                      : undefined
+                  }
+                >
+                  {canCompleteTask ? 'Do it now' : formatTime(task.run_at)}
+                </Text>
+                {timeLeft !== null && !isExpired && (
+                  <View style={styles.timerContainer}>
+                    <Icon name="clock" size={12} color="#FF4444" />
+                    <Text variant="caption" style={styles.timerText}>
+                      {formatTimeLeft(timeLeft)}
+                    </Text>
+                  </View>
+                )}
+                <Text
+                  variant="caption"
+                  color="tertiary"
+                >
+                  • {getTimeOfDayText(task.run_at)}
                 </Text>
               </View>
             </View>
@@ -396,8 +407,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 8,
+    marginTop: 4,
+    paddingTop: 4,
     minHeight: 24,
   },
   emptySpace: {
@@ -459,10 +470,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 20,
   },
+  resourcesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  timeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
   goalInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
+    marginBottom: 8,
+  },
+  leftInfoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeInfoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
   },
   timeReachedContainer: {
     borderColor: '#FFFF68',
