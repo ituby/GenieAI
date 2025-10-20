@@ -7,6 +7,7 @@ import {
   Alert,
   RefreshControl,
   Modal,
+  TextInput,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/index';
@@ -37,7 +38,7 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
   onBack,
 }) => {
   const theme = useTheme();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, deleteAccount } = useAuthStore();
   const {
     isInitialized,
     pushToken,
@@ -48,6 +49,8 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
   useEffect(() => {
     if (user?.id) {
@@ -154,6 +157,31 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    setShowDeleteModal(true);
+    setDeleteConfirmationText('');
+  };
+
+  const confirmDeleteAccount = async () => {
+    const trimmedText = deleteConfirmationText.toLowerCase().trim();
+    
+    if (trimmedText !== "delete it") {
+      return;
+    }
+    
+    setShowDeleteModal(false);
+    setDeleteConfirmationText('');
+    
+    try {
+      console.log('🗑️ User confirmed account deletion');
+      await deleteAccount();
+      console.log('✅ Account deleted successfully');
+    } catch (error: any) {
+      console.error('❌ Error deleting account:', error);
+      Alert.alert('Error', error.message || 'Failed to delete account');
+    }
   };
 
   if (!settings) {
@@ -455,9 +483,9 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
                   color={theme.colors.text.disabled}
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.settingItem}>
+              <TouchableOpacity style={styles.settingItem} onPress={handleDeleteAccount}>
                 <View style={styles.settingInfo}>
-                  <Text variant="body" color="primary-color">
+                  <Text variant="body" style={{ color: theme.colors.status.error }}>
                     Delete Account
                   </Text>
                   <Text variant="caption" color="secondary">
@@ -487,6 +515,62 @@ export const SettingsScreen: React.FC<{ onBack: () => void }> = ({
           {/* Bottom Padding */}
           <View style={styles.bottomPadding} />
         </ScrollView>
+
+        {/* Delete Account Confirmation Modal */}
+        {showDeleteModal && (
+          <View style={styles.deleteModalOverlay}>
+            <View style={styles.deleteModal}>
+              <View style={styles.deleteModalHeader}>
+                <Icon name="warning" size={24} color="#FF4444" weight="fill" />
+                <Text variant="h3" style={styles.deleteModalTitle}>
+                  Delete Account
+                </Text>
+              </View>
+
+              <Text variant="body" color="secondary" style={styles.deleteModalDescription}>
+                This action cannot be undone. All your data, goals, and progress will be permanently deleted.
+              </Text>
+
+              <Text variant="body" color="secondary" style={styles.deleteModalWarning}>
+                Type "Delete It" to confirm deletion:
+              </Text>
+
+              <TextInput
+                style={styles.deleteModalInput}
+                value={deleteConfirmationText}
+                onChangeText={setDeleteConfirmationText}
+                placeholder="Delete It"
+                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.deleteModalActions}>
+                <Button
+                  variant="ghost"
+                  onPress={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmationText('');
+                  }}
+                  style={styles.deleteModalCancelButton}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={confirmDeleteAccount}
+                  disabled={deleteConfirmationText.toLowerCase().trim() !== "delete it"}
+                  style={[
+                    styles.deleteModalConfirmButton,
+                    deleteConfirmationText.toLowerCase().trim() !== "delete it" && styles.deleteModalConfirmButtonDisabled
+                  ]}
+                >
+                  Confirm
+                </Button>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -586,5 +670,68 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  deleteModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  deleteModal: {
+    backgroundColor: '#1A1C24',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: '#FF4444',
+  },
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  deleteModalTitle: {
+    color: '#FF4444',
+    fontWeight: 'bold',
+  },
+  deleteModalDescription: {
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  deleteModalWarning: {
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  deleteModalInput: {
+    backgroundColor: '#2A2C36',
+    borderWidth: 1,
+    borderColor: '#404040',
+    borderRadius: 8,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+  },
+  deleteModalConfirmButton: {
+    flex: 1,
+    backgroundColor: '#FF4444',
+  },
+  deleteModalConfirmButtonDisabled: {
+    backgroundColor: '#666666',
+    opacity: 0.5,
   },
 });

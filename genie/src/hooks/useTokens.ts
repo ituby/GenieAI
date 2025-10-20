@@ -47,38 +47,21 @@ export const useTokens = () => {
         .single();
 
       if (fetchError) {
-        // If no record exists, create one with default values
+        // If record not found, trigger should have created it - don't create here
+        // This prevents overwriting existing data if there's a transient error
         if (fetchError.code === 'PGRST116') {
-          const { data: newRecord, error: insertError } = await supabase
-            .from('user_tokens')
-            .insert({
-              user_id: user.id,
-              tokens_remaining: 3,
-              tokens_used: 0,
-              total_tokens: 3,
-              is_subscribed: false,
-              monthly_tokens: 3,
-            })
-            .select()
-            .single();
-
-          if (insertError) {
-            throw insertError;
-          }
-
-          if (newRecord) {
-            setTokenInfo({
-              tokensRemaining: newRecord.tokens_remaining || 0,
-              tokensUsed: newRecord.tokens_used || 0,
-              totalTokens: newRecord.total_tokens || 0,
-              isSubscribed: newRecord.is_subscribed || false,
-              monthlyTokens: newRecord.monthly_tokens || 0,
-              lastResetAt: newRecord.last_reset_at || null,
-              canUseTokens: (newRecord.tokens_remaining || 0) > 0,
-              canPurchaseTokens: newRecord.is_subscribed || false,
-              needsSubscription: !newRecord.is_subscribed && (newRecord.tokens_remaining || 0) === 0,
-            });
-          }
+          console.error('Token record not found - should have been created by trigger');
+          setTokenInfo({
+            tokensRemaining: 0,
+            tokensUsed: 0,
+            totalTokens: 0,
+            isSubscribed: false,
+            monthlyTokens: 0,
+            lastResetAt: null,
+            canUseTokens: false,
+            canPurchaseTokens: false,
+            needsSubscription: true,
+          });
         } else {
           throw fetchError;
         }

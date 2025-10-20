@@ -19,45 +19,85 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Send SMS via Twilio
-async function sendTwilioSMS(phoneNumber: string, otp: string): Promise<{ success: boolean; error?: string }> {
-  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+// Send OTP via Resend Email
+async function sendResendEmail(email: string, otp: string, isRegistration: boolean): Promise<{ success: boolean; error?: string }> {
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-  if (!accountSid || !authToken || !fromNumber) {
-    return { success: false, error: 'SMS service not configured' };
+  if (!resendApiKey) {
+    return { success: false, error: 'Email service not configured' };
   }
 
   try {
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-    const credentials = btoa(`${accountSid}:${authToken}`);
-    
-    const body = new URLSearchParams({
-      To: phoneNumber,
-      From: fromNumber,
-      Body: `Your Genie verification code is: ${otp}\n\nThis code expires in 10 minutes.`
-    });
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .logo { font-size: 32px; font-weight: bold; color: #FFFF68; }
+            .otp-box { background: #f5f5f5; border: 2px solid #FFFF68; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
+            .otp-code { font-size: 48px; font-weight: bold; letter-spacing: 8px; color: #000; margin: 20px 0; }
+            .message { color: #666; line-height: 1.6; margin: 20px 0; }
+            .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; }
+            .warning { color: #ff6b6b; font-weight: 500; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🧞 Genie AI</div>
+            </div>
+            
+            <h2>Your Verification Code</h2>
+            <p class="message">
+              ${isRegistration ? 'Welcome to Genie! Complete your registration by entering this code:' : 'Here is your login verification code:'}
+            </p>
+            
+            <div class="otp-box">
+              <div style="color: #666; font-size: 14px; margin-bottom: 10px;">Verification Code</div>
+              <div class="otp-code">${otp}</div>
+              <div style="color: #666; font-size: 14px; margin-top: 10px;">This code expires in 10 minutes</div>
+            </div>
+            
+            <p class="message warning">
+              ⚠️ Never share this code with anyone. Genie will never ask for your verification code.
+            </p>
+            
+            <div class="footer">
+              <p>© 2024 Genie AI - Your AI-powered goal companion</p>
+              <p>If you didn't request this code, please ignore this email.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
 
-    const response = await fetch(twilioUrl, {
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: body.toString()
+      body: JSON.stringify({
+        from: 'Genie AI <noreply@askgenie.info>',
+        to: email,
+        subject: `Your Genie Verification Code: ${otp}`,
+        html: emailHtml,
+      })
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`❌ Twilio error: ${response.status} - ${errorData}`);
-      return { success: false, error: 'SMS delivery failed' };
+      console.error(`❌ Resend error: ${response.status} - ${errorData}`);
+      return { success: false, error: 'Email delivery failed' };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('❌ Twilio request failed:', error);
-    return { success: false, error: 'SMS service temporarily unavailable' };
+    console.error('❌ Resend request failed:', error);
+    return { success: false, error: 'Email service temporarily unavailable' };
   }
 }
 
@@ -79,6 +119,21 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Get authorization header to identify the user
+    const authHeader = req.headers.get('Authorization');
+    let currentUserId: string | null = null;
+    
+    if (authHeader) {
+      // Try to get user from JWT token
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      if (user && !userError) {
+        currentUserId = user.id;
+        console.log(`🔐 [${requestId}] Authenticated user: ${currentUserId}`);
+      }
+    }
+    
     const { action, email, password, phone, otp }: OtpRequest = await req.json();
 
     if (!action || !email) {
@@ -92,174 +147,185 @@ serve(async (req) => {
     // ACTION: SEND OTP
     // ============================================
     if (action === 'send') {
-      console.log(`📱 [${requestId}] Sending OTP for: ${email}`);
+      console.log(`📧 [${requestId}] Sending OTP for: ${email}`);
 
       let userId: string;
-      let userPhone: string;
       let isRegistration = false;
 
-      if (phone) {
-        // Registration flow - phone provided
-        // First try to get user from public.users
-        let userData = await supabase
+      // If we have authenticated user from token, use that
+      if (currentUserId) {
+        console.log(`✅ [${requestId}] Using authenticated user ID: ${currentUserId}`);
+        userId = currentUserId;
+        
+        // Check if user has completed initial verification
+        const { data: userData } = await supabase
           .from('users')
-          .select('id, phone_verified')
+          .select('account_verified')
+          .eq('id', userId)
+          .single();
+        
+        isRegistration = !(userData?.account_verified); // Not verified = registration
+      } else {
+        // Try to find user by email
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, account_verified')
           .eq('email', email)
           .single();
 
-        // If not found in public.users, try auth.users (might be very new user)
-        if (userData.error || !userData.data) {
-          console.log(`⏳ [${requestId}] User not in public.users yet, checking auth.users`);
+        if (userError || !userData) {
+          // Not found in public.users, try auth.users
+          console.log(`⏳ [${requestId}] User not in public.users yet, looking up by email`);
           
-          const { data: usersList } = await supabase.auth.admin.listUsers({
-            page: 1,
-            perPage: 1000
-          });
+          const { data: authUserData, error: authError } = await supabase.auth.admin.getUserByEmail(email);
           
-          const authUser = usersList?.users.find(u => u.email === email);
-          
-          if (!authUser) {
+          if (authError || !authUserData?.user) {
+            console.error(`❌ [${requestId}] User not found: ${authError?.message}`);
             return new Response(
               JSON.stringify({ success: false, error: 'User not found', requestId }),
               { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
           
-          userId = authUser.id;
+          userId = authUserData.user.id;
           isRegistration = true; // New user, definitely registration
         } else {
-          userId = userData.data.id;
-          isRegistration = !userData.data.phone_verified;
+          userId = userData.id;
+          isRegistration = !(userData.account_verified); // Not verified = registration
         }
+      }
 
-        userPhone = phone;
-      } else {
-        // Login flow - no phone provided, get from DB by email
-        // Password validation already happened in client-side signIn()
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, phone_number, phone_verified')
-          .eq('email', email)
+      console.log(`📧 [${requestId}] User: ${userId}, Type: ${isRegistration ? 'REGISTRATION' : 'LOGIN'}`);
+
+      const otpType = isRegistration ? 'registration' : 'login';
+
+      // Get or create user's auth status record
+      let { data: authStatus, error: authError } = await supabase
+        .from('otp_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (authError || !authStatus) {
+        // Create initial record for this user
+        const { data: newRecord, error: createError } = await supabase
+          .from('otp_verifications')
+          .insert({
+            user_id: userId,
+            current_stage: otpType,
+            registration_verified: false,
+            login_verified: false,
+          })
+          .select()
           .single();
 
-        if (userError || !userData) {
-          console.error(`❌ [${requestId}] User not found`);
+        if (createError || !newRecord) {
+          console.error(`❌ [${requestId}] Failed to create auth status:`, createError);
           return new Response(
-            JSON.stringify({ success: false, error: 'User not found', requestId }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ success: false, error: 'Failed to initialize authentication', requestId }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-
-        if (!userData.phone_number) {
-          return new Response(
-            JSON.stringify({ success: false, error: 'No phone number found', requestId }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        userId = userData.id;
-        userPhone = userData.phone_number;
-        isRegistration = !userData.phone_verified; // If not verified, it's registration OTP
+        authStatus = newRecord;
       }
 
-      // Ensure phone number has + prefix
-      if (!userPhone.startsWith('+')) {
-        userPhone = '+' + userPhone;
-      }
-
-      console.log(`📱 [${requestId}] User: ${userId}, Phone: ${userPhone}, Type: ${isRegistration ? 'REGISTRATION' : 'LOGIN'}`);
-
-      // Check for existing valid OTP of the same type
-      const otpType = isRegistration ? 'registration' : 'login';
-      const { data: existingOtp } = await supabase
-        .from('otp_verifications')
-        .select('id, otp_code, expires_at, type')
-        .eq('user_id', userId)
-        .eq('type', otpType)
-        .eq('verified', false)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      let otpCode: string;
-
-      if (existingOtp && existingOtp.length > 0) {
-        // Reuse existing OTP
-        console.log(`🔄 [${requestId}] Reusing existing OTP`);
-        otpCode = existingOtp[0].otp_code;
+      // Check for cooldown (60 seconds)
+      if (authStatus.last_otp_sent_at) {
+        const timeSinceLastOtp = Date.now() - new Date(authStatus.last_otp_sent_at).getTime();
+        const COOLDOWN_PERIOD = 60 * 1000; // 60 seconds
         
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Using existing OTP',
-            phone: userPhone,
-            expiresIn: Math.floor((new Date(existingOtp[0].expires_at).getTime() - Date.now()) / 1000),
-            requestId
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        if (timeSinceLastOtp < COOLDOWN_PERIOD) {
+          const cooldownRemaining = Math.ceil((COOLDOWN_PERIOD - timeSinceLastOtp) / 1000);
+          console.log(`⏳ [${requestId}] Cooldown active: ${cooldownRemaining} seconds remaining`);
+          
+          // Return existing OTP if still valid
+          if (authStatus.current_otp_code && authStatus.current_otp_expires_at) {
+            const timeUntilExpiry = new Date(authStatus.current_otp_expires_at).getTime() - Date.now();
+            if (timeUntilExpiry > 0) {
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  message: `Please wait ${cooldownRemaining} seconds. Check your email for the code we already sent.`,
+                  email: email,
+                  expiresIn: Math.floor(timeUntilExpiry / 1000),
+                  type: otpType,
+                  requestId
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+          
+          // No valid OTP but still in cooldown
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Please wait ${cooldownRemaining} seconds before requesting a new code`,
+              cooldownRemaining,
+              requestId
+            }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
       // Generate new OTP
-      otpCode = generateOTP();
+      const otpCode = generateOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-      // Clean old unverified OTPs of the same type
-      await supabase
+      // Update user's record with new OTP
+      const { error: updateError } = await supabase
         .from('otp_verifications')
-        .delete()
-        .eq('user_id', userId)
-        .eq('type', otpType)
-        .eq('verified', false);
+        .update({
+          current_stage: otpType,
+          current_otp_code: otpCode,
+          current_otp_expires_at: expiresAt.toISOString(),
+          current_otp_attempts: 0,
+          last_otp_sent_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
 
-      // Save new OTP with type
-      const { error: otpError } = await supabase
-        .from('otp_verifications')
-        .insert({
-          user_id: userId,
-          phone_number: userPhone,
-          otp_code: otpCode,
-          expires_at: expiresAt.toISOString(),
-          verified: false,
-          attempts: 0,
-          type: otpType
-        });
-
-      if (otpError) {
-        console.error(`❌ [${requestId}] Failed to save OTP:`, otpError);
+      if (updateError) {
+        console.error(`❌ [${requestId}] Failed to update OTP:`, updateError);
         return new Response(
           JSON.stringify({ success: false, error: 'Failed to generate OTP', requestId }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Send SMS
-      const smsResult = await sendTwilioSMS(userPhone, otpCode);
+      // Send Email via Resend
+      console.log(`📤 [${requestId}] Sending OTP email to ${email}`);
+      const emailResult = await sendResendEmail(email, otpCode, isRegistration);
 
-      if (!smsResult.success) {
-        console.error(`❌ [${requestId}] SMS failed:`, smsResult.error);
-        // Clean up OTP if SMS failed
+      if (!emailResult.success) {
+        console.error(`❌ [${requestId}] Email failed:`, emailResult.error);
+        // Clear the OTP if email failed
         await supabase
           .from('otp_verifications')
-          .delete()
-          .eq('user_id', userId)
-          .eq('verified', false);
+          .update({
+            current_otp_code: null,
+            current_otp_expires_at: null,
+            current_otp_attempts: 0,
+          })
+          .eq('user_id', userId);
 
         return new Response(
-          JSON.stringify({ success: false, error: smsResult.error, requestId }),
+          JSON.stringify({ success: false, error: emailResult.error, requestId }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`✅ [${requestId}] OTP sent successfully`);
+      console.log(`✅ [${requestId}] OTP email sent successfully`);
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'OTP sent successfully',
-          phone: userPhone,
+          message: 'OTP sent to your email',
+          phone: email, // Return email as "phone" for compatibility
+          email: email,
           expiresIn: 600,
-          type: isRegistration ? 'registration' : 'login',
+          type: otpType,
           requestId
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -272,9 +338,13 @@ serve(async (req) => {
     if (action === 'verify') {
       console.log(`🔐 [${requestId}] Verifying OTP for: ${email}`);
 
-      if (!otp || !phone) {
+      if (!otp) {
         return new Response(
-          JSON.stringify({ success: false, error: 'OTP and phone required', requestId }),
+          JSON.stringify({ 
+            success: false, 
+            error: 'Verification code is required',
+            requestId 
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -282,124 +352,132 @@ serve(async (req) => {
       // Get user
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, phone_verified')
+        .select('id, account_verified')
         .eq('email', email)
         .single();
 
       if (userError || !userData) {
         console.error(`❌ [${requestId}] User not found for email: ${email}`);
         return new Response(
-          JSON.stringify({ success: false, error: 'User not found', requestId }),
+          JSON.stringify({ 
+            success: false, 
+            error: 'User not found. Please register first.',
+            requestId 
+          }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`📱 [${requestId}] Looking for OTP with phone: ${phone}`);
-
-      // Find valid OTP - try exact match first
-      let { data: otpData, error: otpError } = await supabase
+      // Get user's auth status
+      const { data: authStatus, error: authError } = await supabase
         .from('otp_verifications')
         .select('*')
         .eq('user_id', userData.id)
-        .eq('phone_number', phone)
-        .eq('verified', false)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .single();
 
-      // If not found and phone doesn't have +, try with +
-      if ((!otpData || otpData.length === 0) && !phone.startsWith('+')) {
-        console.log(`📱 [${requestId}] Exact match not found, trying with + prefix`);
-        const phoneWithPlus = '+' + phone;
-        ({ data: otpData, error: otpError } = await supabase
-          .from('otp_verifications')
-          .select('*')
-          .eq('user_id', userData.id)
-          .eq('phone_number', phoneWithPlus)
-          .eq('verified', false)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1));
-      }
-
-      // If still not found and phone has +, try without +
-      if ((!otpData || otpData.length === 0) && phone.startsWith('+')) {
-        console.log(`📱 [${requestId}] Exact match not found, trying without + prefix`);
-        const phoneWithoutPlus = phone.substring(1);
-        ({ data: otpData, error: otpError } = await supabase
-          .from('otp_verifications')
-          .select('*')
-          .eq('user_id', userData.id)
-          .eq('phone_number', phoneWithoutPlus)
-          .eq('verified', false)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1));
-      }
-
-      if (otpError || !otpData || otpData.length === 0) {
-        console.error(`❌ [${requestId}] No valid OTP found for user ${userData.id} with phone ${phone}`);
+      if (authError || !authStatus) {
+        console.error(`❌ [${requestId}] No auth status found for user`);
         return new Response(
-          JSON.stringify({ success: false, error: 'No valid OTP found', requestId }),
+          JSON.stringify({ 
+            success: false, 
+            error: 'No verification code found. Please request a new code.',
+            requestId 
+          }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const otpRecord = otpData[0];
-      console.log(`🔍 [${requestId}] Found OTP record, attempts: ${otpRecord.attempts}, stored phone: ${otpRecord.phone_number}`);
-
-      // Check attempts
-      if (otpRecord.attempts >= 5) {
-        await supabase
-          .from('otp_verifications')
-          .delete()
-          .eq('id', otpRecord.id);
-
-        return new Response(
-          JSON.stringify({ success: false, error: 'Too many attempts', requestId }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Verify OTP
-      if (otpRecord.otp_code !== otp) {
-        console.log(`❌ [${requestId}] Invalid OTP: expected ${otpRecord.otp_code}, got ${otp}`);
-        // Increment attempts
-        await supabase
-          .from('otp_verifications')
-          .update({ attempts: otpRecord.attempts + 1 })
-          .eq('id', otpRecord.id);
-
+      // Check if OTP expired
+      if (!authStatus.current_otp_expires_at || new Date(authStatus.current_otp_expires_at) < new Date()) {
+        console.error(`❌ [${requestId}] OTP expired`);
         return new Response(
           JSON.stringify({ 
             success: false, 
-            error: 'Invalid OTP', 
-            attemptsLeft: 5 - (otpRecord.attempts + 1),
+            error: 'Code expired. Please request a new code.',
             requestId 
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // OTP is correct - mark as verified
-      await supabase
-        .from('otp_verifications')
-        .update({ verified: true, verified_at: new Date().toISOString() })
-        .eq('id', otpRecord.id);
-
-      // If this was registration OTP, mark phone as verified and save phone number
-      if (!userData.phone_verified) {
+      // Check attempts
+      if (authStatus.current_otp_attempts >= 5) {
+        // Reset OTP after too many attempts
         await supabase
-          .from('users')
-          .update({ 
-            phone_verified: true, 
-            phone_number: otpRecord.phone_number,
-            updated_at: new Date().toISOString() 
+          .from('otp_verifications')
+          .update({
+            current_otp_code: null,
+            current_otp_expires_at: null,
+            current_otp_attempts: 0,
           })
-          .eq('id', userData.id);
+          .eq('user_id', userData.id);
+
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Too many failed attempts. Please request a new code.',
+            requestId 
+          }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      console.log(`✅ [${requestId}] OTP verified successfully`);
+      // Verify OTP
+      if (authStatus.current_otp_code !== otp) {
+        console.log(`❌ [${requestId}] Invalid OTP: expected ${authStatus.current_otp_code}, got ${otp}`);
+        
+        // Increment attempts
+        const newAttempts = authStatus.current_otp_attempts + 1;
+        await supabase
+          .from('otp_verifications')
+          .update({ current_otp_attempts: newAttempts })
+          .eq('user_id', userData.id);
+
+        const attemptsLeft = 5 - newAttempts;
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Invalid code. ${attemptsLeft} ${attemptsLeft === 1 ? 'attempt' : 'attempts'} remaining`,
+            attemptsLeft,
+            requestId 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // OTP is correct! Update verification status
+      const updates: any = {
+        current_otp_code: null, // Clear OTP after successful verification
+        current_otp_expires_at: null,
+        current_otp_attempts: 0,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (authStatus.current_stage === 'registration') {
+        // First-time verification
+        updates.registration_verified = true;
+        updates.registration_verified_at = new Date().toISOString();
+        updates.login_verified = true; // Also mark as logged in
+        updates.login_verified_at = new Date().toISOString();
+        updates.current_stage = 'login'; // Move to login stage
+        
+        // Update users table
+        await supabase
+          .from('users')
+          .update({ account_verified: true, updated_at: new Date().toISOString() })
+          .eq('id', userData.id);
+      } else {
+        // Login verification (2FA)
+        updates.login_verified = true;
+        updates.login_verified_at = new Date().toISOString();
+      }
+
+      await supabase
+        .from('otp_verifications')
+        .update(updates)
+        .eq('user_id', userData.id);
+
+      console.log(`✅ [${requestId}] OTP verified successfully (${authStatus.current_stage})`);
 
       return new Response(
         JSON.stringify({

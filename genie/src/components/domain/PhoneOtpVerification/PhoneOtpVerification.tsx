@@ -129,10 +129,10 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
       <View style={styles.content}>
         <View style={styles.header}>
           <Text variant="h2" style={styles.title}>
-            Verify Phone Number
+            Verify Your Account
           </Text>
           <Text variant="body" color="secondary" style={styles.subtitle}>
-            We sent a verification code to
+            Check your email for a verification code
           </Text>
           <Text variant="body" style={styles.phoneNumber}>
             {phone}
@@ -192,7 +192,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
 
           <View style={styles.resendContainer}>
             <Text variant="body" color="secondary">
-              Didn't receive the code?
+              Didn't receive the email?
             </Text>
             <Button
               variant="ghost"
@@ -207,7 +207,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
           {onBackToPhone && (
             <View style={styles.backContainer}>
               <Button variant="ghost" onPress={onBackToPhone}>
-                Change Phone Number
+                Back
               </Button>
             </View>
           )}

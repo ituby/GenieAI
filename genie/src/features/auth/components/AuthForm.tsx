@@ -130,12 +130,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
           await signIn(formData.email, formData.password);
           console.log('✅ Login successful (no phone verification required)');
         } catch (error: any) {
-          // Check if error is due to phone verification requirement
-          if (error.message === 'PHONE_VERIFICATION_REQUIRED') {
+          // Check if error is due to OTP verification requirement
+          if (error.message === 'OTP_VERIFICATION_REQUIRED') {
             console.log('📱 Phone verification required, sending OTP');
             try {
               // Send OTP for phone verification
+              console.log('📱 Calling sendOtpToUserPhone...');
               const phone = await sendOtpToUserPhone(formData.email, formData.password);
+              console.log('📱 sendOtpToUserPhone returned phone:', phone);
               
               setPendingAuth({
                 email: formData.email,
@@ -145,8 +147,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
               
               setPhoneNumber(phone);
               setShowOtpScreen(true);
-              console.log('📱 OTP screen will be shown for phone:', phone);
+              console.log('✅ OTP screen state set to true - should show now');
             } catch (otpError: any) {
+              console.error('❌ Failed to send OTP:', otpError);
               showAlert(otpError.message || 'Failed to send verification code', 'Error');
             }
           } else {
@@ -176,6 +179,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     if (!pendingAuth) return;
 
     try {
+      console.log('📋 Terms accepted, creating user account...');
       // אחרי אישור תקנון - יצור משתמש ושלח OTP
       const phone = await signUpWithPhone(
         pendingAuth.email,
@@ -183,14 +187,29 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
         pendingAuth.fullName!,
         pendingAuth.phone!
       );
+      console.log('✅ User created and OTP sent to:', phone);
 
       setPhoneNumber(phone);
       setShowTermsScreen(false);
       setShowOtpScreen(true);
+      console.log('✅ OTP screen state set to true - should show now');
     } catch (error: any) {
-      showAlert(error.message || 'Failed to create account', 'Error');
+      console.error('❌ Registration failed:', error);
+      
+      // Clear form and return to login screen
       setShowTermsScreen(false);
       setPendingAuth(null);
+      
+      // Show alert and switch to login mode after user clicks OK
+      showAlert(
+        error.message || 'Failed to create account',
+        'Registration Failed',
+        () => {
+          // Switch to login mode after user acknowledges the error
+          console.log('🔄 Switching to login mode after registration failure');
+          onToggleMode();
+        }
+      );
     }
   };
 
@@ -208,12 +227,12 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
         if (pendingAuth.isNewUser) {
           // For new users, just verify OTP (they're already signed in from registration)
           console.log('👤 New user - verifying REGISTRATION OTP...');
-          await verifyOtpForNewUser(phoneNumber, otpToken, pendingAuth.email);
+          await verifyOtpForNewUser(otpToken, pendingAuth.email);
           console.log('✅ REGISTRATION OTP verified - user is now authenticated');
         } else {
           // For existing users, verify LOGIN OTP
           console.log('👤 Existing user - verifying LOGIN OTP...');
-          await verifyOtp(phoneNumber, otpToken, pendingAuth.email);
+          await verifyOtp(otpToken, pendingAuth.email);
           console.log('✅ LOGIN OTP verified - user is now authenticated');
         }
         
@@ -222,9 +241,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
         setPendingAuth(null);
       } catch (error: any) {
         console.error('❌ OTP verification failed:', error);
+        // Don't exit OTP screen - let user try again
         showAlert(error.message, 'Verification Error');
-        setShowOtpScreen(false);
-        setPendingAuth(null);
+        // Keep showOtpScreen = true and pendingAuth so user can retry
       }
     }
   };
@@ -233,24 +252,18 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     if (!pendingAuth) return;
 
     try {
+      console.log('🔄 Resending OTP...');
       let phone: string;
       
-      if (pendingAuth.isNewUser) {
-        // For new users, resend OTP using the registration function
-        phone = await signUpWithPhone(
-          pendingAuth.email,
-          pendingAuth.password,
-          pendingAuth.fullName!,
-          pendingAuth.phone!
-        );
-      } else {
-        // For existing users, send OTP
-        phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
-      }
+      // Send OTP for both registration and login
+      console.log(`📧 Resending ${pendingAuth.isNewUser ? 'REGISTRATION' : 'LOGIN'} OTP for:`, pendingAuth.email);
+      phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
       
       setPhoneNumber(phone);
-      showAlert('A new verification code has been sent to your phone', 'Code Sent');
+      console.log('✅ OTP resent to:', phone);
+      showAlert('A new verification code has been sent to your email', 'Code Sent');
     } catch (error: any) {
+      console.error('❌ Failed to resend OTP:', error);
       showAlert(error.message || 'Failed to resend code', 'Error');
     }
   };
@@ -385,7 +398,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
 
         {mode === 'login' && (
           <Text variant="caption" color="tertiary" style={styles.otpHint}>
-            Verification code will be sent to your phone
+            Verification code will be sent to your email
           </Text>
         )}
 

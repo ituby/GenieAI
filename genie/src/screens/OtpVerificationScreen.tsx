@@ -140,7 +140,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         </Text>
 
         <Text variant="body" color="secondary" style={styles.subtitle}>
-          A verification code was sent to
+          Check your email for a verification code
         </Text>
 
         <Text variant="h3" style={styles.phone}>
@@ -198,7 +198,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
 
         <View style={styles.resendContainer}>
           <Text variant="body" color="secondary">
-            Didn't receive a code?
+            Didn't receive the email?
           </Text>
 
           {resendTimer > 0 ? (

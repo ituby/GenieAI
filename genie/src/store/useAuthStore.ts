@@ -32,13 +32,14 @@ interface AuthState {
     phone: string
   ) => Promise<string>;
   sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
-  verifyOtp: (phone: string, token: string, email?: string) => Promise<void>;
-  verifyOtpForNewUser: (phone: string, token: string, email?: string) => Promise<void>;
+  verifyOtp: (token: string, email?: string) => Promise<void>;
+  verifyOtpForNewUser: (token: string, email?: string) => Promise<void>;
   checkPendingOtp: (email: string) => Promise<boolean>;
   acceptTerms: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   verifyPasswordResetToken: (token: string) => Promise<boolean>;
+  deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -77,17 +78,23 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) {
             console.error('❌ Login error:', error);
-            throw error;
+            // Provide user-friendly error messages
+            if (error.message.includes('Invalid login credentials')) {
+              throw new Error('Invalid email or password.\nPlease check your credentials and try again.');
+            } else if (error.message.includes('Email not confirmed')) {
+              throw new Error('Email not verified.\nPlease check your inbox and verify your email address.');
+            }
+            throw new Error(error.message || 'Login failed.\nPlease try again.');
           }
 
           if (!data.user) {
             throw new Error('Login failed - no user data received');
           }
 
-          // Check user's phone status
+          // Check user's account verification status
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('phone_verified, phone_number')
+            .select('account_verified')
             .eq('id', data.user.id)
             .single();
 
@@ -98,51 +105,24 @@ export const useAuthStore = create<AuthState>()(
             // Don't block login, just proceed
           }
 
-          const hasPhoneNumber = userData && userData.phone_number;
-          const phoneVerified = userData && userData.phone_verified;
+          const accountVerified = userData && userData.account_verified;
           const needsTerms = !data.user?.user_metadata?.terms_accepted;
 
           console.log('✅ Login successful:', data.user.email);
-          console.log('🔍 Phone number:', userData?.phone_number);
-          console.log('🔍 Phone verified:', phoneVerified);
+          console.log('🔍 Account verified:', accountVerified);
           console.log('🔍 Needs terms:', needsTerms);
 
-          // If user has phone but NOT verified → REGISTRATION OTP required
-          if (hasPhoneNumber && !phoneVerified) {
-            console.log('🚫 REGISTRATION OTP required - phone not verified!');
-            // Keep session for Edge Function to use
-            set({ 
-              loading: false,
-              user: data.user,
-              session: data.session,
-              isAuthenticated: false // Not authenticated until OTP verified
-            });
-            throw new Error('PHONE_VERIFICATION_REQUIRED');
-          }
-
-          // If user has phone AND verified → LOGIN OTP required (2FA)
-          if (hasPhoneNumber && phoneVerified) {
-            console.log('🚫 LOGIN OTP required - 2FA enabled!');
-            // Keep session for Edge Function to use
-            set({ 
-              loading: false,
-              user: data.user,
-              session: data.session,
-              isAuthenticated: false // Not authenticated until OTP verified
-            });
-            throw new Error('PHONE_VERIFICATION_REQUIRED');
-          }
-
-          console.log('✅ No phone number - allowing direct login');
-
-          // Only allow login without OTP if user has no phone number
-          set({
+          // ALWAYS require OTP for every login (2FA)
+          const otpType = accountVerified ? 'login' : 'registration';
+          console.log(`🚫 ${otpType.toUpperCase()} OTP required - 2FA enabled!`);
+          // Keep session for Edge Function to use
+          set({ 
+            loading: false,
             user: data.user,
             session: data.session,
-            isAuthenticated: true,
-            loading: false,
-            needsTermsAcceptance: needsTerms,
+            isAuthenticated: false // Not authenticated until OTP verified
           });
+          throw new Error('OTP_VERIFICATION_REQUIRED');
 
         } catch (error) {
           set({ loading: false });
@@ -185,19 +165,19 @@ export const useAuthStore = create<AuthState>()(
         phone: string
       ) => {
         set({ loading: true });
+        let userId: string | null = null;
+        
         try {
-          console.log('📱 Creating new user account:', email);
+          console.log('📧 Creating new user account:', email);
 
           // Create user account with email confirmation disabled
           const { data: authData, error: authError } =
             await supabase.auth.signUp({
               email,
               password,
-              phone, // Save phone directly in auth.users.phone field
               options: {
                 data: {
                   full_name: fullName,
-                  phone_number: phone,
                   terms_accepted: true,
                   terms_accepted_at: new Date().toISOString(),
                 },
@@ -207,42 +187,54 @@ export const useAuthStore = create<AuthState>()(
 
           if (authError) {
             console.error('❌ Auth signup error:', authError);
-            throw authError;
+            // Provide user-friendly error messages
+            if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
+              throw new Error('This email is already registered.\nPlease login instead.');
+            } else if (authError.message.includes('Database error')) {
+              throw new Error('This email is already registered.\nPlease login to continue.');
+            }
+            throw new Error(authError.message || 'Registration failed.\nPlease try again.');
           }
 
           if (!authData.user) {
             throw new Error('Failed to create user account');
           }
 
-          console.log('✅ User created successfully:', authData.user.id);
-
-          // Wait a moment for the trigger to complete
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          userId = authData.user.id;
+          console.log('✅ User created successfully:', userId);
           
           // Keep user signed in - don't sign out after registration
           console.log('✅ User staying signed in for OTP verification');
 
           // Send REGISTRATION OTP using unified function
+          // Note: Edge Function handles checking both auth.users and public.users
           const response = await supabase.functions.invoke('manage-otp', {
             body: { 
               action: 'send',
               email,
-              phone
             },
           });
 
           if (response.error) {
             console.error('❌ Send OTP error:', response.error);
-            throw new Error(response.error.message || 'Failed to send verification code');
+            // User will remain in system with account_verified = false
+            // They can login again and complete verification
+            console.log('⚠️ OTP sending failed - user remains unverified');
+            throw new Error('Failed to send verification code. You can try again by logging in.');
           }
 
           const data = response.data;
           
           if (!data?.success) {
-            throw new Error(data?.error || 'Failed to send verification code');
+            // User will remain in system with account_verified = false
+            // They can login again and complete verification
+            console.log('⚠️ OTP sending failed - user remains unverified');
+            
+            // Use error message from server
+            throw new Error(data?.error || 'Failed to send verification code. You can try again by logging in.');
           }
 
-          console.log(`✅ ${data.type} OTP sent to:`, data.phone);
+          console.log(`✅ ${data.type} OTP sent to:`, data.email);
           console.log(`⏰ Code expires in ${data.expiresIn} seconds`);
           
           // Don't mark as authenticated yet - wait for OTP verification
@@ -255,10 +247,26 @@ export const useAuthStore = create<AuthState>()(
             needsTermsAcceptance: false,
           });
 
-          return data.phone;
+          return data.email;
         } catch (error: any) {
           console.error('❌ Registration failed:', error);
-          set({ loading: false });
+          
+          // Sign out so user will need to login again
+          // User remains in database with account_verified = false
+          // On next login, they'll be prompted for OTP verification
+          try {
+            await supabase.auth.signOut();
+            console.log('🚪 User signed out - can login again to complete verification');
+          } catch (signOutError) {
+            console.error('Failed to sign out after error:', signOutError);
+          }
+          
+          set({ 
+            loading: false,
+            user: null,
+            session: null,
+            isAuthenticated: false
+          });
           throw error;
         }
       },
@@ -266,58 +274,29 @@ export const useAuthStore = create<AuthState>()(
       sendOtpToUserPhone: async (email: string, password: string) => {
         set({ loading: true });
         try {
-          console.log('📱 Sending OTP to user:', email);
+          console.log('📧 Sending OTP to user:', email);
 
-          // Use unified OTP function (no need to send password - already validated)
+          // Use unified OTP function
           const response = await supabase.functions.invoke('manage-otp', {
             body: { 
               action: 'send',
-              email
-              // Password not needed - signIn already validated credentials
+              email,
             },
           });
 
           if (response.error) {
             console.error('❌ Send OTP error:', response.error);
-            throw new Error(response.error.message || 'Failed to send OTP');
+            throw new Error('Failed to send verification code. Please try again later.');
           }
 
           const data = response.data;
           
           if (!data?.success) {
-            throw new Error(data?.error || 'Failed to send OTP');
+            // Use error message from server
+            throw new Error(data?.error || 'Failed to send verification code. Please try again later.');
           }
 
           console.log(`✅ OTP sent successfully - Type: ${data.type}`);
-          
-          // Wait for OTP to be saved in database before returning
-          // This ensures UI updates immediately without race conditions
-          let otpFound = false;
-          let attempts = 0;
-          const maxAttempts = 10; // 10 attempts × 200ms = 2 seconds max wait
-          
-          while (!otpFound && attempts < maxAttempts) {
-            attempts++;
-            const { data: otpData } = await supabase
-              .from('otp_verifications')
-              .select('id')
-              .eq('user_id', get().user?.id)
-              .eq('verified', false)
-              .gt('expires_at', new Date().toISOString())
-              .limit(1);
-            
-            if (otpData && otpData.length > 0) {
-              otpFound = true;
-              console.log('✅ OTP confirmed in database');
-            } else {
-              // Wait before retrying
-              await new Promise(resolve => setTimeout(resolve, 200));
-            }
-          }
-          
-          if (!otpFound) {
-            console.warn('⚠️ OTP not found in database after retries, but proceeding anyway');
-          }
           
           // Don't mark as authenticated - user must verify OTP first
           // Keep user and session for Edge Function use
@@ -326,7 +305,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false
           });
 
-          return data.phone;
+          return data.email;
         } catch (error: any) {
           console.error('❌ Send OTP error:', error);
           set({ loading: false });
@@ -334,10 +313,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      verifyOtp: async (phone: string, token: string, email?: string) => {
+      verifyOtp: async (token: string, email?: string) => {
         set({ loading: true });
         try {
-          console.log('📱 Verifying OTP for:', phone);
+          console.log('🔐 Verifying OTP code');
           
           // Get email from parameter or current user
           const userEmail = email || get().user?.email;
@@ -349,20 +328,20 @@ export const useAuthStore = create<AuthState>()(
             body: { 
               action: 'verify',
               email: userEmail,
-              phone,
               otp: token
             },
           });
 
           if (response.error) {
             console.error('❌ Verify OTP error:', response.error);
-            throw new Error(response.error.message || 'Failed to verify OTP');
+            throw new Error('Code verification failed. Please try again.');
           }
 
           const data = response.data;
 
           if (!data?.success) {
-            throw new Error(data?.error || 'OTP verification failed');
+            // Use error message from server
+            throw new Error(data?.error || 'Code verification failed. Please try again.');
           }
 
           console.log('✅ OTP verified successfully');
@@ -388,10 +367,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      verifyOtpForNewUser: async (phone: string, token: string, email?: string) => {
+      verifyOtpForNewUser: async (token: string, email?: string) => {
         set({ loading: true });
         try {
-          console.log('📱 Verifying REGISTRATION OTP:', phone);
+          console.log('🔐 Verifying REGISTRATION OTP code');
           
           // Get email from parameter or current user
           const userEmail = email || get().user?.email;
@@ -404,20 +383,20 @@ export const useAuthStore = create<AuthState>()(
             body: { 
               action: 'verify',
               email: userEmail,
-              phone,
               otp: token
             },
           });
 
           if (response.error) {
             console.error('❌ Verify OTP error:', response.error);
-            throw new Error(response.error.message || 'Failed to verify OTP');
+            throw new Error('Code verification failed. Please try again.');
           }
 
           const data = response.data;
 
           if (!data?.success) {
-            throw new Error(data?.error || 'OTP verification failed');
+            // Use error message from server
+            throw new Error(data?.error || 'Code verification failed. Please try again.');
           }
 
           console.log('✅ REGISTRATION OTP verified successfully');
@@ -446,10 +425,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔍 Checking for pending OTP for:', email);
 
-          // Get user ID and phone verification status
+          // Get user ID and account verification status
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, phone_verified')
+            .select('id, account_verified')
             .eq('email', email)
             .single();
 
@@ -458,32 +437,29 @@ export const useAuthStore = create<AuthState>()(
             return false;
           }
 
-          // ONLY check for pending OTP if phone is NOT verified (registration OTP)
-          // If phone is verified, user can create new login OTPs
-          if (userData.phone_verified) {
-            console.log('✅ Phone already verified - no pending registration OTP');
-            return false;
-          }
-
-          // Check if there's a pending registration OTP for this user
-          const { data: otpData, error: otpError } = await supabase
+          // Check if user has pending OTP (either stage)
+          const { data: authStatus, error: authError } = await supabase
             .from('otp_verifications')
-            .select('id, expires_at, verified')
+            .select('current_stage, registration_verified, login_verified, current_otp_expires_at')
             .eq('user_id', userData.id)
-            .eq('verified', false)
-            .gt('expires_at', new Date().toISOString())
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .single();
 
-          if (otpError) {
-            console.error('❌ Error checking pending OTP:', otpError);
+          if (authError || !authStatus) {
+            console.log('❌ No auth status found');
             return false;
           }
 
-          const hasPendingRegistrationOtp = otpData && otpData.length > 0;
-          console.log('🔍 Pending REGISTRATION OTP found:', hasPendingRegistrationOtp);
+          // Has pending OTP if:
+          // 1. Registration not completed, OR
+          // 2. Has active OTP that's not expired
+          const hasPendingOtp = 
+            !authStatus.registration_verified || 
+            (authStatus.current_otp_expires_at && new Date(authStatus.current_otp_expires_at) > new Date());
           
-          return hasPendingRegistrationOtp;
+          console.log('🔍 Pending OTP found:', hasPendingOtp);
+          console.log(`📊 Status: stage=${authStatus.current_stage}, reg_verified=${authStatus.registration_verified}, login_verified=${authStatus.login_verified}`);
+          
+          return hasPendingOtp;
         } catch (error: any) {
           console.error('❌ Check pending OTP error:', error);
           return false;
@@ -582,24 +558,80 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signOut: async () => {
+      deleteAccount: async () => {
         set({ loading: true });
         try {
-          console.log('🔐 Signing out...');
+          console.log('🗑️ Deleting user account...');
 
-          const { error } = await supabase.auth.signOut();
-          if (error) throw error;
+          const currentUser = get().user;
+          if (!currentUser?.id) {
+            throw new Error('No user logged in');
+          }
 
-          // Clear all auth state
-          console.log('🧹 Clearing auth state...');
+          // Call Edge Function to delete user (requires service role)
+          const response = await supabase.functions.invoke('delete-user-account', {
+            body: { userId: currentUser.id },
+          });
+
+          if (response.error) {
+            throw new Error(response.error.message || 'Failed to delete account');
+          }
+
+          const data = response.data;
+          if (!data?.success) {
+            throw new Error(data?.error || 'Failed to delete account');
+          }
+
+          console.log('✅ Account deleted successfully');
+
+          // Clear all local state
+          dataLoadingService.clearCache();
+          await AsyncStorage.removeItem('genie-auth-store');
+
           set({
             user: null,
             session: null,
             isAuthenticated: false,
             loading: false,
           });
-          console.log('✅ Auth state cleared');
 
+          console.log('✅ Account deletion complete');
+        } catch (error: any) {
+          console.error('❌ Delete account error:', error);
+          set({ loading: false });
+          throw error;
+        }
+      },
+
+      signOut: async () => {
+        set({ loading: true });
+        try {
+          console.log('🔐 Signing out...');
+
+          // Reset login_verified before signing out
+          const currentUser = get().user;
+          if (currentUser?.id) {
+            console.log('🔄 Resetting login verification for next login...');
+            await supabase
+              .from('otp_verifications')
+              .update({
+                login_verified: false,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', currentUser.id);
+          }
+
+          // Clear all auth state BEFORE calling signOut
+          console.log('🧹 Clearing auth state...');
+          set({
+            user: null,
+            session: null,
+            isAuthenticated: false,
+            loading: false,
+            termsAccepted: false,
+            needsTermsAcceptance: false,
+          });
+          
           // Clear pre-loaded data cache
           dataLoadingService.clearCache();
 
@@ -610,6 +642,13 @@ export const useAuthStore = create<AuthState>()(
           } catch (err) {
             console.log('⚠️ Failed to clear persisted auth store:', err);
           }
+
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error('⚠️ SignOut error (continuing anyway):', error);
+          }
+
+          console.log('✅ Auth state cleared');
 
           // Verify state is cleared
           const currentState = get();
@@ -692,7 +731,7 @@ export const useAuthStore = create<AuthState>()(
               // Check if user exists in public.users table
               const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('id')
+                .select('id, account_verified')
                 .eq('id', session.user.id)
                 .single();
 
@@ -715,11 +754,23 @@ export const useAuthStore = create<AuthState>()(
                 return;
               }
 
+              // Check login_verified status in otp_verifications table
+              const { data: authStatus } = await supabase
+                .from('otp_verifications')
+                .select('login_verified')
+                .eq('user_id', session.user.id)
+                .single();
+              
+              const isLoggedIn = authStatus?.login_verified || false;
+              
               console.log('✅ User exists in database, restoring session...');
+              console.log(`📱 Account verified: ${userData.account_verified}`);
+              console.log(`🔐 Login verified: ${isLoggedIn}`);
+              
               set({
                 user: session.user,
                 session,
-                isAuthenticated: true,
+                isAuthenticated: isLoggedIn, // Only authenticated if login_verified = true
                 loading: false,
               });
             } else {
@@ -761,11 +812,13 @@ export const useAuthStore = create<AuthState>()(
             console.log('🔐 Supabase session found:', !!session?.user);
             console.log('🔐 User email:', session?.user?.email);
 
+            let isLoggedIn = false;
+            
             if (session?.user) {
               // Check if user exists in public.users table
               const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('id')
+                .select('id, account_verified')
                 .eq('id', session.user.id)
                 .single();
 
@@ -788,13 +841,24 @@ export const useAuthStore = create<AuthState>()(
                 return;
               }
 
+              // Check login_verified status in otp_verifications table
+              const { data: authStatus } = await supabase
+                .from('otp_verifications')
+                .select('login_verified')
+                .eq('user_id', session.user.id)
+                .single();
+              
+              isLoggedIn = authStatus?.login_verified || false;
+              
               console.log('✅ User exists in database, setting session...');
+              console.log(`📱 Account verified: ${userData.account_verified}`);
+              console.log(`🔐 Login verified: ${isLoggedIn}`);
             }
 
             set({
               user: session?.user || null,
               session,
-              isAuthenticated: !!session?.user,
+              isAuthenticated: isLoggedIn, // Only authenticated if login_verified = true
               loading: false,
             });
           }
@@ -803,33 +867,39 @@ export const useAuthStore = create<AuthState>()(
           supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('🔐 Auth state changed:', event, !!session?.user);
 
-            // If user signed in, check if they have pending OTP before marking as authenticated
-            if (session?.user) {
-              // Check for any pending OTP (registration or login)
-              const { data: pendingOtp } = await supabase
-                .from('otp_verifications')
-                .select('id, type')
-                .eq('user_id', session.user.id)
-                .eq('verified', false)
-                .gt('expires_at', new Date().toISOString())
-                .limit(1);
+            // Skip heavy checks during initial auth state changes
+            // The initialize function already handles authentication properly
+            if (event === 'INITIAL_SESSION') {
+              console.log('⏩ Skipping INITIAL_SESSION - already initialized');
+              return;
+            }
 
-              if (pendingOtp && pendingOtp.length > 0) {
-                console.log(`🔐 User has pending ${pendingOtp[0].type} OTP - NOT authenticated yet`);
+            if (session?.user) {
+              // Only check login_verified for actual sign-in events, not registration
+              if (event === 'SIGNED_IN') {
+                // Check if user has verified login in current session
+                const { data: authStatus } = await supabase
+                  .from('otp_verifications')
+                  .select('login_verified')
+                  .eq('user_id', session.user.id)
+                  .single();
+                
+                const isLoggedIn = authStatus?.login_verified || false;
+                console.log(`🔐 User signed in - login_verified: ${isLoggedIn}`);
+                
                 set({
                   user: session.user,
                   session,
-                  isAuthenticated: false, // Not authenticated until OTP verified
+                  isAuthenticated: isLoggedIn, // Only authenticated if login_verified = true
                 });
               } else {
-                console.log('🔐 No pending OTP - user is authenticated');
-                set({
-                  user: session.user,
-                  session,
-                  isAuthenticated: true,
-                });
+                // For other events (like USER_UPDATED), don't change auth state
+                console.log('⏩ Auth event ignored - keeping current state');
               }
             } else {
+              // User signed out
+              console.log('🚪 User signed out - clearing state');
+              
               set({
                 user: null,
                 session: null,
@@ -847,10 +917,9 @@ export const useAuthStore = create<AuthState>()(
       name: 'genie-auth-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        // Persist user and session data for proper session restoration
+        // DON'T persist isAuthenticated - always require OTP verification
         user: state.user,
         session: state.session,
-        isAuthenticated: state.isAuthenticated,
         termsAccepted: state.termsAccepted,
         needsTermsAcceptance: state.needsTermsAcceptance,
       }),
