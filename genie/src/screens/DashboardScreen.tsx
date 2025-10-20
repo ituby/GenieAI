@@ -1838,10 +1838,6 @@ export const DashboardScreen: React.FC = () => {
                 showsVerticalScrollIndicator={false}
               >
                 <View style={styles.modalContent}>
-                  <Text variant="h4" style={styles.predefinedOptionsTitle}>
-                    Predefined Packages
-                  </Text>
-
                   <View style={styles.tokenOptions}>
                     <TouchableOpacity
                       style={[
@@ -1856,20 +1852,22 @@ export const DashboardScreen: React.FC = () => {
                       }}
                     >
                       <View style={styles.tokenOptionHeader}>
-                        <Text variant="h4" style={styles.tokenAmount}>
-                          100 Tokens
-                        </Text>
+                        <View>
+                          <Text variant="h4" style={styles.tokenAmount}>
+                            100 Tokens
+                          </Text>
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.tokenDescription}
+                          >
+                            ~1 detailed goal
+                          </Text>
+                        </View>
                         <Text variant="h3" style={styles.tokenPrice}>
                           $4.99
                         </Text>
                       </View>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.tokenDescription}
-                      >
-                        Like 1 free month - perfect for testing
-                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1890,20 +1888,22 @@ export const DashboardScreen: React.FC = () => {
                         </Text>
                       </View>
                       <View style={styles.tokenOptionHeader}>
-                        <Text variant="h4" style={styles.tokenAmount}>
-                          500 Tokens
-                        </Text>
+                        <View>
+                          <Text variant="h4" style={styles.tokenAmount}>
+                            500 Tokens
+                          </Text>
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.tokenDescription}
+                          >
+                            ~7 detailed goals
+                          </Text>
+                        </View>
                         <Text variant="h3" style={styles.tokenPrice}>
                           $19.99
                         </Text>
                       </View>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.tokenDescription}
-                      >
-                        Best value - ~2 detailed goals
-                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1919,20 +1919,22 @@ export const DashboardScreen: React.FC = () => {
                       }}
                     >
                       <View style={styles.tokenOptionHeader}>
-                        <Text variant="h4" style={styles.tokenAmount}>
-                          1000 Tokens
-                        </Text>
+                        <View>
+                          <Text variant="h4" style={styles.tokenAmount}>
+                            1000 Tokens
+                          </Text>
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.tokenDescription}
+                          >
+                            ~14 detailed goals • Best value
+                          </Text>
+                        </View>
                         <Text variant="h3" style={styles.tokenPrice}>
                           $34.99
                         </Text>
                       </View>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.tokenDescription}
-                      >
-                        Like premium month - for power users
-                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -3112,7 +3114,10 @@ const styles = StyleSheet.create({
   },
   tokenOptionHeader: {
     flex: 1,
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   tokenAmount: {
     color: '#FFFFFF',
