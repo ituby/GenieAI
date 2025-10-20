@@ -12,6 +12,7 @@ interface OtpRequest {
   password?: string;
   phone?: string;
   otp?: string;
+  force_resend?: boolean; // Allow resending even if valid OTP exists
 }
 
 // Generate secure 6-digit OTP
@@ -149,7 +150,7 @@ serve(async (req) => {
       }
     }
     
-    const { action, email, password, phone, otp }: OtpRequest = await req.json();
+    const { action, email, password, phone, otp, force_resend }: OtpRequest = await req.json();
 
     if (!action || !email) {
       return new Response(
@@ -260,8 +261,32 @@ serve(async (req) => {
         authStatus.login_verified = false;
       }
 
-      // Check for cooldown (60 seconds)
-      if (authStatus.last_otp_sent_at) {
+      // Check if there's a valid OTP that hasn't expired yet
+      // Skip this check if force_resend is true (user clicked "Resend")
+      if (!force_resend && authStatus.current_otp_code && authStatus.current_otp_expires_at) {
+        const timeUntilExpiry = new Date(authStatus.current_otp_expires_at).getTime() - Date.now();
+        if (timeUntilExpiry > 0) {
+          console.log(`📧 [${requestId}] Valid OTP already exists (expires in ${Math.floor(timeUntilExpiry / 1000)}s) - NOT sending new one`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: 'A verification code was already sent to your email. Check your inbox or wait to request a new one.',
+              email: email,
+              expiresIn: Math.floor(timeUntilExpiry / 1000),
+              type: otpType,
+              requestId
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          console.log(`⏰ [${requestId}] Previous OTP has expired - will generate new one`);
+        }
+      } else if (force_resend) {
+        console.log(`🔄 [${requestId}] Force resend requested - will send new OTP even if valid one exists`);
+      }
+
+      // Check for cooldown (60 seconds) - skip if force_resend is true
+      if (!force_resend && authStatus.last_otp_sent_at) {
         const timeSinceLastOtp = Date.now() - new Date(authStatus.last_otp_sent_at).getTime();
         const COOLDOWN_PERIOD = 60 * 1000; // 60 seconds
         

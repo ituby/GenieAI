@@ -31,7 +31,7 @@ interface AuthState {
     fullName: string,
     phone: string
   ) => Promise<string>;
-  sendOtpToUserPhone: (email: string, password: string) => Promise<string>;
+  sendOtpToUserPhone: (email: string, password: string, forceResend?: boolean) => Promise<string>;
   verifyOtp: (token: string, email?: string) => Promise<void>;
   verifyOtpForNewUser: (token: string, email?: string) => Promise<void>;
   checkPendingOtp: (email: string) => Promise<boolean>;
@@ -271,16 +271,17 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      sendOtpToUserPhone: async (email: string, password: string) => {
+      sendOtpToUserPhone: async (email: string, password: string, forceResend: boolean = false) => {
         set({ loading: true });
         try {
-          console.log('📧 Sending OTP to user:', email);
+          console.log('📧 Sending OTP to user:', email, forceResend ? '(Force Resend)' : '');
 
           // Use unified OTP function
           const response = await supabase.functions.invoke('manage-otp', {
             body: { 
               action: 'send',
               email,
+              force_resend: forceResend,
             },
           });
 

@@ -25,6 +25,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [showTermsScreen, setShowTermsScreen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [isProcessingOtp, setIsProcessingOtp] = useState(false); // Lock to prevent duplicate OTP requests
   const [pendingAuth, setPendingAuth] = useState<{
     email: string;
     password: string;
@@ -45,8 +46,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
   // Check if there's ANY pending OTP when component mounts or user changes
   useEffect(() => {
     const checkForPendingOtp = async () => {
-      // Only check if we're not already showing OTP screen
-      if (showOtpScreen || pendingAuth) return;
+      // Only check if we're not already showing OTP screen or processing
+      if (showOtpScreen || pendingAuth || isProcessingOtp) return;
 
       const currentUser = user;
       if (currentUser?.email && !isAuthenticated) {
@@ -55,30 +56,39 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
         // Check for any unverified OTP in database
         const { data: otpData } = await supabase
           .from('otp_verifications')
-          .select('phone_number, type, expires_at')
+          .select('current_stage, current_otp_expires_at, current_otp_code, login_verified, registration_verified')
           .eq('user_id', currentUser.id)
-          .eq('verified', false)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .single();
         
-        if (otpData && otpData.length > 0) {
-          const pendingOtp = otpData[0];
-          console.log(`📱 Found pending ${pendingOtp.type} OTP - showing OTP screen automatically`);
+        if (otpData && otpData.current_otp_code && otpData.current_otp_expires_at) {
+          // Check if OTP is still valid
+          const expiresAt = new Date(otpData.current_otp_expires_at);
+          const isExpired = expiresAt < new Date();
           
-          setPhoneNumber(pendingOtp.phone_number);
-          setPendingAuth({
-            email: currentUser.email,
-            password: '',
-            isNewUser: pendingOtp.type === 'registration',
-          });
-          setShowOtpScreen(true);
+          // Check if user needs to verify (either registration or login)
+          const needsVerification = otpData.current_stage === 'registration' 
+            ? !otpData.registration_verified 
+            : !otpData.login_verified;
+          
+          if (!isExpired && needsVerification) {
+            console.log(`📱 Found pending ${otpData.current_stage} OTP - showing OTP screen automatically`);
+            
+            setPhoneNumber(currentUser.email); // Use email since we're using email OTP
+            setPendingAuth({
+              email: currentUser.email,
+              password: '',
+              isNewUser: otpData.current_stage === 'registration',
+            });
+            setShowOtpScreen(true);
+          } else if (isExpired) {
+            console.log(`⏰ Pending OTP has expired - user will need to request a new one`);
+          }
         }
       }
     };
     
     checkForPendingOtp();
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, showOtpScreen, pendingAuth, isProcessingOtp]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -132,12 +142,59 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
         } catch (error: any) {
           // Check if error is due to OTP verification requirement
           if (error.message === 'OTP_VERIFICATION_REQUIRED') {
-            console.log('📱 Phone verification required, sending OTP');
+            console.log('📱 Phone verification required');
+            
+            // Prevent duplicate OTP requests
+            if (isProcessingOtp) {
+              console.log('⏸️ Already processing OTP request - ignoring duplicate');
+              return;
+            }
+            
+            setIsProcessingOtp(true);
+            
             try {
-              // Send OTP for phone verification
-              console.log('📱 Calling sendOtpToUserPhone...');
-              const phone = await sendOtpToUserPhone(formData.email, formData.password);
-              console.log('📱 sendOtpToUserPhone returned phone:', phone);
+              // Get the current user from auth store (set by signIn)
+              const currentUser = useAuthStore.getState().user;
+              
+              if (!currentUser?.id) {
+                console.error('❌ User ID not available after sign in');
+                throw new Error('Authentication state error. Please try again.');
+              }
+              
+              // First, check if there's already a valid OTP waiting
+              console.log('🔍 Checking for existing valid OTP for user:', currentUser.id);
+              const { data: otpData } = await supabase
+                .from('otp_verifications')
+                .select('current_stage, current_otp_expires_at, current_otp_code, login_verified')
+                .eq('user_id', currentUser.id)
+                .single();
+              
+              let hasValidOtp = false;
+              
+              if (otpData && otpData.current_otp_code && otpData.current_otp_expires_at) {
+                const expiresAt = new Date(otpData.current_otp_expires_at);
+                const isExpired = expiresAt < new Date();
+                const needsVerification = !otpData.login_verified;
+                
+                if (!isExpired && needsVerification) {
+                  console.log('✅ Found valid OTP - showing OTP screen WITHOUT sending new code');
+                  hasValidOtp = true;
+                } else if (isExpired) {
+                  console.log('⏰ Previous OTP expired - will send new one');
+                }
+              } else {
+                console.log('📧 No existing OTP found - will send new one');
+              }
+              
+              // Only send OTP if there's no valid one already
+              if (!hasValidOtp) {
+                console.log('📱 Sending new OTP...');
+                const phone = await sendOtpToUserPhone(formData.email, formData.password);
+                console.log('📱 New OTP sent to:', phone);
+                setPhoneNumber(phone);
+              } else {
+                setPhoneNumber(formData.email);
+              }
               
               setPendingAuth({
                 email: formData.email,
@@ -145,12 +202,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
                 isNewUser: false,
               });
               
-              setPhoneNumber(phone);
               setShowOtpScreen(true);
-              console.log('✅ OTP screen state set to true - should show now');
+              setIsProcessingOtp(false);
+              console.log('✅ OTP screen shown');
             } catch (otpError: any) {
-              console.error('❌ Failed to send OTP:', otpError);
-              showAlert(otpError.message || 'Failed to send verification code', 'Error');
+              console.error('❌ Failed to handle OTP:', otpError);
+              setIsProcessingOtp(false);
+              showAlert(otpError.message || 'Failed to verify authentication', 'Error');
             }
           } else {
             // Other login errors
@@ -252,12 +310,12 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     if (!pendingAuth) return;
 
     try {
-      console.log('🔄 Resending OTP...');
+      console.log('🔄 Resending OTP (force resend = true)...');
       let phone: string;
       
-      // Send OTP for both registration and login
+      // Send OTP for both registration and login - with force_resend = true
       console.log(`📧 Resending ${pendingAuth.isNewUser ? 'REGISTRATION' : 'LOGIN'} OTP for:`, pendingAuth.email);
-      phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password);
+      phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password, true); // Force resend!
       
       setPhoneNumber(phone);
       console.log('✅ OTP resent to:', phone);
@@ -271,6 +329,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
   const handleBackToPhone = () => {
     setShowOtpScreen(false);
     setPendingAuth(null);
+    setIsProcessingOtp(false);
   };
 
   const updateField = (field: string, value: string) => {
