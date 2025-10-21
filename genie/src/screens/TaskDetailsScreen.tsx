@@ -42,7 +42,13 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
 
   const formatTime = (runAt: string) => {
     try {
-      return format(new Date(runAt), 'HH:mm', { locale: he });
+      // 🚨 FIX: Use toLocaleTimeString for proper timezone handling
+      const date = new Date(runAt);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
     } catch {
       return '';
     }

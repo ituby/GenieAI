@@ -50,7 +50,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const formatTime = (runAt: string) => {
     try {
-      return format(new Date(runAt), 'HH:mm', { locale: he });
+      // 🚨 FIX: Use toLocaleTimeString to properly handle timezone
+      // date-fns format uses UTC, we need local time
+      const date = new Date(runAt);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
     } catch {
       return '';
     }

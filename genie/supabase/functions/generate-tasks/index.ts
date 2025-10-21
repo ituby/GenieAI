@@ -29,6 +29,7 @@ interface TaskTemplate {
   subtasks?: Array<{ title: string; estimated_minutes: number }>;
   time_allocation_minutes?: number;
   custom_time?: string;
+  notification?: { title: string; body: string };
 }
 
 interface RequestBody {
@@ -108,18 +109,36 @@ function computeRunAt(
     console.log(`[COMPUTE] Using default for ${timeOfDay}: ${targetHour}:00`);
   }
 
-  const targetDate = new Date(deviceNow);
+  // 🚨 CRITICAL: Server runs in UTC, but we want to store user's LOCAL time
+  // Problem: If user wants 06:00 Israel (UTC+3), we're currently storing 06:00 UTC
+  // Solution: Store 03:00 UTC so it displays as 06:00 Israel
+  
+  const targetDate = new Date(deviceNowIso);
   targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
-  targetDate.setHours(targetHour, targetMinute, 0, 0);
-
-  // No clamping - allow any hour the user selected (00:00-23:59)
-  // The user knows their schedule best
+  
+  // Get the timezone offset in hours
+  // For Israel (UTC+3), getTimezoneOffset returns -180 minutes = -3 hours
+  const offsetHours = -targetDate.getTimezoneOffset() / 60;
+  
+  // Calculate UTC hour that will display as desired local hour
+  // If user wants 06:00 and is in UTC+3, we need 03:00 UTC
+  const utcHour = targetHour - offsetHours;
+  
+  // Use setUTCHours to set UTC time directly
+  targetDate.setUTCHours(utcHour, targetMinute, 0, 0);
+  
+  console.log(`[COMPUTE] User wants ${targetHour}:${targetMinute.toString().padStart(2, '0')} (offset: UTC${offsetHours >= 0 ? '+' : ''}${offsetHours})`);
+  console.log(`[COMPUTE] Storing ${utcHour}:${targetMinute.toString().padStart(2, '0')} UTC → displays as ${targetHour}:${targetMinute.toString().padStart(2, '0')} local`);
+  console.log(`[COMPUTE] Result: ${targetDate.toISOString()}`);
 
   // Ensure not in the past
-  if (targetDate <= deviceNow) {
-    const tomorrow = new Date(deviceNow);
+  if (targetDate <= new Date(deviceNowIso)) {
+    const tomorrow = new Date(deviceNowIso);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(targetHour, targetMinute, 0, 0);
+    const tomorrowOffsetHours = -tomorrow.getTimezoneOffset() / 60;
+    const tomorrowUtcHour = targetHour - tomorrowOffsetHours;
+    tomorrow.setUTCHours(tomorrowUtcHour, targetMinute, 0, 0);
+    console.log(`[COMPUTE] Task in past, moved to tomorrow: ${tomorrow.toISOString()}`);
     return tomorrow.toISOString();
   }
 
@@ -300,20 +319,24 @@ async function generateTasksWithAI(
     const taskGuidance =
       categoryTaskGuidance[goal.category] || categoryTaskGuidance['custom'];
 
-    // Get actual time slots from preferred_time_ranges FIRST (needed for logs below)
+    // Get actual time slots from preferred_time_ranges - NO FALLBACK ALLOWED!
     const timeSlots: string[] = [];
     const timeLabels: string[] = [];
-    if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
-      goal.preferred_time_ranges.forEach((range, idx) => {
-        const hour = range.start_hour.toString().padStart(2, '0');
-        timeSlots.push(`${hour}:00`);
-        timeLabels.push(range.label || `Slot ${idx + 1}`);
-      });
-    } else {
-      // Default time slots if not specified
-      timeSlots.push('09:00', '14:00', '19:00');
-      timeLabels.push('Morning', 'Afternoon', 'Evening');
+    
+    // 🚨 CRITICAL: MUST have user preferences - no defaults!
+    if (!goal.preferred_time_ranges || goal.preferred_time_ranges.length === 0) {
+      console.error(`[${requestId}] ❌ CRITICAL: No preferred_time_ranges found! This should never happen.`);
+      throw new Error('User preferences not found. Please set your preferred time ranges in settings.');
     }
+    
+    goal.preferred_time_ranges.forEach((range, idx) => {
+      const hour = range.start_hour.toString().padStart(2, '0');
+      timeSlots.push(`${hour}:00`);
+      timeLabels.push(range.label || `Slot ${idx + 1}`);
+    });
+    
+    console.log(`[${requestId}] ✅ Using user's preferred time slots (NO FALLBACK): ${timeSlots.join(', ')}`);
+
 
     // Prepare preferred days and time ranges info
     const dayNames = [
@@ -789,7 +812,14 @@ OUTPUT JSON ONLY:`;
       cleanedText = cleanedText.substring(0, lastBrace + 1);
     }
 
-    cleanedText = cleanedText.trim();
+    // Fix common JSON issues with Hebrew/RTL text and special characters
+    cleanedText = cleanedText
+      .replace(/[\u200E\u200F\u202A-\u202E]/g, '') // Remove RTL/LTR direction marks
+      .replace(/\u00A0/g, ' ') // Replace non-breaking spaces with regular spaces
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .replace(/\r\n/g, '\n') // Normalize line endings
+      .replace(/\r/g, '\n') // Normalize carriage returns
+      .trim();
 
     let planData;
     try {
@@ -801,6 +831,13 @@ OUTPUT JSON ONLY:`;
         `[${requestId}] DEBUG: Full planData structure:`,
         JSON.stringify(planData, null, 2)
       );
+      
+      // 🚨 CRITICAL DEBUG: Show what times AI actually returned
+      console.log(`[${requestId}] 🕐 AI RETURNED TIMES (RAW):`);
+      planData.days?.forEach((day: any) => {
+        const times = day.tasks?.map((t: any) => t.time).join(', ') || 'no tasks';
+        console.log(`[${requestId}]   Day ${day.day}: [${times}]`);
+      });
     } catch (parseError) {
       console.error(`[${requestId}] JSON parse failed`);
       console.error(`[${requestId}] Parse error:`, parseError);
@@ -843,18 +880,14 @@ OUTPUT JSON ONLY:`;
       };
     }
 
-    // Get expected time slots for validation
+    // Get expected time slots for validation - NO FALLBACK!
     const expectedTimeSlots = new Set<string>();
-    if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
-      goal.preferred_time_ranges.forEach((range) => {
-        const hour = range.start_hour.toString().padStart(2, '0');
-        expectedTimeSlots.add(`${hour}:00`);
-      });
-    } else {
-      expectedTimeSlots.add('09:00');
-      expectedTimeSlots.add('14:00');
-      expectedTimeSlots.add('19:00');
-    }
+    
+    // 🚨 At this point, preferred_time_ranges MUST exist (validated earlier)
+    goal.preferred_time_ranges.forEach((range) => {
+      const hour = range.start_hour.toString().padStart(2, '0');
+      expectedTimeSlots.add(`${hour}:00`);
+    });
     
     console.log(
       `[${requestId}] 🔍 Expected time slots: ${Array.from(expectedTimeSlots).join(', ')}`
@@ -1023,19 +1056,23 @@ function generateTemplateTasks(goal: Goal, deviceNowIso?: string): TaskTemplate[
   const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
   const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
 
-  // Use preferred time ranges or defaults
+  // Use preferred time ranges - NO FALLBACK ALLOWED!
   const timeSlots: string[] = [];
   const timeLabels: string[] = [];
-  if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
-    goal.preferred_time_ranges.forEach((range) => {
-      const hour = range.start_hour.toString().padStart(2, '0');
-      timeSlots.push(`${hour}:00`);
-      timeLabels.push(range.label || 'Session');
-    });
-  } else {
-    timeSlots.push('09:00', '14:00', '19:00');
-    timeLabels.push('Morning', 'Afternoon', 'Evening');
+  
+  // 🚨 CRITICAL: Template fallback also requires user preferences
+  if (!goal.preferred_time_ranges || goal.preferred_time_ranges.length === 0) {
+    console.error('[TEMPLATE] ❌ CRITICAL: No preferred_time_ranges in template fallback!');
+    throw new Error('User preferences required even for template fallback');
   }
+  
+  goal.preferred_time_ranges.forEach((range) => {
+    const hour = range.start_hour.toString().padStart(2, '0');
+    timeSlots.push(`${hour}:00`);
+    timeLabels.push(range.label || 'Session');
+  });
+  
+  console.log(`[TEMPLATE] ✅ Using user's preferred times (NO FALLBACK): ${timeSlots.join(', ')}`);
 
   const timeOfDays = ['morning', 'afternoon', 'evening'];
 
@@ -1118,7 +1155,7 @@ async function insertTasks(
   // Note: We don't check for existing tasks anymore because we're adding week-by-week
   // Each week adds its own tasks incrementally
 
-  const tasksToInsert = tasks.map((task) => {
+  const tasksToInsert = tasks.map((task, idx) => {
     const runAt = computeRunAt(
       task.day_offset + 1,
       task.time_of_day,
@@ -1127,7 +1164,7 @@ async function insertTasks(
       task.custom_time // Pass custom_time to computeRunAt
     );
 
-    return {
+    const taskToInsert = {
       goal_id: goalId,
       title: task.title,
       description: task.description,
@@ -1141,6 +1178,20 @@ async function insertTasks(
       run_at: runAt,
       local_run_at: runAt,
     };
+    
+    // 🚨 DEBUG: Log what we're about to insert
+    if (idx < 3) { // Only log first 3 tasks to avoid spam
+      console.log(`[${requestId}] 📝 Inserting task ${idx + 1}:`, {
+        title: task.title.substring(0, 30),
+        custom_time: task.custom_time,
+        time_of_day: task.time_of_day,
+        run_at: runAt,
+        run_at_hour: new Date(runAt).getHours(),
+        run_at_minute: new Date(runAt).getMinutes(),
+      });
+    }
+    
+    return taskToInsert;
   });
 
   const { data, error } = await supabase
@@ -1396,37 +1447,72 @@ serve(async (req) => {
       );
     }
 
-    // Get user preferences as fallback for missing goal settings (includes timezone)
-    console.log(`[${requestId}] Fetching user preferences`);
-    const { data: userPrefs } = await supabase
+    // Get user preferences - CRITICAL for time slots!
+    console.log(`[${requestId}] 🔍 Fetching user preferences for user_id: ${user_id}`);
+    const { data: userPrefs, error: userPrefsError } = await supabase
       .from('user_preferences')
       .select('plan_duration_days, preferred_time_ranges, preferred_days, tasks_per_day_min, tasks_per_day_max, timezone')
       .eq('user_id', user_id)
       .single();
 
-    console.log(`[${requestId}] User preferences:`, userPrefs);
-    console.log(`[${requestId}] User timezone from preferences:`, userPrefs?.timezone);
+    // 🚨 CRITICAL: Check for errors or missing data
+    if (userPrefsError) {
+      console.error(`[${requestId}] ❌ ERROR fetching user_preferences:`, userPrefsError);
+      console.error(`[${requestId}] Error code: ${userPrefsError.code}, Message: ${userPrefsError.message}`);
+      if (userPrefsError.code === 'PGRST116') {
+        console.error(`[${requestId}] ❌ CRITICAL: No user_preferences row found for user ${user_id}!`);
+        return errorResponse(
+          400,
+          'User preferences not found. Please set your preferences in settings first.',
+          requestId,
+          Date.now() - startTime
+        );
+      }
+    }
+
+    if (!userPrefs) {
+      console.error(`[${requestId}] ❌ CRITICAL: userPrefs is null/undefined!`);
+      return errorResponse(
+        400,
+        'User preferences not loaded. Please try again.',
+        requestId,
+        Date.now() - startTime
+      );
+    }
+
+    console.log(`[${requestId}] ✅ User preferences loaded successfully`);
+    console.log(`[${requestId}] 📊 User preferences data:`, JSON.stringify(userPrefs, null, 2));
+    console.log(`[${requestId}] 🕐 preferred_time_ranges:`, JSON.stringify(userPrefs.preferred_time_ranges, null, 2));
+    console.log(`[${requestId}] 📅 preferred_days:`, userPrefs.preferred_days);
+    console.log(`[${requestId}] 🌍 timezone:`, userPrefs.timezone);
 
     // Priority for timezone: device_timezone > user preferences > goal timezone > UTC
     const finalTimezone = device_timezone || userPrefs?.timezone || goal.device_timezone || 'UTC';
     console.log(`[${requestId}] Final timezone: ${finalTimezone}`);
 
-    // Apply user preferences as defaults if not set in goal
-    if (!goal.preferred_time_ranges && userPrefs?.preferred_time_ranges) {
+    // ALWAYS use user preferences for time-related settings (they are the source of truth)
+    // This ensures tasks are scheduled according to user's current preferences, even if goal was created earlier
+    if (userPrefs?.preferred_time_ranges) {
       goal.preferred_time_ranges = userPrefs.preferred_time_ranges;
-      console.log(`[${requestId}] Using preferred_time_ranges from user preferences`);
+      console.log(`[${requestId}] ✅ Using preferred_time_ranges from user preferences (ALWAYS):`, JSON.stringify(userPrefs.preferred_time_ranges, null, 2));
+    } else {
+      console.error(`[${requestId}] ❌ WARNING: No preferred_time_ranges in user_preferences!`);
     }
-    if (!goal.preferred_days && userPrefs?.preferred_days) {
+    
+    if (userPrefs?.preferred_days) {
       goal.preferred_days = userPrefs.preferred_days;
-      console.log(`[${requestId}] Using preferred_days from user preferences`);
+      console.log(`[${requestId}] ✅ Using preferred_days from user preferences (ALWAYS):`, userPrefs.preferred_days);
+    } else {
+      console.error(`[${requestId}] ❌ WARNING: No preferred_days in user_preferences!`);
     }
-    if (!goal.tasks_per_day_min && userPrefs?.tasks_per_day_min) {
+    
+    if (userPrefs?.tasks_per_day_min) {
       goal.tasks_per_day_min = userPrefs.tasks_per_day_min;
-      console.log(`[${requestId}] Using tasks_per_day_min from user preferences`);
+      console.log(`[${requestId}] Using tasks_per_day_min from user preferences:`, userPrefs.tasks_per_day_min);
     }
-    if (!goal.tasks_per_day_max && userPrefs?.tasks_per_day_max) {
+    if (userPrefs?.tasks_per_day_max) {
       goal.tasks_per_day_max = userPrefs.tasks_per_day_max;
-      console.log(`[${requestId}] Using tasks_per_day_max from user preferences`);
+      console.log(`[${requestId}] Using tasks_per_day_max from user preferences:`, userPrefs.tasks_per_day_max);
     }
 
     // Check goal status - allow both 'paused' and 'active' states
