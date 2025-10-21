@@ -98,13 +98,21 @@ serve(async (req) => {
     const prompt = isAutocompletingDescription 
       ? `You are helping someone complete their goal description based on the title they wrote.
 
-🌍 LANGUAGE INSTRUCTION - CRITICAL:
-🚨 LOOK at the title text below!
-- Contains HEBREW characters (א-ת)? → Write in Hebrew ONLY
-- Contains ENGLISH letters (a-z) and NO Hebrew? → Write in English ONLY
-- Contains SPANISH? → Write in Spanish ONLY
-DO NOT GUESS! Match the EXACT language of the title.
-NO mixing languages.
+🚨🚨🚨 LANGUAGE RULE - CRITICAL! 🚨🚨🚨
+
+STEP 1: LOOK at the title text below.
+STEP 2: Identify the language:
+  → Contains only English (a-z)? = ENGLISH
+  → Contains Hebrew (א-ת)? = HEBREW
+  → Contains Spanish? = SPANISH
+
+STEP 3: Write description in that EXACT language ONLY!
+
+ABSOLUTELY NO MIXING LANGUAGES!
+If title is English → Description in English ONLY
+If title is Hebrew → Description in Hebrew ONLY
+
+Only High level of native translations and content writing.
 
 🎯 YOUR MISSION:
 The user wrote this title: "${title}"
@@ -146,10 +154,16 @@ Return ONLY valid JSON (no markdown):
 CRITICAL: The description MUST be in the SAME LANGUAGE as the title "${title}"!`
       : `You are helping someone write their goal in simple, natural language.
 
-🌍 LANGUAGE INSTRUCTION:
-CRITICAL: Since no title was provided, use English as the default language.
-Return both title and description in English.
-If userContext is provided in another language, detect it and use that language instead.
+🚨🚨🚨 LANGUAGE RULE - CRITICAL! 🚨🚨🚨
+
+DEFAULT LANGUAGE: English (if no specific language detected)
+
+IF userContext contains Hebrew (א-ת) → Write title and description in Hebrew ONLY
+IF userContext contains Spanish → Write title and description in Spanish ONLY  
+IF userContext is English or empty → Write title and description in English ONLY
+
+ABSOLUTELY NO MIXING LANGUAGES!
+Only High level of native translations and content writing.
 
 🎲 CREATIVITY SEED: ${creativitySeed} | Timestamp: ${timestamp}
 
