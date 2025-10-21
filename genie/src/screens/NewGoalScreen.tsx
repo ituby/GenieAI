@@ -2409,12 +2409,11 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                             <TouchableOpacity
                               style={styles.timePickerButton}
                               onPress={() => {
-                                if (range.end_hour < 23) {
+                                if (range.end_hour < 24) {
                                   const newRanges = [
                                     ...formData.preferredTimeRanges,
                                   ];
-                                  newRanges[index].end_hour =
-                                    range.end_hour + 1;
+                                  newRanges[index].end_hour = Math.min(24, range.end_hour + 1);
                                   updateField('preferredTimeRanges', newRanges);
                                 }
                               }}

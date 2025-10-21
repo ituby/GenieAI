@@ -112,15 +112,14 @@ function computeRunAt(
   targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
   targetDate.setHours(targetHour, targetMinute, 0, 0);
 
-  // Clamp to 06:00-23:00 (allow early morning)
-  const clampedHour = Math.max(6, Math.min(23, targetDate.getHours()));
-  targetDate.setHours(clampedHour, targetMinute, 0, 0);
+  // No clamping - allow any hour the user selected (00:00-23:59)
+  // The user knows their schedule best
 
   // Ensure not in the past
   if (targetDate <= deviceNow) {
     const tomorrow = new Date(deviceNow);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(clampedHour, targetMinute, 0, 0);
+    tomorrow.setHours(targetHour, targetMinute, 0, 0);
     return tomorrow.toISOString();
   }
 
@@ -213,6 +212,7 @@ async function generateTasksWithAI(
   usedModel: string;
   tokenUsage?: { input: number; output: number; total: number };
   metadata?: any;
+  tasksReadyNotification?: { title: string; body: string } | null;
 }> {
   try {
     console.log(`[${requestId}] Starting AI task generation...`);
@@ -350,27 +350,26 @@ async function generateTasksWithAI(
     console.log(
       `[${requestId}] 🗓️ Goal starts: ${goalStartDate.toDateString()}, Preferred days: ${preferredDays}, Time slots: ${timeSlots.join(', ')}`
     );
-    if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
-      goal.preferred_time_ranges.forEach((range, idx) => {
-        const hour = range.start_hour.toString().padStart(2, '0');
-        timeSlots.push(`${hour}:00`);
-        timeLabels.push(range.label || `Slot ${idx + 1}`);
-      });
-    } else {
-      // Default time slots if not specified
-      timeSlots.push('09:00', '14:00', '19:00');
-      timeLabels.push('Morning', 'Afternoon', 'Evening');
-    }
 
     const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks that TEACH and GUIDE, not just instruct.
 
 🌍 LANGUAGE INSTRUCTION:
 CRITICAL: Detect the language used in the goal title and description.
 Always respond in the EXACT SAME LANGUAGE as the user's input.
-If the goal title/description is in Hebrew - respond in Hebrew.
-If the goal title/description is in English - respond in English.
-If the goal title/description is in Spanish - respond in Spanish.
-Match the user's language EXACTLY for all task titles, descriptions, subtasks, and summaries.
+
+If the goal is in HEBREW:
+- Write in natural, modern Hebrew WITHOUT nikud (vowel marks)
+- Use casual, friendly Genie tone (like talking to a friend)
+- NO English words mixed in
+- NO formal language or nikud
+- Examples: "בוא נתחיל", "הכל מוכן", "זמן לעבודה" (NOT: "בּוֹא נַתְחִיל")
+
+If the goal is in ENGLISH:
+- Write in natural, conversational English
+- Use friendly, encouraging Genie tone
+- Keep it simple and clear
+
+Match the user's language EXACTLY for all task titles, descriptions, subtasks, summaries, and notifications.
 
 CATEGORY-SPECIFIC APPROACH:
 ${taskGuidance}
@@ -558,18 +557,21 @@ Task Distribution:
   • Follow the progression in the plan outline
   • SKIP days that are NOT in the preferred days list
 
-Time Slots (user's timezone: ${deviceTimezone}):
-${timeSlots.map((time, idx) => `  • ${timeLabels[idx]}: "${time}" (EXACTLY THIS TIME)`).join('\n')}
-  ${tasksPerDay === 1 ? `\n  🚨 CRITICAL: Use ONLY the first time slot: ${timeSlots[0]} - NO OTHER TIMES ALLOWED!` : ''}
-  ${tasksPerDay === 2 ? `\n  🚨 CRITICAL: Use ONLY first two time slots: ${timeSlots[0]} and ${timeSlots[1]} - NO OTHER TIMES!` : ''}
-  ${tasksPerDay === 3 ? `\n  🚨 CRITICAL: Use ALL three time slots: ${timeSlots.join(', ')} - EXACTLY THESE TIMES!` : ''}
-  
-  🚨 CRITICAL - TIME REQUIREMENTS:
-  - Use ONLY the times listed above - NO exceptions!
-  - Times are in ${deviceTimezone} timezone
-  - DO NOT create tasks at ANY other times (no 09:00, 10:00, etc. unless explicitly listed)
-  - Each task MUST use one of these EXACT times: ${timeSlots.join(', ')}
-  - The user specifically selected these times - respect their schedule!
+🚨🚨🚨 TIME SLOTS - ABSOLUTELY CRITICAL 🚨🚨🚨
+User's timezone: ${deviceTimezone}
+Allowed times: ${timeSlots.join(', ')}
+
+YOU ARE FORBIDDEN TO USE ANY OTHER TIMES!
+Examples of FORBIDDEN times: 00:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 13:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 22:00, 23:00
+
+${tasksPerDay === 1 ? `Use ONLY: ${timeSlots[0]} - NO other times exist!` : ''}
+${tasksPerDay === 2 ? `Use ONLY: ${timeSlots[0]} and ${timeSlots[1]} - These are the ONLY 2 allowed times!` : ''}
+${tasksPerDay === 3 ? `Use ONLY: ${timeSlots[0]}, ${timeSlots[1]}, and ${timeSlots[2]} - These are the ONLY 3 allowed times!` : ''}
+
+TASKS PER DAY LIMIT:
+- Create EXACTLY ${tasksPerDay} tasks per working day
+- NOT ${tasksPerDay + 1}, NOT ${tasksPerDay - 1}, EXACTLY ${tasksPerDay}
+- Each day gets: ${timeSlots.slice(0, tasksPerDay).join(', ')} (one task per time slot)
 
 Task Composition:
   • Each task MUST have 2-3 subtasks
@@ -626,7 +628,11 @@ Example for Day ${startDay}:
         }
       ]
     }
-  ]
+  ]${weekNumber === totalWeeks ? `,
+  "tasks_ready_notification": {
+    "title": "Everything is ready for you",
+    "body": "Friend, your complete plan awaits! Let's begin this journey together"
+  }` : ''}
 }
 
 🚨 CRITICAL REQUIREMENTS - WILL BE REJECTED IF VIOLATED:
@@ -637,9 +643,10 @@ Example for Day ${startDay}:
    - Working days in this week: ${workingDaysCount} days
 
 2. TIMES - Use ONLY: ${timeSlots.join(', ')} (in ${deviceTimezone} timezone)
-   - DO NOT use any other times (no 08:00, 09:00, etc. unless listed above)
+   - DO NOT use any other times (no 08:00, 09:00, 10:00, 16:00, 17:00, 23:00, etc.)
+   - ONLY ${timeSlots[0]}, ${timeSlots[1] || ''}, ${timeSlots[2] || ''} are allowed
    - Each task must use one of these EXACT times
-   - Tasks per working day: ${tasksPerDay} task(s)
+   - Tasks per working day: EXACTLY ${tasksPerDay} task(s) - NO MORE, NO LESS!
 
 3. CONTENT:
    - WRITE CONCISE, VALUABLE DESCRIPTIONS (2-3 sentences maximum!)
@@ -658,9 +665,13 @@ NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay}:
 2. 🔍 SEARCH TAGS: EVERY task MUST end with 1-2 [SEARCH:Title|keywords] tags - NO EXCEPTIONS!
    Format: [SEARCH:Watch Tutorial|how to do X step by step youtube]
    Example: "Learn to hold guitar properly. [SEARCH:Guitar Grip Tutorial|proper guitar holding technique youtube] [SEARCH:Common Mistakes|beginner guitar grip mistakes]"
-3. Notification: EVERY task needs a "notification" object (Genie-style, same language)
-4. Subtasks: 2-3 per task
-5. Time allocation: 25-45 minutes
+3. 🔔 NOTIFICATIONS: EVERY task MUST include a "notification" object - NO EXCEPTIONS!
+   - Write in authentic Genie voice (friendly, playful, encouraging like Genie from Aladdin)
+   - Title: 3-5 words, specific to this task, in same language as task
+   - Body: 10-15 words max, motivating call-to-action, in same language as task
+   - Make it UNIQUE to this specific task and goal (not generic!)
+4. Subtasks: 2-3 per task with specific steps
+5. Time allocation: 25-45 minutes total
 
 VALIDATION: Before outputting, check EVERY task has:
 ✓ Description with [SEARCH:...|...] tags at the end
@@ -972,14 +983,21 @@ OUTPUT JSON ONLY:`;
       console.log(`[${requestId}] ✅ Good: ${searchTagPercentage.toFixed(0)}% of tasks have search tags`);
     }
     
+    // Extract tasks_ready_notification from AI response if this is the final week
+    const tasksReadyNotif = (weekNumber === totalWeeks && planData.tasks_ready_notification) 
+      ? planData.tasks_ready_notification 
+      : null;
+    
     return {
       tasks,
       usedModel: 'claude-haiku-4-5-20251001',
       tokenUsage: tokenUsage || undefined,
+      tasksReadyNotification: tasksReadyNotif,
       metadata: {
         searchTagCoverage: searchTagPercentage,
         tasksWithSearchTags,
         totalTasks: tasks.length,
+        hasCustomNotification: !!tasksReadyNotif,
       },
     };
   } catch (error) {
@@ -987,6 +1005,7 @@ OUTPUT JSON ONLY:`;
     return {
       tasks: generateTemplateTasks(goal, deviceNowIso),
       usedModel: 'template-fallback',
+      tasksReadyNotification: null,
     };
   }
 }
@@ -1767,16 +1786,34 @@ serve(async (req) => {
       .single();
 
     // Send push notification for completion
-    // Detect language from goal title
+    // Use AI-generated notification if available (only on final week)
     const goalTitle = goalForNotification?.title || '';
     const isHebrew = /[\u0590-\u05FF]/.test(goalTitle);
-    const completionMessage = isHebrew ? {
-      title: 'הקסם מוכן',
-      body: `בוס, ${goalTitle} - ${totalTaskCount || insertedTasks.length} משימות מחכות! הג'יני שלך מוכן לעזור`,
-    } : {
-      title: 'The magic is ready',
-      body: `Boss, ${goalTitle} - ${totalTaskCount || insertedTasks.length} tasks await! Your Genie is ready to help`,
-    };
+    const taskCount = totalTaskCount || insertedTasks.length;
+    
+    let completionMessage;
+    if (currentWeek === totalWeeks && tasksResult.tasksReadyNotification?.title && tasksResult.tasksReadyNotification?.body) {
+      // Use AI-generated notification for final week
+      completionMessage = tasksResult.tasksReadyNotification;
+      console.log('✅ Using AI-generated tasks ready notification');
+    } else {
+      // Fallback messages (no emojis, Genie style)
+      const hebrewMessages = [
+        { title: 'הכל מוכן', body: `חבר, ${goalTitle} - ${taskCount} משימות מחכות לך! בוא נתחיל` },
+        { title: 'זמן לפעולה', body: `${goalTitle} - ${taskCount} משימות מוכנות. הג׳יני שלך לצידך` },
+        { title: 'מסע ההצלחה מתחיל', body: `${goalTitle} - ${taskCount} משימות מותאמות אישית מחכות` },
+      ];
+      
+      const englishMessages = [
+        { title: 'All set', body: `Friend, ${goalTitle} - ${taskCount} tasks await you! Let\'s begin` },
+        { title: 'Time to act', body: `${goalTitle} - ${taskCount} tasks ready. Your Genie is with you` },
+        { title: 'Success journey begins', body: `${goalTitle} - ${taskCount} personalized tasks await` },
+      ];
+      
+      const messages = isHebrew ? hebrewMessages : englishMessages;
+      completionMessage = messages[Math.floor(Math.random() * messages.length)];
+      console.log('⚠️ Using fallback tasks ready notification');
+    }
     
     try {
       await fetch(

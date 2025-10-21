@@ -32,6 +32,7 @@ interface AIResult {
   milestones: any[];
   planOutline: any[];
   rewards?: any[]; // AI-generated rewards for each week
+  planReadyNotification?: { title: string; body: string } | null; // AI-generated notification
   category: string;
   deliverables: any;
   usedModel: string;
@@ -566,10 +567,20 @@ async function generatePlanOutlineWithAI(
 🌍 LANGUAGE INSTRUCTION:
 CRITICAL: Detect the language used in the goal title and description.
 Always respond in the EXACT SAME LANGUAGE as the user's input.
-If the goal title/description is in Hebrew - respond in Hebrew.
-If the goal title/description is in English - respond in English.
-If the goal title/description is in Spanish - respond in Spanish.
-Match the user's language EXACTLY for all plan_outline titles and descriptions, milestones, and deliverables.
+
+If the goal is in HEBREW:
+- Write in natural, modern Hebrew WITHOUT nikud (vowel marks)
+- Use casual, friendly tone (like talking to a friend)
+- NO English words mixed in
+- NO formal language
+- Examples: "בוא נתחיל", "הכל מוכן", "זמן לעבודה" (NOT: "בּוֹא נַתְחִיל")
+
+If the goal is in ENGLISH:
+- Write in natural, conversational English
+- Use friendly, encouraging tone
+- Keep it simple and clear
+
+Match the user's language EXACTLY for all plan_outline titles, descriptions, milestones, notifications, and deliverables.
 
 ${categoryApproach}
 
@@ -627,6 +638,10 @@ REQUIRED JSON STRUCTURE:
       "points": 35
     }
   ],
+  "plan_ready_notification": {
+    "title": "Short Genie-style title (3-5 words, in same language as goal, NO emojis)",
+    "body": "Friendly Genie message about plan being ready (10-15 words, same language, NO emojis)"
+  },
   "deliverables": {
     "overview": {
       "chosen_topic": "Specific topic chosen for this goal",
@@ -870,6 +885,7 @@ OUTPUT JSON ONLY:`;
         planData.milestones || buildTailoredMilestones(title, planDurationDays),
       planOutline: truncatedPlanOutline,
       rewards: planData.rewards || [], // AI-generated rewards
+      planReadyNotification: planData.plan_ready_notification || null, // AI-generated notification
       category,
       deliverables: planData.deliverables || {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },
@@ -1382,15 +1398,32 @@ serve(async (req) => {
       .eq('id', goal_id);
 
     // Send push notification for plan approval
-    // Detect language from goal title
+    // Use AI-generated notification if available, otherwise fallback
     const isHebrew = /[\u0590-\u05FF]/.test(title || '');
-    const approvalMessage = isHebrew ? {
-      title: 'הג׳יני הכין משהו מיוחד',
-      body: `חבר, ${title} - יצרתי לך תוכנית מושלמת! בוא תבדוק`,
-    } : {
-      title: 'Your Genie made something special',
-      body: `Friend, ${title} - I crafted the perfect plan for you! Check it out`,
-    };
+    
+    let approvalMessage;
+    if (result.planReadyNotification?.title && result.planReadyNotification?.body) {
+      // Use AI-generated notification
+      approvalMessage = result.planReadyNotification;
+      console.log('✅ Using AI-generated plan ready notification');
+    } else {
+      // Fallback messages (no emojis, Genie style)
+      const hebrewMessages = [
+        { title: 'התוכנית מוכנה', body: `חבר, ${title} - הכנתי לך תוכנית מושלמת! בוא תבדוק` },
+        { title: 'הג׳יני הכין משהו מיוחד', body: `${title} - כל פרט מתוכנן בשבילך. בוא נתחיל` },
+        { title: 'הקסם מתחיל', body: `${title} - התוכנית שלך מחכה לך!` },
+      ];
+      
+      const englishMessages = [
+        { title: 'Your plan is ready', body: `Friend, ${title} - I crafted the perfect plan for you!` },
+        { title: 'Something special awaits', body: `${title} - Every detail planned just for you. Let\'s begin` },
+        { title: 'The magic begins', body: `${title} - Your personalized plan awaits!` },
+      ];
+      
+      const messages = isHebrew ? hebrewMessages : englishMessages;
+      approvalMessage = messages[Math.floor(Math.random() * messages.length)];
+      console.log('⚠️ Using fallback plan ready notification');
+    }
     
     try {
       const pushResponse = await fetch(
