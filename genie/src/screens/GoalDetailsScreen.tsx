@@ -487,6 +487,7 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           goal_id: goal.id,
           device_now_iso: deviceNow.toISOString(),
           device_timezone: deviceTimezone,
+          device_utc_offset_minutes: -deviceNow.getTimezoneOffset(), // Timezone offset for correct time calculation
           week_number: 1, // Start with week 1
         },
       });

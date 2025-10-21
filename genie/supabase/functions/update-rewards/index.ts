@@ -229,16 +229,27 @@ serve(async (req) => {
         // Send push notification about unlocked reward
         if (reward) {
           try {
-            // Detect language from reward title/description
+            // 🎉 GENIE-STYLE REWARD NOTIFICATIONS - Exciting, celebratory!
             const isHebrew = /[\u0590-\u05FF]/.test(reward.title + reward.description || '');
             const pointsText = reward.points_value ? ` +${reward.points_value}` : '';
-            const rewardMessage = isHebrew ? {
-              title: 'וואו, זכית בפרס',
-              body: `בוס${pointsText} - ${reward.title}! הג'יני שלך גאה בך`,
-            } : {
-              title: 'Wow, you earned a reward',
-              body: `Boss${pointsText} - ${reward.title}! Your Genie is proud of you`,
-            };
+            
+            // Multiple fun variations for rewards
+            const hebrewRewards = [
+              { title: 'וואו בוס!', body: `זכית בפרס${pointsText}! ${reward.title} - הג׳יני שלך גאה בך` },
+              { title: 'יאללה חבר!', body: `${reward.title}${pointsText} - תותח, המשך ככה!` },
+              { title: 'אלוף אלוף!', body: `זכית${pointsText}! ${reward.title} - הג׳יני שלך מתפוצץ מגאווה` },
+              { title: 'קסם של הצלחה!', body: `${reward.title}${pointsText} - בוס, אתה מדהים!` },
+            ];
+            
+            const englishRewards = [
+              { title: 'Wow Boss!', body: `You earned a reward${pointsText}! ${reward.title} - Your Genie is proud!` },
+              { title: 'Let\'s go Friend!', body: `${reward.title}${pointsText} - Champ, keep it up!` },
+              { title: 'Amazing work!', body: `Earned${pointsText}! ${reward.title} - Your Genie is bursting with pride` },
+              { title: 'Magic success!', body: `${reward.title}${pointsText} - Boss, you\'re incredible!` },
+            ];
+            
+            const rewardMessages = isHebrew ? hebrewRewards : englishRewards;
+            const rewardMessage = rewardMessages[Math.floor(Math.random() * rewardMessages.length)];
             
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
               method: 'POST',

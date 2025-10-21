@@ -37,6 +37,7 @@ interface RequestBody {
   goal_id: string;
   device_now_iso?: string;
   device_timezone?: string;
+  device_utc_offset_minutes?: number; // User's timezone offset in minutes (negative for east of UTC)
   week_number?: number; // Which week to generate (1-based). If not provided, start from week 1
 }
 
@@ -76,7 +77,8 @@ function computeRunAt(
   timeOfDay: string,
   deviceNowIso: string,
   preferredTimeRanges: PreferredTimeRange[] | null,
-  customTime?: string
+  customTime?: string,
+  userTimezoneOffsetMinutes?: number
 ): string {
   const deviceNow = new Date(deviceNowIso);
   
@@ -109,34 +111,36 @@ function computeRunAt(
     console.log(`[COMPUTE] Using default for ${timeOfDay}: ${targetHour}:00`);
   }
 
-  // 🚨 CRITICAL: Server runs in UTC, but we want to store user's LOCAL time
-  // Problem: If user wants 06:00 Israel (UTC+3), we're currently storing 06:00 UTC
-  // Solution: Store 03:00 UTC so it displays as 06:00 Israel
+  // 🚨 CRITICAL FIX: Server runs in UTC, can't use getTimezoneOffset()!
+  // We need the user's timezone offset from the device
   
   const targetDate = new Date(deviceNowIso);
   targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
   
-  // Get the timezone offset in hours
-  // For Israel (UTC+3), getTimezoneOffset returns -180 minutes = -3 hours
-  const offsetHours = -targetDate.getTimezoneOffset() / 60;
+  // Use the user's timezone offset if provided, otherwise assume UTC
+  // userTimezoneOffsetMinutes is negative for timezones ahead of UTC
+  // For Israel (UTC+2): offset = -120 minutes
+  const offsetMinutes = userTimezoneOffsetMinutes || 0;
+  const offsetHours = -offsetMinutes / 60; // Convert to positive hours ahead of UTC
   
   // Calculate UTC hour that will display as desired local hour
-  // If user wants 06:00 and is in UTC+3, we need 03:00 UTC
+  // If user wants 05:00 Israel (UTC+2), we need to store 03:00 UTC
   const utcHour = targetHour - offsetHours;
   
   // Use setUTCHours to set UTC time directly
   targetDate.setUTCHours(utcHour, targetMinute, 0, 0);
   
-  console.log(`[COMPUTE] User wants ${targetHour}:${targetMinute.toString().padStart(2, '0')} (offset: UTC${offsetHours >= 0 ? '+' : ''}${offsetHours})`);
-  console.log(`[COMPUTE] Storing ${utcHour}:${targetMinute.toString().padStart(2, '0')} UTC → displays as ${targetHour}:${targetMinute.toString().padStart(2, '0')} local`);
-  console.log(`[COMPUTE] Result: ${targetDate.toISOString()}`);
+  console.log(`[COMPUTE] User wants ${targetHour}:${targetMinute.toString().padStart(2, '0')} local time`);
+  console.log(`[COMPUTE] User timezone offset: ${offsetMinutes} minutes (UTC${offsetHours >= 0 ? '+' : ''}${offsetHours})`);
+  console.log(`[COMPUTE] Storing ${utcHour}:${targetMinute.toString().padStart(2, '0')} UTC → will display as ${targetHour}:${targetMinute.toString().padStart(2, '0')} local`);
+  console.log(`[COMPUTE] Result ISO: ${targetDate.toISOString()}`);
 
   // Ensure not in the past
-  if (targetDate <= new Date(deviceNowIso)) {
+  const nowDate = new Date(deviceNowIso);
+  if (targetDate <= nowDate) {
     const tomorrow = new Date(deviceNowIso);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowOffsetHours = -tomorrow.getTimezoneOffset() / 60;
-    const tomorrowUtcHour = targetHour - tomorrowOffsetHours;
+    const tomorrowUtcHour = targetHour - offsetHours;
     tomorrow.setUTCHours(tomorrowUtcHour, targetMinute, 0, 0);
     console.log(`[COMPUTE] Task in past, moved to tomorrow: ${tomorrow.toISOString()}`);
     return tomorrow.toISOString();
@@ -225,7 +229,8 @@ async function generateTasksWithAI(
   savedOutline: any,
   requestId: string,
   weekNumber: number = 1,
-  totalWeeks: number = 1
+  totalWeeks: number = 1,
+  userTimezoneOffsetMinutes: number = 0
 ): Promise<{
   tasks: TaskTemplate[];
   usedModel: string;
@@ -376,23 +381,75 @@ async function generateTasksWithAI(
 
     const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks that TEACH and GUIDE, not just instruct.
 
-🌍 LANGUAGE INSTRUCTION:
-CRITICAL: Detect the language used in the goal title and description.
+🌍 LANGUAGE & TONE - CRITICAL REQUIREMENTS:
+
+LANGUAGE DETECTION:
+Detect the language used in the goal title and description.
 Always respond in the EXACT SAME LANGUAGE as the user's input.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 FOR TASK CONTENT (Titles, Descriptions, Subtasks):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 If the goal is in HEBREW:
-- Write in natural, modern Hebrew WITHOUT nikud (vowel marks)
-- Use casual, friendly Genie tone (like talking to a friend)
-- NO English words mixed in
-- NO formal language or nikud
-- Examples: "בוא נתחיל", "הכל מוכן", "זמן לעבודה" (NOT: "בּוֹא נַתְחִיל")
+✓ Use modern, natural Hebrew WITHOUT nikud (vowel marks)
+✓ Professional yet approachable tone - like an expert coach/mentor
+✓ Rich vocabulary with subtle contemporary slang (עדכני, מעניין, ממוקד)
+✓ NO English words mixed in - use Hebrew equivalents
+✓ Clear, informative, actionable content
+✓ Examples: "בוא נתמקד", "הזמן להתקדם", "צעד חכם קדימה"
+✓ Use terms like: "בוא נ...", "זמן ל...", "הזדמנות ל...", "נצעד קדימה"
 
 If the goal is in ENGLISH:
-- Write in natural, conversational English
-- Use friendly, encouraging Genie tone
-- Keep it simple and clear
+✓ Professional, informative tone with warmth
+✓ Clear, actionable language
+✓ Contemporary vocabulary
+✓ Encouraging but not overly casual
+✓ Examples: "Let's focus on", "Time to advance", "Smart step forward"
 
-Match the user's language EXACTLY for all task titles, descriptions, subtasks, summaries, and notifications.
+If the goal is in SPANISH:
+✓ Use modern, natural Spanish
+✓ Professional yet warm tone
+✓ Rich, actionable vocabulary
+✓ Examples: "Vamos a enfocarnos", "Tiempo de avanzar", "Paso inteligente"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔔 FOR NOTIFICATIONS (notification.title & notification.body):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THIS IS WHERE THE GENIE PERSONALITY SHINES! ✨
+
+If the goal is in HEBREW:
+✓ FUN, PLAYFUL, ENERGETIC Genie voice (כמו ג'יני מאלאדין!)
+✓ Use contemporary slang subtly: "בוס", "חבר", "יאללה", "בואנה"
+✓ Emojis in thinking but NOT in actual text
+✓ Short, punchy, exciting
+✓ Examples:
+  • Title: "הג'יני שלך כאן בוס!" or "זמן להצליח חבר!" or "יאללה בואנה!"
+  • Body: "בוס, המשימה מחכה! בוא נעשה קסמים יחד" or "חבר יקר, הזמן הגיע! אני כאן בשבילך"
+✓ Make it feel like a supportive friend who believes in you
+✓ Use terms: "בוס", "חבר/ה", "יאללה", "בואנה", "תותח", "אלוף/ה"
+
+If the goal is in ENGLISH:
+✓ Playful Genie personality (like Genie from Aladdin!)
+✓ Use terms: "Boss", "Friend", "Pal", "Champ"
+✓ Examples:
+  • Title: "Your Genie's calling Boss!" or "Time to shine Friend!"
+  • Body: "Boss, let's make some magic! Your task awaits" or "Friend, I'm here for you! Let's do this"
+
+If the goal is in SPANISH:
+✓ Playful, energetic Genie voice
+✓ Use terms: "Jefe", "Amigo/a", "Campeón/a"
+✓ Examples:
+  • Title: "Tu Genio está aquí Jefe!" or "Hora de brillar Amigo!"
+  • Body: "Jefe, hagamos magia! Tu tarea espera"
+
+GOLDEN RULES FOR ALL LANGUAGES:
+✓ Notifications = FUN & PLAYFUL (Genie personality)
+✓ Tasks/Descriptions = PROFESSIONAL & INFORMATIVE (Expert coach)
+✓ Always match the user's language perfectly
+✓ Use natural, contemporary expressions
+✓ NO mixing languages within the same text
 
 CATEGORY-SPECIFIC APPROACH:
 ${taskGuidance}
@@ -969,7 +1026,8 @@ OUTPUT JSON ONLY:`;
             timeOfDay,
             deviceNowIso,
             goal.preferred_time_ranges,
-            correctedTime // Use corrected time
+            correctedTime, // Use corrected time
+            userTimezoneOffsetMinutes // Pass user's timezone offset
           );
 
           tasks.push({
@@ -1150,7 +1208,8 @@ async function insertTasks(
   tasks: (TaskTemplate & { notification?: { title: string; body: string } })[],
   deviceNowIso: string,
   preferredTimeRanges: PreferredTimeRange[] | null,
-  requestId: string
+  requestId: string,
+  userTimezoneOffsetMinutes: number = 0
 ): Promise<any[]> {
   // Note: We don't check for existing tasks anymore because we're adding week-by-week
   // Each week adds its own tasks incrementally
@@ -1161,7 +1220,8 @@ async function insertTasks(
       task.time_of_day,
       deviceNowIso,
       preferredTimeRanges,
-      task.custom_time // Pass custom_time to computeRunAt
+      task.custom_time, // Pass custom_time to computeRunAt
+      userTimezoneOffsetMinutes // Pass user's timezone offset
     );
 
     const taskToInsert = {
@@ -1225,18 +1285,23 @@ async function insertTasks(
       const isHebrew = /[\u0590-\u05FF]/.test(goalData.title || '');
       
       // Fallback variations (only used if AI didn't provide notifications)
+      // 🎭 GENIE-STYLE NOTIFICATIONS - Fun, playful, supportive!
       const fallbackVariations = isHebrew ? [
-        { title: 'הג׳יני שלך כאן בשבילך', body: (title: string) => `בוס, הגיע הזמן! ${title} - בוא נעשה קסמים ביחד` },
-        { title: 'יש לי משימה בשבילך', body: (title: string) => `חבר, ${title} - אני כאן לעזור לך להצליח!` },
-        { title: 'הקסם מתחיל עכשיו', body: (title: string) => `${title} - יאלה נראה מה אתה מסוגל!` },
-        { title: 'הג׳יני שלך מזכיר לך', body: (title: string) => `${title} - ביחד נגשים את המשאלה הזאת!` },
-        { title: 'זמן להפתיע את עצמך', body: (title: string) => `${title} - אתה יותר מוכשר ממה שאתה חושב!` },
+        { title: 'הג׳יני שלך קורא בוס!', body: (title: string) => `בוס, המשימה מחכה! ${title} - יאללה נעשה קסמים` },
+        { title: 'זמן להצליח חבר!', body: (title: string) => `חבר יקר, ${title} - אני כאן בשבילך, בוא נתחיל!` },
+        { title: 'יאללה בואנה!', body: (title: string) => `${title} - תותח, הזמן הגיע! בוא נראה אותך!` },
+        { title: 'הג׳יני שלך כאן!', body: (title: string) => `${title} - ביחד נגשים את המשאלה, אלוף!` },
+        { title: 'זמן לקסמים בוס!', body: (title: string) => `${title} - אתה מוכשר יותר ממה שאתה חושב!` },
+        { title: 'חבר, הזמן הגיע!', body: (title: string) => `בוס, ${title} - בוא נעשה את זה ביחד!` },
+        { title: 'המשימה שלך מחכה!', body: (title: string) => `${title} - יאללה חבר, אני כאן לצידך!` },
       ] : [
-        { title: 'Your Genie here for you', body: (title: string) => `Boss, it's time! ${title} - let's make some magic together` },
-        { title: 'I have a task for you', body: (title: string) => `Friend, ${title} - I'm here to help you succeed!` },
-        { title: 'The magic starts now', body: (title: string) => `${title} - let's see what you're capable of!` },
-        { title: 'Your Genie reminds you', body: (title: string) => `${title} - together we'll make this wish come true!` },
-        { title: 'Time to surprise yourself', body: (title: string) => `${title} - you're more talented than you think!` },
+        { title: 'Your Genie calling Boss!', body: (title: string) => `Boss, time for magic! ${title} - let\'s do this!` },
+        { title: 'Time to shine Friend!', body: (title: string) => `Friend, ${title} - I\'m here for you, let\'s begin!` },
+        { title: 'Let\'s go Champ!', body: (title: string) => `${title} - you got this! Show me what you can do!` },
+        { title: 'Your Genie is here!', body: (title: string) => `${title} - together we\'ll make it happen!` },
+        { title: 'Magic time Boss!', body: (title: string) => `${title} - you\'re more capable than you think!` },
+        { title: 'Friend, it\'s time!', body: (title: string) => `Boss, ${title} - let\'s make it together!` },
+        { title: 'Your task awaits!', body: (title: string) => `${title} - come on friend, I\'m by your side!` },
       ];
 
       const scheduledNotifications = data.map((task: any, index: number) => {
@@ -1394,7 +1459,7 @@ serve(async (req) => {
       return errorResponse(400, 'Invalid JSON in request body', requestId);
     }
 
-    const { user_id, goal_id, device_now_iso, device_timezone, week_number } =
+    const { user_id, goal_id, device_now_iso, device_timezone, device_utc_offset_minutes, week_number } =
       body;
 
     // Validate required fields
@@ -1409,6 +1474,18 @@ serve(async (req) => {
 
     // Set defaults for device info
     const finalDeviceNow = device_now_iso || new Date().toISOString();
+    
+    // Calculate timezone offset if not provided
+    // For compatibility with older clients, try to extract from device_now_iso
+    let userTimezoneOffsetMinutes = device_utc_offset_minutes;
+    if (userTimezoneOffsetMinutes === undefined) {
+      // Try to extract offset from the ISO string date
+      const deviceDate = new Date(finalDeviceNow);
+      userTimezoneOffsetMinutes = deviceDate.getTimezoneOffset();
+      console.log(`[${requestId}] ⚠️ No device_utc_offset_minutes provided, calculated: ${userTimezoneOffsetMinutes} (may be incorrect on server)`);
+    } else {
+      console.log(`[${requestId}] ✅ Using provided device_utc_offset_minutes: ${userTimezoneOffsetMinutes}`);
+    }
     
     // Week number: default to 1 if not provided
     const currentWeek = week_number || 1;
@@ -1634,7 +1711,8 @@ serve(async (req) => {
       savedOutline,
       requestId,
       currentWeek,
-      totalWeeks
+      totalWeeks,
+      userTimezoneOffsetMinutes
     );
 
     // Check if fallback tasks were used - this means AI generation failed
@@ -1704,7 +1782,8 @@ serve(async (req) => {
       tasksResult.tasks,
       finalDeviceNow,
       goal.preferred_time_ranges,
-      requestId
+      requestId,
+      userTimezoneOffsetMinutes
     );
 
     // Check if tasks were actually inserted
@@ -1884,16 +1963,21 @@ serve(async (req) => {
       console.log('✅ Using AI-generated tasks ready notification');
     } else {
       // Fallback messages (no emojis, Genie style)
+      // 🎉 GENIE-STYLE "TASKS READY" NOTIFICATIONS - Exciting, motivating!
       const hebrewMessages = [
-        { title: 'הכל מוכן', body: `חבר, ${goalTitle} - ${taskCount} משימות מחכות לך! בוא נתחיל` },
-        { title: 'זמן לפעולה', body: `${goalTitle} - ${taskCount} משימות מוכנות. הג׳יני שלך לצידך` },
-        { title: 'מסע ההצלחה מתחיל', body: `${goalTitle} - ${taskCount} משימות מותאמות אישית מחכות` },
+        { title: 'הכל מוכן בוס!', body: `חבר, ${goalTitle} - ${taskCount} משימות מחכות! יאללה נתחיל את הקסם` },
+        { title: 'זמן לפעולה חבר!', body: `${goalTitle} - ${taskCount} משימות מוכנות. הג׳יני שלך לצידך!` },
+        { title: 'מסע ההצלחה מתחיל!', body: `בוס, ${goalTitle} - ${taskCount} משימות מותאמות מחכות לך` },
+        { title: 'הג׳יני שלך כאן!', body: `${goalTitle} מוכן! ${taskCount} משימות - בוא נעשה קסמים ביחד` },
+        { title: 'יאללה בואנה!', body: `חבר, ${taskCount} משימות ל-${goalTitle} - אתה מוכן לזה!` },
       ];
       
       const englishMessages = [
-        { title: 'All set', body: `Friend, ${goalTitle} - ${taskCount} tasks await you! Let\'s begin` },
-        { title: 'Time to act', body: `${goalTitle} - ${taskCount} tasks ready. Your Genie is with you` },
-        { title: 'Success journey begins', body: `${goalTitle} - ${taskCount} personalized tasks await` },
+        { title: 'All set Boss!', body: `Friend, ${goalTitle} - ${taskCount} tasks ready! Let\'s start the magic` },
+        { title: 'Time to act Friend!', body: `${goalTitle} - ${taskCount} tasks ready. Your Genie is with you!` },
+        { title: 'Success journey begins!', body: `Boss, ${goalTitle} - ${taskCount} personalized tasks await you` },
+        { title: 'Your Genie is here!', body: `${goalTitle} ready! ${taskCount} tasks - let\'s make magic together` },
+        { title: 'Let\'s go Champ!', body: `Friend, ${taskCount} tasks for ${goalTitle} - you got this!` },
       ];
       
       const messages = isHebrew ? hebrewMessages : englishMessages;

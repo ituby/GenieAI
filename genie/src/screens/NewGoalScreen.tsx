@@ -1592,6 +1592,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           goal_id: createdGoalId,
           device_now_iso: deviceNow.toISOString(),
           device_timezone: deviceTimezone,
+          device_utc_offset_minutes: -deviceNow.getTimezoneOffset(), // Negative for east of UTC
         },
       });
 
