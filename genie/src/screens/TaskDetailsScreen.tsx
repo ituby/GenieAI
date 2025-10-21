@@ -40,15 +40,13 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   const [taskData, setTaskData] = useState<TaskWithGoal>(task);
   const [pointsEarned, setPointsEarned] = useState(0);
 
-  const formatTime = (runAt: string) => {
+  const formatTime = (runAt: string, customTime?: string) => {
     try {
-      // 🚨 FIX: Use toLocaleTimeString for proper timezone handling
-      const date = new Date(runAt);
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
+      // 🚨 FIX: Use custom_time if available (exact time user selected)
+      if (customTime) {
+        return customTime;
+      }
+      return format(new Date(runAt), 'HH:mm', { locale: he });
     } catch {
       return '';
     }
@@ -397,7 +395,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                       color="primary-color"
                       style={styles.timeText}
                     >
-                      {formatTime(taskData.run_at)}
+                      {formatTime(taskData.run_at, taskData.custom_time)}
                     </Text>
                     <Text variant="caption" color="tertiary">
                       {getTimeOfDayText(taskData.run_at)}
@@ -574,7 +572,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                     color="secondary"
                     style={styles.timeRestrictionText}
                   >
-                    Task will be available at {formatTime(taskData.run_at)}
+                    Task will be available at {formatTime(taskData.run_at, taskData.custom_time)}
                   </Text>
                 </View>
               )}

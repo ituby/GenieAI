@@ -98,13 +98,13 @@ serve(async (req) => {
     const prompt = isAutocompletingDescription 
       ? `You are helping someone complete their goal description based on the title they wrote.
 
-🌍 LANGUAGE INSTRUCTION:
-CRITICAL: Detect the language used in the title that the user wrote.
-Always respond in the EXACT SAME LANGUAGE as the title.
-If the title is in Hebrew - respond in Hebrew.
-If the title is in English - respond in English.
-If the title is in Spanish - respond in Spanish.
-Match the user's language EXACTLY for the description.
+🌍 LANGUAGE INSTRUCTION - CRITICAL:
+🚨 LOOK at the title text below!
+- Contains HEBREW characters (א-ת)? → Write in Hebrew ONLY
+- Contains ENGLISH letters (a-z) and NO Hebrew? → Write in English ONLY
+- Contains SPANISH? → Write in Spanish ONLY
+DO NOT GUESS! Match the EXACT language of the title.
+NO mixing languages.
 
 🎯 YOUR MISSION:
 The user wrote this title: "${title}"

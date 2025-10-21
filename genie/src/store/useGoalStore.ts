@@ -174,16 +174,40 @@ export const useGoalStore = create<GoalState>((set, get) => ({
   deleteGoal: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      // Delete goal tasks explicitly to avoid orphaned tasks in dashboards
-      await supabase.from('goal_tasks').delete().eq('goal_id', id);
-
-      // Delete scheduled notifications for this goal (both task-level and goal-level)
-      await supabase.from('scheduled_notifications').delete().eq('goal_id', id);
+      // 🚨 IMPORTANT: Get all task IDs first (before deleting them)
+      // We need to delete notifications linked to these tasks
+      const { data: tasks } = await supabase
+        .from('goal_tasks')
+        .select('id')
+        .eq('goal_id', id);
+      
+      const taskIds = tasks?.map(t => t.id) || [];
+      console.log(`🗑️ Deleting goal ${id} with ${taskIds.length} tasks`);
+      
+      // Delete ALL scheduled notifications for this goal
+      // Include notifications linked by goal_id OR task_id
+      if (taskIds.length > 0) {
+        const { error: notifError } = await supabase
+          .from('scheduled_notifications')
+          .delete()
+          .or(`goal_id.eq.${id},task_id.in.(${taskIds.join(',')})`);
+        
+        if (notifError) {
+          console.error('⚠️ Error deleting scheduled notifications:', notifError);
+        } else {
+          console.log(`✅ Deleted scheduled notifications for goal and ${taskIds.length} tasks`);
+        }
+      } else {
+        await supabase.from('scheduled_notifications').delete().eq('goal_id', id);
+      }
 
       // Delete in-app notifications for this goal
       await supabase.from('notifications').delete().eq('goal_id', id);
+      
+      // Delete goal tasks
+      await supabase.from('goal_tasks').delete().eq('goal_id', id);
 
-      // Then delete the goal
+      // Finally, delete the goal (CASCADE will clean up anything we missed)
       const { error } = await supabase.from('goals').delete().eq('id', id);
 
       if (error) throw error;

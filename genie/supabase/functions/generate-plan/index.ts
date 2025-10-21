@@ -564,21 +564,38 @@ async function generatePlanOutlineWithAI(
 
   const systemPrompt = `You are an expert goal transformation architect specialized in ${category} goals. Your mission is to create comprehensive, week-by-week roadmaps that guide real people to achieve their goals.
 
-🌍 LANGUAGE INSTRUCTION:
-CRITICAL: Detect the language used in the goal title and description.
-Always respond in the EXACT SAME LANGUAGE as the user's input.
+🌍 LANGUAGE INSTRUCTION - ABSOLUTELY CRITICAL:
 
-If the goal is in HEBREW:
-- Write in natural, modern Hebrew WITHOUT nikud (vowel marks)
-- Use casual, friendly tone (like talking to a friend)
-- NO English words mixed in
-- NO formal language
-- Examples: "בוא נתחיל", "הכל מוכן", "זמן לעבודה" (NOT: "בּוֹא נַתְחִיל")
+🚨 LANGUAGE DETECTION (READ THIS FIRST!):
+LOOK at the goal title and description that will be provided below in the user message.
+- If they contain HEBREW characters (א-ת) → Write EVERYTHING in Hebrew ONLY
+- If they contain ENGLISH alphabet (a-z, A-Z) and NO Hebrew → Write EVERYTHING in English ONLY
+- If they contain SPANISH text → Write EVERYTHING in Spanish ONLY
 
-If the goal is in ENGLISH:
-- Write in natural, conversational English
-- Use friendly, encouraging tone
-- Keep it simple and clear
+DO NOT GUESS! LOOK AT THE ACTUAL CHARACTERS IN THE GOAL TITLE/DESCRIPTION!
+IF YOU SEE: "Learn piano" → ENGLISH
+IF YOU SEE: "ללמוד פסנתר" → HEBREW
+IF YOU SEE: "Aprender piano" → SPANISH
+
+TONE & STYLE (for all languages):
+- Professional yet warm - like an expert mentor
+- Clear, informative, actionable
+- Contemporary vocabulary with subtle contemporary expressions
+- Encouraging but not overly casual
+
+ENGLISH EXAMPLES (translate perfectly to target language):
+- "Let's focus on building fundamentals"
+- "Time to advance your skills"
+- "Smart step forward in your journey"
+- "Establish your foundation"
+- "Develop key capabilities"
+
+TRANSLATION REQUIREMENTS:
+- If writing in Hebrew: Use modern, natural Hebrew WITHOUT nikud (vowel marks), NO English words
+- If writing in Spanish: Use modern, natural Spanish
+- If writing in other languages: Use natural, contemporary vocabulary
+- TRANSLATE the examples above perfectly into the target language
+- Maintain the same professional yet warm tone
 
 Match the user's language EXACTLY for all plan_outline titles, descriptions, milestones, notifications, and deliverables.
 
@@ -720,6 +737,12 @@ Title: ${title}
 Description: ${description}
 Category: ${category}
 Intensity Level: ${intensity}
+
+🚨🚨🚨 LANGUAGE INSTRUCTION - READ FIRST! 🚨🚨🚨
+LOOK at the Title and Description above.
+What language are they written in? Hebrew? English? Spanish?
+Write your ENTIRE response in that EXACT SAME LANGUAGE!
+DO NOT write in a different language than the goal!
 
 🌍 USER CONTEXT
 Timezone: ${deviceTimezone}
@@ -1287,10 +1310,14 @@ serve(async (req) => {
       .single();
 
     if (!tokenData || tokenData.tokens_remaining < tokensNeeded) {
-      console.log(`[${requestId}] Insufficient tokens: has ${tokenData?.tokens_remaining || 0}, needs ${tokensNeeded}`);
+      const currentTokens = tokenData?.tokens_remaining || 0;
+      const tokensToLoad = Math.max(100, tokensNeeded - currentTokens);
+      
+      console.log(`[${requestId}] Insufficient tokens: has ${currentTokens}, needs ${tokensNeeded}`);
+      
       return errorResponse(
         402,
-        `Insufficient tokens. You need ${tokensNeeded} tokens (${totalWeeks} milestones × 3 tokens). You have ${tokenData?.tokens_remaining || 0} tokens.`,
+        `Not enough tokens to continue with Genie. You have ${currentTokens} tokens but need ${tokensNeeded}. Please load at least ${tokensToLoad} tokens to continue.`,
         requestId,
         Date.now() - startTime
       );

@@ -37,7 +37,6 @@ interface RequestBody {
   goal_id: string;
   device_now_iso?: string;
   device_timezone?: string;
-  device_utc_offset_minutes?: number; // User's timezone offset in minutes (negative for east of UTC)
   week_number?: number; // Which week to generate (1-based). If not provided, start from week 1
 }
 
@@ -77,8 +76,7 @@ function computeRunAt(
   timeOfDay: string,
   deviceNowIso: string,
   preferredTimeRanges: PreferredTimeRange[] | null,
-  customTime?: string,
-  userTimezoneOffsetMinutes?: number
+  customTime?: string
 ): string {
   const deviceNow = new Date(deviceNowIso);
   
@@ -111,28 +109,18 @@ function computeRunAt(
     console.log(`[COMPUTE] Using default for ${timeOfDay}: ${targetHour}:00`);
   }
 
-  // 🚨 CRITICAL FIX: Server runs in UTC, can't use getTimezoneOffset()!
-  // We need the user's timezone offset from the device
+  // 🚨 SIMPLE SOLUTION: Just set the hours directly!
+  // The user's time preferences are ALREADY in their local time (06:00, 14:00, 20:00)
+  // We store them as-is in the DB, and the frontend converts UTC to local display
+  // NO TIMEZONE MATH NEEDED!
   
   const targetDate = new Date(deviceNowIso);
   targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
   
-  // Use the user's timezone offset if provided, otherwise assume UTC
-  // userTimezoneOffsetMinutes is negative for timezones ahead of UTC
-  // For Israel (UTC+2): offset = -120 minutes
-  const offsetMinutes = userTimezoneOffsetMinutes || 0;
-  const offsetHours = -offsetMinutes / 60; // Convert to positive hours ahead of UTC
+  // Simply set the hours as specified - no conversion!
+  targetDate.setUTCHours(targetHour, targetMinute, 0, 0);
   
-  // Calculate UTC hour that will display as desired local hour
-  // If user wants 05:00 Israel (UTC+2), we need to store 03:00 UTC
-  const utcHour = targetHour - offsetHours;
-  
-  // Use setUTCHours to set UTC time directly
-  targetDate.setUTCHours(utcHour, targetMinute, 0, 0);
-  
-  console.log(`[COMPUTE] User wants ${targetHour}:${targetMinute.toString().padStart(2, '0')} local time`);
-  console.log(`[COMPUTE] User timezone offset: ${offsetMinutes} minutes (UTC${offsetHours >= 0 ? '+' : ''}${offsetHours})`);
-  console.log(`[COMPUTE] Storing ${utcHour}:${targetMinute.toString().padStart(2, '0')} UTC → will display as ${targetHour}:${targetMinute.toString().padStart(2, '0')} local`);
+  console.log(`[COMPUTE] Setting task time to ${targetHour}:${targetMinute.toString().padStart(2, '0')} UTC (user specified time)`);
   console.log(`[COMPUTE] Result ISO: ${targetDate.toISOString()}`);
 
   // Ensure not in the past
@@ -140,8 +128,7 @@ function computeRunAt(
   if (targetDate <= nowDate) {
     const tomorrow = new Date(deviceNowIso);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowUtcHour = targetHour - offsetHours;
-    tomorrow.setUTCHours(tomorrowUtcHour, targetMinute, 0, 0);
+    tomorrow.setUTCHours(targetHour, targetMinute, 0, 0);
     console.log(`[COMPUTE] Task in past, moved to tomorrow: ${tomorrow.toISOString()}`);
     return tomorrow.toISOString();
   }
@@ -229,8 +216,7 @@ async function generateTasksWithAI(
   savedOutline: any,
   requestId: string,
   weekNumber: number = 1,
-  totalWeeks: number = 1,
-  userTimezoneOffsetMinutes: number = 0
+  totalWeeks: number = 1
 ): Promise<{
   tasks: TaskTemplate[];
   usedModel: string;
@@ -381,37 +367,40 @@ async function generateTasksWithAI(
 
     const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks that TEACH and GUIDE, not just instruct.
 
-🌍 LANGUAGE & TONE - CRITICAL REQUIREMENTS:
+🌍 LANGUAGE & TONE - ABSOLUTELY CRITICAL:
 
-LANGUAGE DETECTION:
-Detect the language used in the goal title and description.
-Always respond in the EXACT SAME LANGUAGE as the user's input.
+🚨 LANGUAGE DETECTION (READ THIS FIRST!):
+LOOK at the goal title and description below.
+- If they contain HEBREW characters (א-ת) → Write EVERYTHING in Hebrew
+- If they contain ENGLISH text → Write EVERYTHING in English  
+- If they contain SPANISH text → Write EVERYTHING in Spanish
+
+DO NOT GUESS THE LANGUAGE - USE THE ACTUAL CHARACTERS YOU SEE!
+Match the EXACT SAME LANGUAGE in ALL outputs: titles, descriptions, subtasks, summaries, notifications.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 FOR TASK CONTENT (Titles, Descriptions, Subtasks):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-If the goal is in HEBREW:
-✓ Use modern, natural Hebrew WITHOUT nikud (vowel marks)
-✓ Professional yet approachable tone - like an expert coach/mentor
-✓ Rich vocabulary with subtle contemporary slang (עדכני, מעניין, ממוקד)
-✓ NO English words mixed in - use Hebrew equivalents
+TONE & STYLE (for all languages):
+✓ Professional yet approachable - like an expert coach/mentor
 ✓ Clear, informative, actionable content
-✓ Examples: "בוא נתמקד", "הזמן להתקדם", "צעד חכם קדימה"
-✓ Use terms like: "בוא נ...", "זמן ל...", "הזדמנות ל...", "נצעד קדימה"
-
-If the goal is in ENGLISH:
-✓ Professional, informative tone with warmth
-✓ Clear, actionable language
-✓ Contemporary vocabulary
+✓ Rich vocabulary with subtle contemporary expressions
 ✓ Encouraging but not overly casual
-✓ Examples: "Let's focus on", "Time to advance", "Smart step forward"
 
-If the goal is in SPANISH:
-✓ Use modern, natural Spanish
-✓ Professional yet warm tone
-✓ Rich, actionable vocabulary
-✓ Examples: "Vamos a enfocarnos", "Tiempo de avanzar", "Paso inteligente"
+ENGLISH EXAMPLES (translate perfectly to target language):
+✓ "Let's focus on this aspect"
+✓ "Time to advance your skills"
+✓ "Smart step forward"
+✓ "Build your foundation"
+✓ "Develop this capability"
+
+TRANSLATION REQUIREMENTS:
+- If writing in Hebrew: Use modern, natural Hebrew WITHOUT nikud (vowel marks), NO English words
+- If writing in Spanish: Use modern, natural Spanish
+- If writing in other languages: Use natural, contemporary vocabulary
+- TRANSLATE the examples above perfectly into the target language
+- Maintain the same professional yet warm tone
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔔 FOR NOTIFICATIONS (notification.title & notification.body):
@@ -419,36 +408,31 @@ If the goal is in SPANISH:
 
 THIS IS WHERE THE GENIE PERSONALITY SHINES! ✨
 
-If the goal is in HEBREW:
-✓ FUN, PLAYFUL, ENERGETIC Genie voice (כמו ג'יני מאלאדין!)
-✓ Use contemporary slang subtly: "בוס", "חבר", "יאללה", "בואנה"
-✓ Emojis in thinking but NOT in actual text
-✓ Short, punchy, exciting
-✓ Examples:
-  • Title: "הג'יני שלך כאן בוס!" or "זמן להצליח חבר!" or "יאללה בואנה!"
-  • Body: "בוס, המשימה מחכה! בוא נעשה קסמים יחד" or "חבר יקר, הזמן הגיע! אני כאן בשבילך"
-✓ Make it feel like a supportive friend who believes in you
-✓ Use terms: "בוס", "חבר/ה", "יאללה", "בואנה", "תותח", "אלוף/ה"
+GENIE VOICE (for all languages):
+✓ FUN, PLAYFUL, ENERGETIC personality (like Genie from Aladdin!)
+✓ Short, punchy, exciting (title: 3-5 words, body: 10-15 words max)
+✓ Supportive friend who believes in you
+✓ Use casual terms of endearment
 
-If the goal is in ENGLISH:
-✓ Playful Genie personality (like Genie from Aladdin!)
-✓ Use terms: "Boss", "Friend", "Pal", "Champ"
-✓ Examples:
-  • Title: "Your Genie's calling Boss!" or "Time to shine Friend!"
-  • Body: "Boss, let's make some magic! Your task awaits" or "Friend, I'm here for you! Let's do this"
+ENGLISH EXAMPLES (translate perfectly to target language):
+  • Title: "Your Genie's calling Boss!"
+  • Title: "Time to shine Friend!"
+  • Title: "Let's go Champ!"
+  • Body: "Boss, let's make some magic! Your task awaits"
+  • Body: "Friend, I'm here for you! Let's do this"
+  • Body: "Champ, time to show what you can do!"
 
-If the goal is in SPANISH:
-✓ Playful, energetic Genie voice
-✓ Use terms: "Jefe", "Amigo/a", "Campeón/a"
-✓ Examples:
-  • Title: "Tu Genio está aquí Jefe!" or "Hora de brillar Amigo!"
-  • Body: "Jefe, hagamos magia! Tu tarea espera"
+TRANSLATION GUIDE:
+- Translate "Boss" as: Hebrew = "בוס", Spanish = "Jefe"
+- Translate "Friend" as: Hebrew = "חבר", Spanish = "Amigo/a"
+- Translate "Champ" as: Hebrew = "אלוף", Spanish = "Campeón/a"
+- Translate "Let's go" as: Hebrew = "יאללה", Spanish = "Vamos"
+- Add contemporary slang naturally in target language
 
-GOLDEN RULES FOR ALL LANGUAGES:
+GOLDEN RULES:
 ✓ Notifications = FUN & PLAYFUL (Genie personality)
 ✓ Tasks/Descriptions = PROFESSIONAL & INFORMATIVE (Expert coach)
-✓ Always match the user's language perfectly
-✓ Use natural, contemporary expressions
+✓ TRANSLATE examples above perfectly to match the goal's language
 ✓ NO mixing languages within the same text
 
 CATEGORY-SPECIFIC APPROACH:
@@ -591,6 +575,12 @@ Each task MUST include a "notification" object with Genie-style messaging:
 Title: ${goal.title}
 Description: ${goal.description}
 Category: ${goal.category}
+
+🚨🚨🚨 LANGUAGE INSTRUCTION - READ FIRST! 🚨🚨🚨
+LOOK at the Title and Description above.
+What language are they written in? Hebrew? English? Spanish?
+Write your ENTIRE response (tasks, notifications, everything) in that EXACT SAME LANGUAGE!
+DO NOT write in a different language than the goal!
 
 🌍 USER CONTEXT
 Timezone: ${deviceTimezone}
@@ -1026,8 +1016,7 @@ OUTPUT JSON ONLY:`;
             timeOfDay,
             deviceNowIso,
             goal.preferred_time_ranges,
-            correctedTime, // Use corrected time
-            userTimezoneOffsetMinutes // Pass user's timezone offset
+            correctedTime // Use corrected time
           );
 
           tasks.push({
@@ -1208,8 +1197,7 @@ async function insertTasks(
   tasks: (TaskTemplate & { notification?: { title: string; body: string } })[],
   deviceNowIso: string,
   preferredTimeRanges: PreferredTimeRange[] | null,
-  requestId: string,
-  userTimezoneOffsetMinutes: number = 0
+  requestId: string
 ): Promise<any[]> {
   // Note: We don't check for existing tasks anymore because we're adding week-by-week
   // Each week adds its own tasks incrementally
@@ -1220,8 +1208,7 @@ async function insertTasks(
       task.time_of_day,
       deviceNowIso,
       preferredTimeRanges,
-      task.custom_time, // Pass custom_time to computeRunAt
-      userTimezoneOffsetMinutes // Pass user's timezone offset
+      task.custom_time // Pass custom_time to computeRunAt
     );
 
     const taskToInsert = {
@@ -1459,7 +1446,7 @@ serve(async (req) => {
       return errorResponse(400, 'Invalid JSON in request body', requestId);
     }
 
-    const { user_id, goal_id, device_now_iso, device_timezone, device_utc_offset_minutes, week_number } =
+    const { user_id, goal_id, device_now_iso, device_timezone, week_number } =
       body;
 
     // Validate required fields
@@ -1474,18 +1461,6 @@ serve(async (req) => {
 
     // Set defaults for device info
     const finalDeviceNow = device_now_iso || new Date().toISOString();
-    
-    // Calculate timezone offset if not provided
-    // For compatibility with older clients, try to extract from device_now_iso
-    let userTimezoneOffsetMinutes = device_utc_offset_minutes;
-    if (userTimezoneOffsetMinutes === undefined) {
-      // Try to extract offset from the ISO string date
-      const deviceDate = new Date(finalDeviceNow);
-      userTimezoneOffsetMinutes = deviceDate.getTimezoneOffset();
-      console.log(`[${requestId}] ⚠️ No device_utc_offset_minutes provided, calculated: ${userTimezoneOffsetMinutes} (may be incorrect on server)`);
-    } else {
-      console.log(`[${requestId}] ✅ Using provided device_utc_offset_minutes: ${userTimezoneOffsetMinutes}`);
-    }
     
     // Week number: default to 1 if not provided
     const currentWeek = week_number || 1;
@@ -1711,8 +1686,7 @@ serve(async (req) => {
       savedOutline,
       requestId,
       currentWeek,
-      totalWeeks,
-      userTimezoneOffsetMinutes
+      totalWeeks
     );
 
     // Check if fallback tasks were used - this means AI generation failed
@@ -1782,8 +1756,7 @@ serve(async (req) => {
       tasksResult.tasks,
       finalDeviceNow,
       goal.preferred_time_ranges,
-      requestId,
-      userTimezoneOffsetMinutes
+      requestId
     );
 
     // Check if tasks were actually inserted

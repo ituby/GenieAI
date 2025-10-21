@@ -29,7 +29,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString: string, customTime?: string) => {
+    // 🚨 FIX: Use custom_time if available (exact time user wants)
+    if (customTime) {
+      return customTime;
+    }
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
@@ -58,7 +62,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <View style={styles.timeContainer}>
             <Icon name="clock" size={14} color={theme.colors.text.secondary} />
             <Text style={[styles.time, { color: theme.colors.text.secondary }]}>
-              {formatTime(task.run_at)} • {formatDate(task.run_at)}
+              {formatTime(task.run_at, task.custom_time)} • {formatDate(task.run_at)}
             </Text>
           </View>
         </View>

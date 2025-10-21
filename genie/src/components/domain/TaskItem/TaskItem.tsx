@@ -48,16 +48,14 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     return 'Evening';
   };
 
-  const formatTime = (runAt: string) => {
+  const formatTime = (runAt: string, customTime?: string) => {
     try {
-      // 🚨 FIX: Use toLocaleTimeString to properly handle timezone
-      // date-fns format uses UTC, we need local time
-      const date = new Date(runAt);
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
+      // 🚨 FIX: Use custom_time if available (already in user's local timezone)
+      // Otherwise fallback to parsing run_at
+      if (customTime) {
+        return customTime; // Already formatted as HH:mm
+      }
+      return format(new Date(runAt), 'HH:mm', { locale: he });
     } catch {
       return '';
     }
@@ -299,7 +297,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                       : undefined
                   }
                 >
-                  {canCompleteTask ? 'Do it now' : formatTime(task.run_at)}
+                  {canCompleteTask ? 'Do it now' : formatTime(task.run_at, task.custom_time)}
                 </Text>
                 {timeLeft !== null && !isExpired && (
                   <View style={styles.timerContainer}>

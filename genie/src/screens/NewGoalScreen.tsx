@@ -709,6 +709,37 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       });
 
       if (response.error) {
+        console.error('❌ Generate-plan error:', response.error);
+        
+        // Check if this is a token insufficiency error
+        const errorMessage = response.error?.message || '';
+        const isTokenError = errorMessage.includes('tokens') || 
+                            errorMessage.includes('Not enough') ||
+                            errorMessage.includes('Insufficient');
+        
+        if (isTokenError) {
+          // Show token error to user - DO NOT use fallback
+          setIsCreatingPlan(false);
+          setShowPlanPreview(false);
+          Alert.alert(
+            'Not Enough Tokens',
+            errorMessage + '\n\nPlease load at least 100 tokens to continue with Genie.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Get Tokens', 
+                onPress: () => {
+                  console.log('User needs to purchase tokens');
+                  // TODO: Navigate to subscription/purchase screen
+                }
+              }
+            ]
+          );
+          return; // Stop here
+        }
+        
+        // For other errors, use fallback
+        console.warn('⚠️ Using fallback milestones due to non-token error');
         setLoadingStep(40);
         const fallbackMilestones = [
           {
@@ -925,6 +956,47 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     if (!validateForm() || !user?.id) return;
 
     try {
+      // 🚨 CHECK TOKENS FIRST - before starting the creation process!
+      const totalWeeks = Math.ceil(formData.planDurationDays / 7);
+      const tokensNeeded = totalWeeks * 3; // 3 tokens per milestone
+      
+      console.log(`📊 Plan needs ${tokensNeeded} tokens (${totalWeeks} weeks × 3)`);
+      
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('user_tokens')
+        .select('tokens_remaining, is_subscribed, monthly_tokens')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (tokenError) {
+        console.error('❌ Error checking tokens:', tokenError);
+        Alert.alert('Error', 'Unable to check token balance. Please try again.');
+        return;
+      }
+      
+      const currentTokens = tokenData?.tokens_remaining || 0;
+      
+      if (currentTokens < tokensNeeded) {
+        const tokensToLoad = Math.max(100, tokensNeeded - currentTokens);
+        Alert.alert(
+          'Not Enough Tokens',
+          `You need ${tokensNeeded} tokens to create this ${formData.planDurationDays}-day plan, but you only have ${currentTokens} tokens.\n\nPlease load at least ${tokensToLoad} tokens to continue with Genie.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Get Tokens', 
+              onPress: () => {
+                console.log('User needs to purchase tokens');
+                // TODO: Navigate to subscription/tokens screen
+              }
+            }
+          ]
+        );
+        return; // Stop here - don't start creation
+      }
+      
+      console.log(`✅ User has ${currentTokens} tokens - sufficient for ${totalWeeks} milestones`);
+      
       setIsCreatingPlan(true);
       setLoadingStep(1);
 
@@ -1059,7 +1131,36 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             '❌ Plan outline generation error:',
             outlineResponse.error
           );
-          // Ensure we reach the final step before showing plan preview
+          
+          // Check if this is a token insufficiency error
+          const errorMessage = outlineResponse.error?.message || '';
+          const isTokenError = errorMessage.includes('tokens') || 
+                              errorMessage.includes('Not enough') ||
+                              errorMessage.includes('Insufficient');
+          
+          if (isTokenError) {
+            // Show token error to user - DO NOT use fallback
+            setIsCreatingPlan(false);
+            setShowPlanPreview(false);
+            Alert.alert(
+              'Not Enough Tokens',
+              errorMessage + '\n\nPlease purchase tokens to continue using Genie.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Get Tokens', 
+                  onPress: () => {
+                    // Navigate to subscription screen or show purchase options
+                    console.log('User needs to purchase tokens');
+                  }
+                }
+              ]
+            );
+            return; // Stop here - don't use fallback
+          }
+          
+          // For other errors, use fallback
+          console.warn('⚠️ Using fallback milestones due to non-token error');
           setLoadingStep(40);
 
           // Generate fallback milestones
@@ -1592,7 +1693,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           goal_id: createdGoalId,
           device_now_iso: deviceNow.toISOString(),
           device_timezone: deviceTimezone,
-          device_utc_offset_minutes: -deviceNow.getTimezoneOffset(), // Negative for east of UTC
         },
       });
 
