@@ -64,8 +64,11 @@ export const useGoalStore = create<GoalState>((set, get) => ({
         };
       });
 
+      // Include active goals and failed goals with 0 tasks (so user can retry)
       const activeGoals = goalsWithProgress.filter(
-        (goal) => goal.status === 'active' && goal.completion_percentage < 100
+        (goal) => 
+          (goal.status === 'active' && goal.completion_percentage < 100) ||
+          (goal.status === 'failed' && goal.total_tasks === 0)
       );
 
       set({
@@ -253,10 +256,21 @@ export const useGoalStore = create<GoalState>((set, get) => ({
         goal.id === goalId ? updatedGoal : goal
       );
 
-      // Update active goals
-      const updatedActiveGoals = activeGoals.map((goal) =>
+      // Update active goals - include failed goals with 0 tasks
+      let updatedActiveGoals = activeGoals.map((goal) =>
         goal.id === goalId ? updatedGoal : goal
       );
+      
+      // If goal is failed with 0 tasks and not in activeGoals, add it
+      if (updatedGoal.status === 'failed' && updatedGoal.total_tasks === 0) {
+        if (!updatedActiveGoals.find(g => g.id === goalId)) {
+          updatedActiveGoals = [...updatedActiveGoals, updatedGoal];
+        }
+      }
+      // If goal is no longer active or failed with tasks, remove it
+      else if (updatedGoal.status !== 'active' || updatedGoal.completion_percentage >= 100) {
+        updatedActiveGoals = updatedActiveGoals.filter(g => g.id !== goalId);
+      }
 
       set({
         goals: updatedGoals,

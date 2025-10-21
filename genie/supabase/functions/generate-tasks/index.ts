@@ -832,9 +832,27 @@ OUTPUT JSON ONLY:`;
       };
     }
 
+    // Get expected time slots for validation
+    const expectedTimeSlots = new Set<string>();
+    if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
+      goal.preferred_time_ranges.forEach((range) => {
+        const hour = range.start_hour.toString().padStart(2, '0');
+        expectedTimeSlots.add(`${hour}:00`);
+      });
+    } else {
+      expectedTimeSlots.add('09:00');
+      expectedTimeSlots.add('14:00');
+      expectedTimeSlots.add('19:00');
+    }
+    
+    console.log(
+      `[${requestId}] 🔍 Expected time slots: ${Array.from(expectedTimeSlots).join(', ')}`
+    );
+
     // Convert AI response to TaskTemplate format
     const tasks: TaskTemplate[] = [];
     const usedTimeSlots = new Map<string, Set<string>>();
+    let invalidTimesDetected = 0;
 
     console.log(
       `[${requestId}] DEBUG: planData.days length: ${planData.days?.length || 0}`
@@ -879,13 +897,35 @@ OUTPUT JSON ONLY:`;
           console.log(
             `[${requestId}] DEBUG: Processing task: ${task.title} at ${task.time}`
           );
-          const timeOfDay = convertHHMMToTimeOfDay(task.time);
+          
+          // Validate and correct task time if AI didn't follow instructions
+          let correctedTime = task.time;
+          if (!expectedTimeSlots.has(task.time)) {
+            console.warn(
+              `[${requestId}] ⚠️ AI used invalid time "${task.time}" instead of ${Array.from(expectedTimeSlots).join(', ')}`
+            );
+            invalidTimesDetected++;
+            
+            // Map AI's wrong time to nearest correct time slot
+            const taskHour = parseInt(task.time.split(':')[0], 10);
+            const timeSlotsArray = Array.from(expectedTimeSlots).map(t => parseInt(t.split(':')[0]));
+            const nearest = timeSlotsArray.reduce((prev, curr) => 
+              Math.abs(curr - taskHour) < Math.abs(prev - taskHour) ? curr : prev
+            );
+            correctedTime = `${nearest.toString().padStart(2, '0')}:00`;
+            
+            console.log(
+              `[${requestId}] ✅ Corrected "${task.time}" → "${correctedTime}"`
+            );
+          }
+          
+          const timeOfDay = convertHHMMToTimeOfDay(correctedTime);
           const runAt = computeRunAt(
             dayNumber,
             timeOfDay,
             deviceNowIso,
             goal.preferred_time_ranges,
-            task.time // Pass custom_time to computeRunAt
+            correctedTime // Use corrected time
           );
 
           tasks.push({
@@ -895,11 +935,11 @@ OUTPUT JSON ONLY:`;
             time_of_day: timeOfDay,
             subtasks: task.subtasks || [],
             time_allocation_minutes: task.time_allocation_minutes || 30,
-            custom_time: task.time,
+            custom_time: correctedTime, // Save corrected time
             notification: task.notification || null, // AI-generated notification
           });
           console.log(
-            `[${requestId}] DEBUG: Added task ${task.title}, total tasks: ${tasks.length}`
+            `[${requestId}] DEBUG: Added task ${task.title} at ${correctedTime}, total tasks: ${tasks.length}`
           );
         } catch (taskError) {
           console.warn(`[${requestId}] Error processing task:`, taskError);
@@ -908,6 +948,12 @@ OUTPUT JSON ONLY:`;
     }
 
     console.log(`[${requestId}] Generated ${tasks.length} tasks from AI`);
+    
+    if (invalidTimesDetected > 0) {
+      console.warn(
+        `[${requestId}] ⚠️ AI used ${invalidTimesDetected} invalid times - all corrected to match user preferences`
+      );
+    }
     
     // Validate that tasks have SEARCH tags
     const tasksWithSearchTags = tasks.filter(t => 
