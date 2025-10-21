@@ -367,16 +367,28 @@ async function generateTasksWithAI(
 
     const systemPrompt = `You are an expert goal planner and task architect specialized in ${goal.category} goals. Your mission is to help real people succeed by creating specific, actionable, and motivating daily tasks that TEACH and GUIDE, not just instruct.
 
-🌍 LANGUAGE & TONE - ABSOLUTELY CRITICAL:
+🚨🚨🚨 LANGUAGE RULE - READ THIS FIRST! 🚨🚨🚨
 
-🚨 LANGUAGE DETECTION (READ THIS FIRST!):
-LOOK at the goal title and description below.
-- If they contain HEBREW characters (א-ת) → Write EVERYTHING in Hebrew
-- If they contain ENGLISH text → Write EVERYTHING in English  
-- If they contain SPANISH text → Write EVERYTHING in Spanish
+YOU WILL RECEIVE A GOAL BELOW WITH A TITLE AND DESCRIPTION.
+THE LANGUAGE OF YOUR ENTIRE RESPONSE MUST MATCH THE LANGUAGE OF THAT GOAL.
 
-DO NOT GUESS THE LANGUAGE - USE THE ACTUAL CHARACTERS YOU SEE!
-Match the EXACT SAME LANGUAGE in ALL outputs: titles, descriptions, subtasks, summaries, notifications.
+IF THE GOAL IS IN ENGLISH (contains only English letters a-z, A-Z):
+→ Write EVERYTHING in English ONLY - titles, descriptions, subtasks, notifications, everything!
+
+IF THE GOAL IS IN HEBREW (contains Hebrew characters א-ת):
+→ Write EVERYTHING in Hebrew ONLY - titles, descriptions, subtasks, notifications, everything!
+
+IF THE GOAL IS IN SPANISH:
+→ Write EVERYTHING in Spanish ONLY - titles, descriptions, subtasks, notifications, everything!
+
+ABSOLUTELY NO MIXING LANGUAGES!
+If goal is English → NO Hebrew anywhere!
+If goal is Hebrew → NO English anywhere!
+
+EXAMPLES OF CORRECT LANGUAGE DETECTION:
+- Goal: "Learn to code" → ENGLISH → All output in English
+- Goal: "ללמוד לתכנת" → HEBREW → All output in Hebrew
+- Goal: "Aprender a programar" → SPANISH → All output in Spanish
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 FOR TASK CONTENT (Titles, Descriptions, Subtasks):
@@ -558,14 +570,17 @@ REQUIRED JSON STRUCTURE:
 CRITICAL - NOTIFICATION GENERATION:
 Each task MUST include a "notification" object with Genie-style messaging:
 - Write in authentic Genie voice: friendly, playful, encouraging (like Genie from Aladdin)
-- Use terms: "Boss", "Friend", "Let's make magic", "I'm here for you", "You got this"
+- Use casual terms: "Boss", "Friend", "Champ" (translate to target language)
 - Keep it SHORT: title 3-5 words, body 10-15 words maximum
-- Match the EXACT LANGUAGE of the task (Hebrew/English/Spanish/etc)
+- Match the EXACT LANGUAGE of the goal (same as task titles/descriptions!)
 - Be encouraging and fun, never boring or robotic
-- Examples:
-  * English: {"title": "Your Genie is calling", "body": "Boss, it's time! Let's make some magic with this task"}
-  * Hebrew: {"title": "הג'יני שלך כאן", "body": "בוס, הגיע הזמן! בוא נעשה קסמים עם המשימה הזאת"}
-  * Spanish: {"title": "Tu Genio está aquí", "body": "Jefe, es hora! Hagamos magia con esta tarea"}`;
+
+ENGLISH EXAMPLE (translate to target language):
+  {"title": "Your Genie is calling", "body": "Boss, it's time! Let's make some magic with this task"}
+
+If goal is in Hebrew → Translate the example above to Hebrew
+If goal is in Spanish → Translate the example above to Spanish
+If goal is in English → Use English as shown above`;
 
     const userPrompt = `Create tasks for WEEK ${weekNumber} of ${totalWeeks} (Days ${startDay}-${endDay}).
 
@@ -576,11 +591,56 @@ Title: ${goal.title}
 Description: ${goal.description}
 Category: ${goal.category}
 
-🚨🚨🚨 LANGUAGE INSTRUCTION - READ FIRST! 🚨🚨🚨
-LOOK at the Title and Description above.
-What language are they written in? Hebrew? English? Spanish?
-Write your ENTIRE response (tasks, notifications, everything) in that EXACT SAME LANGUAGE!
-DO NOT write in a different language than the goal!
+🚨🚨🚨 MANDATORY LANGUAGE CHECK - DO THIS NOW! 🚨🚨🚨
+
+STEP 1: LOOK at the Title and Description above.
+STEP 2: Identify the language:
+  - Is it English? (only a-z, A-Z characters)
+  - Is it Hebrew? (contains א-ת characters)  
+  - Is it Spanish? (Spanish words/accents)
+  - Is it German? (German words/accents)
+  - Is it French? (French words/accents)
+  - Is it Italian? (Italian words/accents)
+  - Is it Portuguese? (Portuguese words/accents)
+  - Is it Russian? (Russian words/accents)
+  - Is it Chinese? (Chinese words/accents)
+  - Is it Japanese? (Japanese words/accents)
+  - Is it Korean? (Korean words/accents)
+  - Is it Arabic? (Arabic words/accents)
+  - Is it Hindi? (Hindi words/accents)
+  - Is it Turkish? (Turkish words/accents)
+  - Is it Polish? (Polish words/accents)
+  - Is it Dutch? (Dutch words/accents)
+  - Is it Swedish? (Swedish words/accents)
+  - Is it Danish? (Danish words/accents)
+  - Is it Norwegian? (Norwegian words/accents)
+  - Is it Icelandic? (Icelandic words/accents)
+
+STEP 3: Write your ENTIRE JSON response in that EXACT language ONLY!
+
+If Title/Description = ENGLISH → All tasks, notifications, everything = ENGLISH ONLY
+If Title/Description = HEBREW → All tasks, notifications, everything = HEBREW ONLY  
+If Title/Description = SPANISH → All tasks, notifications, everything = SPANISH ONLY
+If Title/Description = GERMAN → All tasks, notifications, everything = GERMAN ONLY
+If Title/Description = FRENCH → All tasks, notifications, everything = FRENCH ONLY
+If Title/Description = ITALIAN → All tasks, notifications, everything = ITALIAN ONLY
+If Title/Description = PORTUGUESE → All tasks, notifications, everything = PORTUGUESE ONLY
+If Title/Description = RUSSIAN → All tasks, notifications, everything = RUSSIAN ONLY
+If Title/Description = CHINESE → All tasks, notifications, everything = CHINESE ONLY
+If Title/Description = JAPANESE → All tasks, notifications, everything = JAPANESE ONLY
+If Title/Description = KOREAN → All tasks, notifications, everything = KOREAN ONLY
+If Title/Description = ARABIC → All tasks, notifications, everything = ARABIC ONLY
+If Title/Description = HINDI → All tasks, notifications, everything = HINDI ONLY
+If Title/Description = TURKISH → All tasks, notifications, everything = TURKISH ONLY
+If Title/Description = POLISH → All tasks, notifications, everything = POLISH ONLY
+If Title/Description = DUTCH → All tasks, notifications, everything = DUTCH ONLY
+If Title/Description = SWEDISH → All tasks, notifications, everything = SWEDISH ONLY
+If Title/Description = DANISH → All tasks, notifications, everything = DANISH ONLY
+If Title/Description = NORWEGIAN → All tasks, notifications, everything = NORWEGIAN ONLY
+If Title/Description = ICELANDIC → All tasks, notifications, everything = ICELANDIC ONLY
+
+NO EXCEPTIONS! NO MIXING LANGUAGES!
+Only High level of native translations and content writing with genie joyful personality style.
 
 🌍 USER CONTEXT
 Timezone: ${deviceTimezone}

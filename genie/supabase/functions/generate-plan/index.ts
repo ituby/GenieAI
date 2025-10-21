@@ -564,18 +564,26 @@ async function generatePlanOutlineWithAI(
 
   const systemPrompt = `You are an expert goal transformation architect specialized in ${category} goals. Your mission is to create comprehensive, week-by-week roadmaps that guide real people to achieve their goals.
 
-🌍 LANGUAGE INSTRUCTION - ABSOLUTELY CRITICAL:
+🚨🚨🚨 CRITICAL LANGUAGE RULE - READ THIS BEFORE ANYTHING ELSE! 🚨🚨🚨
 
-🚨 LANGUAGE DETECTION (READ THIS FIRST!):
-LOOK at the goal title and description that will be provided below in the user message.
-- If they contain HEBREW characters (א-ת) → Write EVERYTHING in Hebrew ONLY
-- If they contain ENGLISH alphabet (a-z, A-Z) and NO Hebrew → Write EVERYTHING in English ONLY
-- If they contain SPANISH text → Write EVERYTHING in Spanish ONLY
+YOU WILL BE GIVEN A GOAL WITH A TITLE AND DESCRIPTION IN THE USER MESSAGE BELOW.
 
-DO NOT GUESS! LOOK AT THE ACTUAL CHARACTERS IN THE GOAL TITLE/DESCRIPTION!
-IF YOU SEE: "Learn piano" → ENGLISH
-IF YOU SEE: "ללמוד פסנתר" → HEBREW
-IF YOU SEE: "Aprender piano" → SPANISH
+YOUR ENTIRE RESPONSE MUST BE IN THE SAME LANGUAGE AS THAT GOAL.
+
+LANGUAGE DETECTION RULES:
+1. Look at the goal Title and Description
+2. If you see ONLY English letters (a-z, A-Z) → Write EVERYTHING in English
+3. If you see Hebrew letters (א-ת) → Write EVERYTHING in Hebrew
+4. If you see Spanish words → Write EVERYTHING in Spanish
+
+EXAMPLES:
+- Goal: "Learn to play piano" → OUTPUT: All English
+- Goal: "ללמוד לנגן בפסנתר" → OUTPUT: All Hebrew  
+- Goal: "Aprender a tocar el piano" → OUTPUT: All Spanish
+
+DO NOT MIX LANGUAGES!
+If goal is English → NO Hebrew in your response!
+If goal is Hebrew → NO English in your response!
 
 TONE & STYLE (for all languages):
 - Professional yet warm - like an expert mentor
@@ -738,11 +746,17 @@ Description: ${description}
 Category: ${category}
 Intensity Level: ${intensity}
 
-🚨🚨🚨 LANGUAGE INSTRUCTION - READ FIRST! 🚨🚨🚨
-LOOK at the Title and Description above.
-What language are they written in? Hebrew? English? Spanish?
-Write your ENTIRE response in that EXACT SAME LANGUAGE!
-DO NOT write in a different language than the goal!
+🚨🚨🚨 MANDATORY LANGUAGE CHECK - DO THIS NOW! 🚨🚨🚨
+
+STEP 1: LOOK at the Title and Description text above.
+STEP 2: What language is it?
+  → Contains only English letters (a-z)? = ENGLISH
+  → Contains Hebrew letters (א-ת)? = HEBREW
+  → Contains Spanish words? = SPANISH
+
+STEP 3: Write your ENTIRE JSON response in that language ONLY!
+
+DO NOT write in a different language than the Title/Description above!
 
 🌍 USER CONTEXT
 Timezone: ${deviceTimezone}
