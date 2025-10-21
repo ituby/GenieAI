@@ -199,10 +199,47 @@ serve(async (req) => {
           console.error('Error updating reward:', updateError);
           continue;
         }
+
+        // Add points to user when reward is unlocked
+        if (update.unlocked && reward && reward.points_value) {
+          console.log(`💰 Adding ${reward.points_value} points for unlocked reward: ${reward.title}`);
+          
+          try {
+            const { error: pointsError } = await supabaseClient.functions.invoke('update-points', {
+              body: {
+                user_id,
+                goal_id,
+                points_change: reward.points_value,
+                reason: `Milestone reward: ${reward.title}`,
+                source_type: 'reward_unlocked',
+                source_id: reward.id,
+              }
+            });
+
+            if (pointsError) {
+              console.error('Error updating points for reward:', pointsError);
+            } else {
+              console.log(`✅ Added ${reward.points_value} points to user`);
+            }
+          } catch (pointsError) {
+            console.error('Error calling update-points:', pointsError);
+          }
+        }
         
         // Send push notification about unlocked reward
         if (reward) {
           try {
+            // Detect language from reward title/description
+            const isHebrew = /[\u0590-\u05FF]/.test(reward.title + reward.description || '');
+            const pointsText = reward.points_value ? ` +${reward.points_value}` : '';
+            const rewardMessage = isHebrew ? {
+              title: 'זכית בפרס',
+              body: `${reward.title}${pointsText} - פתחת פרס חדש!`,
+            } : {
+              title: 'Reward unlocked',
+              body: `${reward.title}${pointsText} - You earned a new reward!`,
+            };
+            
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
               method: 'POST',
               headers: {
@@ -211,8 +248,8 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 user_id,
-                title: '🎉 Reward Unlocked!',
-                body: `${reward.title} - ${reward.description.slice(0, 100)}...`,
+                title: rewardMessage.title,
+                body: rewardMessage.body,
                 data: {
                   type: 'reward_unlocked',
                   reward_id: reward.id,

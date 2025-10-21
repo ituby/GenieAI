@@ -913,16 +913,39 @@ async function insertTasks(
         goalError
       );
     } else {
-      const scheduledNotifications = data.map((task: any) => ({
-        user_id: goalData.user_id,
-        task_id: task.id,
-        goal_id: goalId,
-        type: 'task_reminder',
-        title: '⏰ Task Reminder',
-        body: `Time to work on: ${task.title}`,
-        scheduled_for: task.run_at,
-        sent: false,
-      }));
+      // Detect language from goal title to match notification language
+      const isHebrew = /[\u0590-\u05FF]/.test(goal.title || '');
+      
+      // Generate varied, engaging notification messages in Genie's voice
+      // Match the language to the goal's language
+      const notificationVariations = isHebrew ? [
+        { title: 'הג׳יני שלך קורא לך', body: (title: string) => `בוא נעשה ביחד: ${title}` },
+        { title: 'הגיע הזמן לזוז', body: (title: string) => `${title} - קדימה, אתה יכול!` },
+        { title: 'המשימה הבאה מחכה', body: (title: string) => `${title} כבר מחכה שתתחיל` },
+        { title: 'הג׳יני שלך כאן', body: (title: string) => `${title} - יאלה נתקדם!` },
+        { title: 'זה הזמן שלך', body: (title: string) => `${title} - הזמן הזה בשבילך` },
+      ] : [
+        { title: 'Your Genie is calling', body: (title: string) => `Let's do this together: ${title}` },
+        { title: 'Time to move forward', body: (title: string) => `${title} - you got this!` },
+        { title: 'Next task is ready', body: (title: string) => `${title} is waiting for you` },
+        { title: 'Your Genie is here', body: (title: string) => `${title} - let's make progress!` },
+        { title: 'This is your time', body: (title: string) => `${title} - this time is for you` },
+      ];
+
+      const scheduledNotifications = data.map((task: any, index: number) => {
+        // Rotate through notification variations to keep them fresh
+        const variation = notificationVariations[index % notificationVariations.length];
+        return {
+          user_id: goalData.user_id,
+          task_id: task.id,
+          goal_id: goalId,
+          type: 'task_reminder',
+          title: variation.title,
+          body: variation.body(task.title),
+          scheduled_for: task.run_at,
+          sent: false,
+        };
+      });
 
       const { error: notificationError } = await supabase
         .from('scheduled_notifications')
@@ -1439,6 +1462,16 @@ serve(async (req) => {
       .eq('goal_id', goal_id);
 
     // Send push notification for completion
+    // Detect language from goal title
+    const isHebrew = /[\u0590-\u05FF]/.test(goal.title || '');
+    const completionMessage = isHebrew ? {
+      title: 'התוכנית שלך מוכנה',
+      body: `${goal.title} - ${totalTaskCount || insertedTasks.length} משימות מחכות לך. בוא נתחיל!`,
+    } : {
+      title: 'Your plan is ready',
+      body: `${goal.title} - ${totalTaskCount || insertedTasks.length} tasks are waiting. Let's begin!`,
+    };
+    
     try {
       await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`,
@@ -1450,8 +1483,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             user_id: user_id,
-            title: 'All Tasks Ready! 🎉',
-            body: `Your ${goal.title} plan is complete! ${totalTaskCount || insertedTasks.length} tasks created.`,
+            title: completionMessage.title,
+            body: completionMessage.body,
             data: {
               type: 'tasks_generated',
               goal_id: goal_id,

@@ -31,6 +31,7 @@ interface AIResult {
   color: string;
   milestones: any[];
   planOutline: any[];
+  rewards?: any[]; // AI-generated rewards for each week
   category: string;
   deliverables: any;
   usedModel: string;
@@ -618,6 +619,14 @@ REQUIRED JSON STRUCTURE:
     {"title": "Week 2: [Specific action related to the goal]", "description": "30 words max describing week 2 focus."},
     {"title": "Week 3: [Specific action related to the goal]", "description": "30 words max describing week 3 focus."}
   ],
+  "rewards": [
+    {
+      "week": 1,
+      "title": "Motivating reward title (2-4 words)",
+      "description": "Achievement description - what they accomplished this week (1-2 sentences)",
+      "points": 35
+    }
+  ],
   "deliverables": {
     "overview": {
       "chosen_topic": "Specific topic chosen for this goal",
@@ -631,12 +640,29 @@ REQUIRED JSON STRUCTURE:
   }
 }
 
-EXAMPLE for "Learn Spanish":
+CRITICAL - REWARDS GENERATION:
+You MUST create a reward for EACH week in the plan_outline.
+- Number of rewards = Number of weeks in plan_outline
+- Each reward represents completing that week's milestone
+- Reward points range: 10-200, progressively increasing
+  * Week 1: Lower points (around 10-50)
+  * Middle weeks: Medium points (around 50-150)
+  * Final week: Highest points (around 150-200)
+  * Use the formula: points = 10 + ((190 / totalWeeks) * weekNumber), rounded to nearest 5
+- Reward title: Motivating, achievement-focused (2-4 words in same language as goal)
+- Reward description: What they accomplished (1-2 sentences, celebrate their progress)
+
+EXAMPLE for "Learn Spanish" (3 weeks):
 {
   "plan_outline": [
     {"title": "Week 1: Master Basic Pronunciation & Greetings", "description": "Learn Spanish alphabet sounds. Practice common greetings daily. Build confidence with basic phrases."},
     {"title": "Week 2: Essential Vocabulary & Present Tense", "description": "Learn 200 most common words. Practice present tense conjugation. Hold simple conversations."},
     {"title": "Week 3: Conversations & Real-World Practice", "description": "Practice ordering food and asking directions. Engage with native speakers. Build fluency and confidence."}
+  ],
+  "rewards": [
+    {"week": 1, "title": "First Steps Mastered", "description": "You've built your Spanish foundation! You can now greet people and understand basic pronunciation.", "points": 75},
+    {"week": 2, "title": "Vocabulary Builder", "description": "Amazing progress! You've learned essential vocabulary and can form basic sentences in present tense.", "points": 135},
+    {"week": 3, "title": "Conversation Champion", "description": "Incredible achievement! You can now hold real conversations and communicate confidently in Spanish.", "points": 200}
   ]
 }
 
@@ -808,6 +834,7 @@ OUTPUT JSON ONLY:`;
         color: CATEGORY_COLOR_MAP[category] || 'yellow',
         milestones: buildTailoredMilestones(title, planDurationDays),
         planOutline: fallbackOutline,
+        rewards: [], // Will be created in savePlanOutline with fallback logic
         category,
         deliverables: {
           overview: { chosen_topic: '', rationale: '', synopsis: '' },
@@ -831,6 +858,7 @@ OUTPUT JSON ONLY:`;
       milestones:
         planData.milestones || buildTailoredMilestones(title, planDurationDays),
       planOutline: truncatedPlanOutline,
+      rewards: planData.rewards || [], // AI-generated rewards
       category,
       deliverables: planData.deliverables || {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },
@@ -861,6 +889,7 @@ OUTPUT JSON ONLY:`;
       color: CATEGORY_COLOR_MAP[category] || 'yellow',
       milestones: buildTailoredMilestones(title, planDurationDays),
       planOutline: errorFallbackOutline,
+      rewards: [], // Will be created in savePlanOutline with fallback logic
       category,
       deliverables: {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },
@@ -918,6 +947,69 @@ async function savePlanOutline(
     throw error;
   }
   console.log(`✅ Saved outline with ${result.planOutline.length} weeks`);
+
+  // Create rewards from AI-generated data or fallback
+  const aiRewards = result.rewards || [];
+  const totalWeeks = result.planOutline.length;
+  
+  console.log(`[REWARDS] AI returned ${aiRewards.length} rewards, expected ${totalWeeks}`);
+  
+  const rewardsToCreate = [];
+  
+  for (let index = 0; index < totalWeeks; index++) {
+    const weekNumber = index + 1;
+    const aiReward = aiRewards.find((r: any) => r.week === weekNumber);
+    
+    // Calculate day_offset: end of the week (0-indexed)
+    const daysInWeek = 7;
+    const dayOffset = (weekNumber * daysInWeek) - 1;
+    
+    if (aiReward) {
+      // Use AI-generated reward
+      rewardsToCreate.push({
+        goal_id: goalId,
+        type: 'milestone',
+        title: aiReward.title,
+        description: aiReward.description,
+        day_offset: dayOffset,
+        unlocked: false,
+        points_value: aiReward.points,
+      });
+    } else {
+      // Fallback: create reward from outline data
+      console.warn(`[REWARDS] Missing AI reward for week ${weekNumber}, using fallback`);
+      
+      const minPoints = 10;
+      const maxPoints = 200;
+      const progressRatio = totalWeeks > 1 ? weekNumber / totalWeeks : 1;
+      const basePoints = minPoints + ((maxPoints - minPoints) * progressRatio);
+      const points = Math.round(basePoints / 5) * 5;
+      
+      const week = result.planOutline[index];
+      rewardsToCreate.push({
+        goal_id: goalId,
+        type: 'milestone',
+        title: week.title || `שבוע ${weekNumber}`,
+        description: week.description || 'השלמת שבוע נוסף בתוכנית',
+        day_offset: dayOffset,
+        unlocked: false,
+        points_value: points,
+      });
+    }
+  }
+
+  console.log(`[REWARDS] Creating ${rewardsToCreate.length} rewards with points: ${rewardsToCreate.map(r => r.points_value).join(', ')}`);
+
+  // Insert rewards
+  const { error: rewardsError } = await supabase
+    .from('rewards')
+    .insert(rewardsToCreate);
+
+  if (rewardsError) {
+    console.error('⚠️ Failed to create rewards (non-critical):', rewardsError);
+  } else {
+    console.log(`✅ Created ${rewardsToCreate.length} milestone rewards (10-200 points range)`);
+  }
 
   // Save to ai_runs for tracking (never delete - for documentation!)
   const inputTokens = tokenUsage?.input || 0;
@@ -1235,6 +1327,16 @@ serve(async (req) => {
       .eq('id', goal_id);
 
     // Send push notification for plan approval
+    // Detect language from goal title
+    const isHebrew = /[\u0590-\u05FF]/.test(title || '');
+    const approvalMessage = isHebrew ? {
+      title: 'התוכנית מוכנה',
+      body: `${title} - התוכנית שלך מחכה לאישור. בוא תבדוק!`,
+    } : {
+      title: 'Your plan is ready',
+      body: `${title} - Your plan is ready for review. Check it out!`,
+    };
+    
     try {
       const pushResponse = await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`,
@@ -1246,8 +1348,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             user_id: user_id,
-            title: 'Your Plan is Ready',
-            body: `Your ${title} plan is ready for your review. Tap to approve and start your journey.`,
+            title: approvalMessage.title,
+            body: approvalMessage.body,
             data: {
               type: 'plan_ready_for_approval',
               goal_id: goal_id,

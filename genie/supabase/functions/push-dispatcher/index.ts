@@ -69,25 +69,34 @@ serve(async (req) => {
       );
     }
 
-    // Check user's notification preferences
-    const { data: userSettings } = await supabaseClient
-      .from('user_settings')
-      .select('notifications_enabled, push_notifications')
-      .eq('user_id', user_id)
-      .single();
+    // Check user's notification preferences (optional - only if table exists)
+    // Note: user_settings table is optional. If it doesn't exist or user hasn't set preferences,
+    // we default to sending notifications
+    try {
+      const { data: userSettings, error: settingsError } = await supabaseClient
+        .from('user_settings')
+        .select('notifications_enabled, push_notifications')
+        .eq('user_id', user_id)
+        .single();
 
-    if (userSettings && (!userSettings.notifications_enabled || !userSettings.push_notifications)) {
-      console.warn('⚠️ User has disabled push notifications:', user_id);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'User has disabled push notifications' 
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      // Only block if user explicitly disabled notifications
+      if (!settingsError && userSettings && 
+          (userSettings.notifications_enabled === false || userSettings.push_notifications === false)) {
+        console.warn('⚠️ User has disabled push notifications:', user_id);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: 'User has disabled push notifications' 
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } catch (error) {
+      // If user_settings table doesn't exist or there's an error, continue with sending
+      console.log('⚠️ Could not check user settings, continuing with notification send:', error.message);
     }
 
     // Send push notifications to all user's devices

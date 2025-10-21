@@ -65,15 +65,37 @@ export const RewardCard: React.FC<RewardCardProps> = ({
       >
         <View style={styles.header}>
           <View style={styles.content}>
-            <Text 
-              variant="h4" 
-              style={[
-                styles.title,
-                { color: isActive ? theme.colors.text.primary : theme.colors.text.secondary }
-              ]}
-            >
-              {reward.title}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text 
+                variant="h4" 
+                style={[
+                  styles.title,
+                  { color: isActive ? theme.colors.text.primary : theme.colors.text.secondary }
+                ]}
+              >
+                {reward.title}
+              </Text>
+              
+              {reward.points_value && reward.points_value > 0 && (
+                <View style={[styles.pointsBadge, { backgroundColor: isActive ? 'rgba(255, 255, 104, 0.2)' : 'rgba(255, 255, 104, 0.1)' }]}>
+                  <Icon 
+                    name="star" 
+                    size={12} 
+                    color={isActive ? theme.colors.yellow[500] : theme.colors.text.tertiary}
+                    weight="fill"
+                  />
+                  <Text 
+                    variant="caption" 
+                    style={[
+                      styles.pointsText,
+                      { color: isActive ? theme.colors.yellow[500] : theme.colors.text.tertiary }
+                    ]}
+                  >
+                    {reward.points_value}
+                  </Text>
+                </View>
+              )}
+            </View>
             
             <Text 
               variant="body" 
@@ -162,8 +184,27 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  title: {
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 4,
+    gap: 8,
+  },
+  title: {
+    flex: 1,
+  },
+  pointsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  pointsText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   description: {
     lineHeight: 20,

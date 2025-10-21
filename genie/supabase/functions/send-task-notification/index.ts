@@ -47,6 +47,16 @@ serve(async (req) => {
       throw taskError;
     }
 
+    // Detect language from task and goal titles
+    const isHebrew = /[\u0590-\u05FF]/.test((task_title + goal_title) || '');
+    const newTaskMessage = isHebrew ? {
+      title: 'משימה חדשה מחכה',
+      body: `${task_title} נוספה ל${goal_title}. בוא נעשה את זה!`,
+    } : {
+      title: 'New task ready',
+      body: `${task_title} added to ${goal_title}. Let's do this!`,
+    };
+
     // Create notification for in-app display
     const { error: notificationError } = await supabaseClient
       .from('notifications')
@@ -54,8 +64,8 @@ serve(async (req) => {
         user_id,
         goal_id: taskData.goal_id,
         type: 'task_reminder',
-        title: `🎯 New Task: ${task_title}`,
-        body: `A new task has been added to your "${goal_title}" goal!\n\n${task_description}\n\nTap to start working on it!`,
+        title: newTaskMessage.title,
+        body: newTaskMessage.body,
         data: {
           task_id,
           goal_title,
@@ -69,6 +79,14 @@ serve(async (req) => {
     }
 
     // Send push notification
+    const pushMessage = isHebrew ? {
+      title: 'משימה חדשה',
+      body: `${task_title} ב${goal_title} - בוא נתחיל!`,
+    } : {
+      title: 'New task',
+      body: `${task_title} in ${goal_title} - let's start!`,
+    };
+    
     const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
       method: 'POST',
       headers: {
@@ -77,8 +95,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         user_id,
-        title: `🎯 New Task: ${task_title}`,
-        body: `A new task has been added to your "${goal_title}" goal!`,
+        title: pushMessage.title,
+        body: pushMessage.body,
         data: {
           type: 'task_reminder',
           task_id,

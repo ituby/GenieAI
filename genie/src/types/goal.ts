@@ -45,4 +45,5 @@ export interface Reward {
   unlocked: boolean;
   unlocked_at?: string;
   created_at: string;
+  points_value?: number; // Points awarded when unlocking this reward (10-200)
 }
