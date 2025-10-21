@@ -206,6 +206,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     typeof setInterval
   > | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const isCancelledRef = React.useRef(false); // Track if user cancelled the process
   const [showPlanPreview, setShowPlanPreview] = useState(false);
   const [isResuming, setIsResuming] = useState(false); // Prevent duplicate resume calls
   const [successData, setSuccessData] = useState({
@@ -462,6 +463,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     }
 
     try {
+      // Reset cancellation flag when resuming
+      isCancelledRef.current = false;
+      
       setIsResuming(true);
       console.log('🔄 Resuming plan generation for goal:', goalId);
 
@@ -765,6 +769,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           },
         ];
         setTimeout(() => {
+          // 🚨 Check if user cancelled before showing preview
+          if (isCancelledRef.current) {
+            console.log('⏸️ User cancelled - skipping plan preview');
+            return;
+          }
+          
           const data = {
             milestones: fallbackMilestones,
             goalTitle: savedForm.title.trim(),
@@ -829,6 +839,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         }
 
         setTimeout(() => {
+          // 🚨 Check if user cancelled before showing preview
+          if (isCancelledRef.current) {
+            console.log('⏸️ User cancelled - skipping plan preview');
+            return;
+          }
+          
           const data = {
             milestones,
             goalTitle: savedForm.title.trim(),
@@ -996,6 +1012,9 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }
       
       console.log(`✅ User has ${currentTokens} tokens - sufficient for ${totalWeeks} milestones`);
+      
+      // Reset cancellation flag at the start of a new process
+      isCancelledRef.current = false;
       
       setIsCreatingPlan(true);
       setLoadingStep(1);
@@ -1189,6 +1208,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           ];
 
           setTimeout(() => {
+            // 🚨 Check if user cancelled before showing preview
+            if (isCancelledRef.current) {
+              console.log('⏸️ User cancelled - skipping plan preview (outline error fallback)');
+              return;
+            }
+            
             setPlanData({
               milestones: fallbackMilestones,
               goalTitle: formData.title.trim(),
@@ -1248,6 +1273,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           setLoadingStep(40);
 
           setTimeout(() => {
+            // 🚨 Check if user cancelled before showing preview
+            if (isCancelledRef.current) {
+              console.log('⏸️ User cancelled - skipping plan preview (success path)');
+              return;
+            }
+            
             setPlanData({
               milestones,
               goalTitle: formData.title.trim(),
@@ -1308,6 +1339,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
         ];
 
         setTimeout(() => {
+          // 🚨 Check if user cancelled before showing preview
+          if (isCancelledRef.current) {
+            console.log('⏸️ User cancelled - skipping plan preview (second outline error)');
+            return;
+          }
+          
           setPlanData({
             milestones: fallbackMilestones,
             goalTitle: formData.title.trim(),
@@ -2860,6 +2897,10 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             preferredDays={formData.preferredDays}
             stage={loadingStep <= 20 ? 'outline' : 'tasks'}
             onStop={async () => {
+              // Mark as cancelled FIRST
+              isCancelledRef.current = true;
+              console.log('🛑 User clicked Stop button - cancelling process');
+              
               // Stop the loading process
               if (loadingInterval) {
                 clearInterval(loadingInterval);
