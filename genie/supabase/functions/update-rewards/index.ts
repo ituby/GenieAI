@@ -233,11 +233,11 @@ serve(async (req) => {
             const isHebrew = /[\u0590-\u05FF]/.test(reward.title + reward.description || '');
             const pointsText = reward.points_value ? ` +${reward.points_value}` : '';
             const rewardMessage = isHebrew ? {
-              title: 'זכית בפרס',
-              body: `${reward.title}${pointsText} - פתחת פרס חדש!`,
+              title: 'וואו, זכית בפרס',
+              body: `בוס${pointsText} - ${reward.title}! הג'יני שלך גאה בך`,
             } : {
-              title: 'Reward unlocked',
-              body: `${reward.title}${pointsText} - You earned a new reward!`,
+              title: 'Wow, you earned a reward',
+              body: `Boss${pointsText} - ${reward.title}! Your Genie is proud of you`,
             };
             
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {

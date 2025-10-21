@@ -71,6 +71,45 @@ serve(async (req) => {
         try {
           console.log(`📤 Processing notification: ${notification.title} for user ${notification.user_id}`);
 
+          // Check if user has tokens before sending notification
+          const { data: tokenData, error: tokenError } = await supabaseClient
+            .from('user_tokens')
+            .select('tokens_remaining, tokens_used')
+            .eq('user_id', notification.user_id)
+            .single();
+
+          if (tokenError) {
+            console.error(`❌ Error checking tokens for user ${notification.user_id}:`, tokenError);
+            throw new Error('Failed to check token balance');
+          }
+
+          if (!tokenData || tokenData.tokens_remaining < 1) {
+            console.warn(`⚠️ User ${notification.user_id} has insufficient tokens (${tokenData?.tokens_remaining || 0}), skipping notification`);
+            // Don't send notification, but also don't delete it - it will be retried when user has tokens
+            throw new Error('Insufficient tokens for notification');
+          }
+
+          // Store original token values for potential refund
+          const originalTokensRemaining = tokenData.tokens_remaining;
+          const originalTokensUsed = tokenData.tokens_used || 0;
+
+          // Deduct 1 token for sending this notification
+          const { error: deductError } = await supabaseClient
+            .from('user_tokens')
+            .update({
+              tokens_remaining: tokenData.tokens_remaining - 1,
+              tokens_used: originalTokensUsed + 1,
+              last_used_at: new Date().toISOString(),
+            })
+            .eq('user_id', notification.user_id);
+
+          if (deductError) {
+            console.error(`❌ Error deducting token for user ${notification.user_id}:`, deductError);
+            throw new Error('Failed to deduct token');
+          }
+
+          console.log(`💳 Deducted 1 token for notification, remaining: ${tokenData.tokens_remaining - 1}`);
+
           // Send push notification via push-dispatcher
           const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {
             method: 'POST',
@@ -96,6 +135,17 @@ serve(async (req) => {
           if (!pushResponse.ok) {
             const errorText = await pushResponse.text();
             console.error(`❌ Push notification failed for ${notification.id}:`, errorText);
+            
+            // Refund the token since notification failed
+            await supabaseClient
+              .from('user_tokens')
+              .update({
+                tokens_remaining: originalTokensRemaining,
+                tokens_used: originalTokensUsed,
+              })
+              .eq('user_id', notification.user_id);
+            
+            console.log(`💳 Refunded 1 token due to notification failure`);
             throw new Error(`Push notification failed: ${pushResponse.status} - ${errorText}`);
           }
 
@@ -155,8 +205,19 @@ serve(async (req) => {
     // Process results
     const successful = results.filter(r => r.status === 'fulfilled' && r.value.success);
     const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+    
+    // Count token-related failures
+    const tokenFailures = failed.filter(f => {
+      if (f.status === 'rejected' && f.reason?.message?.includes('Insufficient tokens')) {
+        return true;
+      }
+      if (f.status === 'fulfilled' && f.value.error?.includes('Insufficient tokens')) {
+        return true;
+      }
+      return false;
+    }).length;
 
-    console.log(`📊 Notification processing results: ${successful.length} successful, ${failed.length} failed`);
+    console.log(`📊 Notification processing results: ${successful.length} successful, ${failed.length} failed (${tokenFailures} due to insufficient tokens)`);
 
     // Log failed notifications
     if (failed.length > 0) {
@@ -167,15 +228,20 @@ serve(async (req) => {
         return 'unknown';
       }));
     }
+    
+    if (tokenFailures > 0) {
+      console.warn(`💳 ${tokenFailures} notification(s) skipped due to insufficient tokens. They will be retried when user has tokens.`);
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Processed ${scheduledNotifications.length} notifications: ${successful.length} successful, ${failed.length} failed`,
+        message: `Processed ${scheduledNotifications.length} notifications: ${successful.length} successful, ${failed.length} failed${tokenFailures > 0 ? ` (${tokenFailures} skipped - no tokens)` : ''}`,
         results: {
           total: scheduledNotifications.length,
           successful: successful.length,
           failed: failed.length,
+          token_failures: tokenFailures,
           details: results.map(r => {
             if (r.status === 'fulfilled') {
               return {

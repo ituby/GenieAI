@@ -196,7 +196,10 @@ export const AILoadingModal: React.FC<AILoadingModalProps> = ({
               onPress={onStop}
               activeOpacity={0.8}
             >
-              <Text style={styles.stopButtonText}>[ ] stop</Text>
+              <View style={styles.stopButtonContent}>
+                <Icon name="stop-circle" size={20} color="#FFFFFF" weight="fill" />
+                <Text style={styles.stopButtonText}>Stop</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -285,16 +288,21 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   stopButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 77, 77, 0.15)',
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 77, 77, 0.4)',
+  },
+  stopButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   stopButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

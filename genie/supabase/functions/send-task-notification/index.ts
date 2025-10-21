@@ -50,11 +50,11 @@ serve(async (req) => {
     // Detect language from task and goal titles
     const isHebrew = /[\u0590-\u05FF]/.test((task_title + goal_title) || '');
     const newTaskMessage = isHebrew ? {
-      title: 'משימה חדשה מחכה',
-      body: `${task_title} נוספה ל${goal_title}. בוא נעשה את זה!`,
+      title: 'הג׳יני הוסיף משימה חדשה',
+      body: `חבר, ${task_title} - בוא נעשה את זה ביחד!`,
     } : {
-      title: 'New task ready',
-      body: `${task_title} added to ${goal_title}. Let's do this!`,
+      title: 'Your Genie added a new task',
+      body: `Friend, ${task_title} - let's do this together!`,
     };
 
     // Create notification for in-app display
@@ -80,11 +80,11 @@ serve(async (req) => {
 
     // Send push notification
     const pushMessage = isHebrew ? {
-      title: 'משימה חדשה',
-      body: `${task_title} ב${goal_title} - בוא נתחיל!`,
+      title: 'הג׳יני הוסיף משימה',
+      body: `${task_title} - בוא נעשה קסמים!`,
     } : {
-      title: 'New task',
-      body: `${task_title} in ${goal_title} - let's start!`,
+      title: 'Your Genie added a task',
+      body: `${task_title} - let's make some magic!`,
     };
     
     const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/push-dispatcher`, {

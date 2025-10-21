@@ -260,18 +260,18 @@ async function generateTasksWithAI(
 
     // Category-specific task design principles
     const categoryTaskGuidance: Record<string, string> = {
-      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually. Write concise but valuable descriptions (2-3 sentences) that explain what to learn and one key insight. Suggest Google searches for tutorials, documentation, or courses when they genuinely help - max 1-2 per task using [SEARCH:Title|keywords] format.`,
-      career: `Apply career-specific task design: Focus on skill-building, networking, portfolio development. Keep descriptions focused and actionable. Suggest searches for relevant industry resources or tutorials when they add real value.`,
-      fitness: `Apply fitness-specific task design: Progressive intensity, proper form focus, balance challenge with recovery. Descriptions should be brief but include form tips. Suggest searches for demonstration videos when helpful (e.g., [SEARCH:Proper Squat Form|squat technique demonstration]).`,
-      health: `Apply health-specific task design: Sustainable habits, gradual changes, body awareness. Keep descriptions practical and encouraging. Suggest searches for helpful resources when relevant.`,
-      lifestyle: `Apply lifestyle-specific task design: Habit stacking, routine integration, sustainable changes. Brief, actionable descriptions with practical tips.`,
-      mindset: `Apply mindset-specific task design: Awareness exercises, belief examination, mental rewiring. Concise descriptions with one key insight per task.`,
-      character: `Apply character-specific task design: Value-based actions, integrity practices, intentional challenges. Brief, meaningful descriptions.`,
-      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes. Clear, actionable descriptions. Suggest searches for educational resources when genuinely helpful.`,
-      social: `Apply social-specific task design: Regular connection activities, communication practice. Brief, warm descriptions with practical tips.`,
-      creativity: `Apply creativity-specific task design: Daily creation practice, experimentation, shipping outputs. Concise descriptions with creative guidance.`,
-      goal: `Apply goal-specific task design: Milestone-focused actions, momentum builders, progress tracking. Brief, motivating descriptions.`,
-      custom: `Apply personalized task design: Tailored to unique requirements, clear progress indicators. Focused, actionable descriptions.`,
+      learning: `Apply learning-specific task design: Start with foundational concepts, include practice exercises, build complexity gradually. Write concise but valuable descriptions (2-3 sentences) that explain what to learn and one key insight. CRITICAL: Add 2-3 [SEARCH:Title|keywords] tags per task for tutorials, documentation, or courses.`,
+      career: `Apply career-specific task design: Focus on skill-building, networking, portfolio development. Keep descriptions focused and actionable. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for industry resources, courses, or professional development tools.`,
+      fitness: `Apply fitness-specific task design: Progressive intensity, proper form focus, balance challenge with recovery. Descriptions should be brief but include form tips. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for demonstration videos, form tutorials, or workout guides.`,
+      health: `Apply health-specific task design: Sustainable habits, gradual changes, body awareness. Keep descriptions practical and encouraging. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for health resources, guides, or expert advice.`,
+      lifestyle: `Apply lifestyle-specific task design: Habit stacking, routine integration, sustainable changes. Brief, actionable descriptions with practical tips. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for habit guides, productivity tools, or lifestyle resources.`,
+      mindset: `Apply mindset-specific task design: Awareness exercises, belief examination, mental rewiring. Concise descriptions with one key insight per task. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for mindfulness guides, psychology resources, or mental techniques.`,
+      character: `Apply character-specific task design: Value-based actions, integrity practices, intentional challenges. Brief, meaningful descriptions. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for character development resources, philosophical guides, or personal growth content.`,
+      finance: `Apply finance-specific task design: Knowledge building, system setup, behavioral changes. Clear, actionable descriptions. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for financial education, investment guides, or money management tools.`,
+      social: `Apply social-specific task design: Regular connection activities, communication practice. Brief, warm descriptions with practical tips. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for communication guides, social skills tutorials, or relationship resources.`,
+      creativity: `Apply creativity-specific task design: Daily creation practice, experimentation, shipping outputs. Concise descriptions with creative guidance. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for creative tutorials, inspiration sources, or technique guides.`,
+      goal: `Apply goal-specific task design: Milestone-focused actions, momentum builders, progress tracking. Brief, motivating descriptions. CRITICAL: Add 1-2 [SEARCH:Title|keywords] tags for productivity tools, goal-setting frameworks, or achievement strategies.`,
+      custom: `Apply personalized task design: Tailored to unique requirements, clear progress indicators. Focused, actionable descriptions. CRITICAL: Add 2-3 [SEARCH:Title|keywords] tags for relevant tutorials, guides, or resources specific to this unique goal.`,
     };
 
     const taskGuidance =
@@ -332,39 +332,66 @@ WRITING GUIDELINES:
 - Descriptions: This is the MOST IMPORTANT part - write rich, valuable content:
   
   DESCRIPTION REQUIREMENTS:
-  • Write 3-5 informative sentences with specific details
+  • Write 2-3 informative sentences with specific details
   • Explain WHAT the user will do, WHY it matters, and HOW to approach it effectively
   • Include practical tips, techniques, or insights that add real value
   • Be direct and actionable - provide specific guidance, not just general advice
   • For learning tasks: Explain key concepts, common pitfalls, and what success looks like
   • For skill-building tasks: Include technique pointers and progression markers
   • Make it educational and empowering - teach, don't just instruct
+  • 🔍 ABSOLUTELY MANDATORY: END EVERY DESCRIPTION WITH 1-2 SEARCH TAGS
   
-  BAD description: "Complete the first module exercises."
-  GOOD description: "Complete the first module exercises to build foundational understanding. Focus on understanding each example rather than rushing through - notice the pattern of how solutions are structured. Pay attention to the reasoning behind each step, as this will help you tackle similar problems independently. Start with easier problems to build confidence, then gradually move to more challenging ones."
+  BAD description (WILL BE REJECTED): 
+  "Complete the first module exercises."
   
-  EXCELLENT (aim for this): "Complete the first module exercises focusing on truly understanding the underlying principles, not just getting the right answers. Work through each problem systematically: read carefully, identify what's being asked, break it down into steps, then solve. Notice how solutions follow specific patterns - recognizing these patterns is key to mastering the material. If you get stuck, review the concept explanation first before checking the answer. This deep learning approach takes longer initially but builds lasting understanding."
+  GOOD description (acceptable): 
+  "Complete the first module exercises to build foundational understanding. Focus on understanding each example rather than rushing through - notice the pattern of how solutions are structured. [SEARCH:Module Tutorial|module exercises tutorial youtube] [SEARCH:Common Mistakes|beginner mistakes module exercises]"
+  
+  EXCELLENT (aim for this): 
+  "Complete the first module exercises focusing on truly understanding the underlying principles. Work through each problem systematically: read carefully, identify what's being asked, break it down into steps. [SEARCH:Problem Solving Guide|step by step problem solving techniques] [SEARCH:Study Methods|effective learning strategies students]"
   
 - Subtasks: Concrete, sequential steps
 - Be encouraging but realistic
 - Consider user's timezone: morning tasks for fresh energy, evening for reflection/lighter work
 
-SEARCH SUGGESTIONS & RESOURCES:
-This is CRITICAL - search tags help users discover valuable resources:
-- Provide 0-3 search tags per task, or even MORE when highly beneficial
-- For learning/skill tasks: Aim for 2-3 relevant search tags
-- For simple routine tasks: 0-1 tags are fine
-- Use this EXACT format: [SEARCH:Button Title|search keywords]
-  Example: [SEARCH:Sword Grip Tutorial|medieval longsword grip technique demonstration]
-  Example: [SEARCH:React Hooks Guide|react hooks tutorial useState useEffect]
-  Example: [SEARCH:Common Mistakes|typical beginner mistakes in [topic]]
-  Example: [SEARCH:Video Walkthrough|step by step [skill] tutorial for beginners]
-- The search keywords should be specific and likely to return high-quality, actionable results
-- Include YouTube-specific searches when video demonstrations would help
-- Vary the types of resources: tutorials, common mistakes, best practices, tools, templates
-- Place search suggestions at the end of task descriptions
-- Quality over quantity - but don't be stingy with helpful resources
-- Users will click the button and see Google search results with these keywords
+🔍 SEARCH SUGGESTIONS & RESOURCES (ABSOLUTELY MANDATORY):
+THIS IS THE MOST CRITICAL REQUIREMENT - DO NOT SKIP THIS!
+
+RULES:
+✓ EVERY SINGLE TASK MUST HAVE AT LEAST 1-2 SEARCH TAGS - NO EXCEPTIONS
+✓ Even "simple" tasks need resources - always include helpful searches
+✓ Format: [SEARCH:Button Title|search keywords]
+✓ Place at the END of the task description
+
+MANDATORY EXAMPLES FOR ALL TASK TYPES:
+
+Learning/Skills:
+✓ [SEARCH:Watch Tutorial|how to play guitar chords step by step youtube]
+✓ [SEARCH:Common Mistakes|beginner guitar mistakes to avoid]
+
+Spiritual/Character:
+✓ [SEARCH:Prayer Guide|jewish prayer intentions kavvanah guide]
+✓ [SEARCH:Study Resources|teshuvah repentance study materials]
+
+Fitness/Health:
+✓ [SEARCH:Form Tutorial|proper squat form demonstration youtube]
+✓ [SEARCH:Workout Plan|beginner workout routine guide]
+
+Creative/Hobby:
+✓ [SEARCH:Tutorial Video|watercolor painting techniques youtube]
+✓ [SEARCH:Tips Guide|beginner mistakes painting tips]
+
+HOW TO CREATE SEARCH TAGS FOR ANY TASK:
+1. ALWAYS include at least 1-2 tags - NO task is too simple
+2. Think: "What resource would help the user DO this better?"
+3. For tutorials: Add "youtube" or "step by step tutorial"
+4. For guides: Add "guide", "tips", "how to"
+5. Match the language to the task language
+
+🚨 VALIDATION RULE:
+EVERY task description MUST contain at least ONE [SEARCH:...|...] tag.
+Tasks without search tags will cause the generation to FAIL.
+Users NEED these resources to succeed - this is NOT optional!
 
 AVOID:
 ✗ Vague tasks ("Improve yourself", "Work on goals")
@@ -391,17 +418,33 @@ REQUIRED JSON STRUCTURE:
         {
           "time": "09:00",
           "title": "Action-oriented task title",
-          "description": "Detailed, educational explanation (3-5 sentences). Explain what to do, why it matters, and how to approach it. Include practical tips and insights that teach, not just instruct. Add 0-3 search tags (or more if helpful): [SEARCH:Tutorial Name|search keywords] [SEARCH:Common Mistakes|error keywords] [SEARCH:Best Practices|technique keywords]",
+          "description": "Detailed, educational explanation (2-3 sentences). Explain what to do, why it matters, and how to approach it. MANDATORY: End with 1-2 search tags in this EXACT format: [SEARCH:Watch Tutorial|specific skill tutorial youtube] [SEARCH:Common Mistakes|beginner mistakes topic]",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 10},
             {"title": "Specific step 2", "estimated_minutes": 15}
           ],
-          "time_allocation_minutes": 30
+          "time_allocation_minutes": 30,
+          "notification": {
+            "title": "Playful Genie-style notification title (3-5 words, in same language as task)",
+            "body": "Friendly Genie message (10-15 words max, encouraging and fun, in same language as task)"
+          }
         }
       ]
     }
   ]
-}`;
+}
+
+CRITICAL - NOTIFICATION GENERATION:
+Each task MUST include a "notification" object with Genie-style messaging:
+- Write in authentic Genie voice: friendly, playful, encouraging (like Genie from Aladdin)
+- Use terms: "Boss", "Friend", "Let's make magic", "I'm here for you", "You got this"
+- Keep it SHORT: title 3-5 words, body 10-15 words maximum
+- Match the EXACT LANGUAGE of the task (Hebrew/English/Spanish/etc)
+- Be encouraging and fun, never boring or robotic
+- Examples:
+  * English: {"title": "Your Genie is calling", "body": "Boss, it's time! Let's make some magic with this task"}
+  * Hebrew: {"title": "הג'יני שלך כאן", "body": "בוס, הגיע הזמן! בוא נעשה קסמים עם המשימה הזאת"}
+  * Spanish: {"title": "Tu Genio está aquí", "body": "Jefe, es hora! Hagamos magia con esta tarea"}`;
 
     const userPrompt = `Create tasks for WEEK ${weekNumber} of ${totalWeeks} (Days ${startDay}-${endDay}).
 
@@ -497,12 +540,16 @@ Example for Day ${startDay}:
         {
           "time": "${timeSlots[0]}",
           "title": "Action-oriented task for week ${weekNumber}",
-          "description": "Concise explanation aligned with this week's theme. State what to do and why it matters. Focus on [key technique/concept]. [SEARCH:Watch Tutorial|specific search keywords for youtube or google] (if helpful)",
+          "description": "Concise explanation aligned with this week's theme. State what to do and why it matters. Focus on [key technique/concept]. MANDATORY RESOURCES: [SEARCH:Watch Tutorial|specific search keywords youtube] [SEARCH:Guide|helpful guide keywords]",
           "subtasks": [
             {"title": "Specific step 1", "estimated_minutes": 15},
             {"title": "Specific step 2", "estimated_minutes": 15}
           ],
-          "time_allocation_minutes": 30
+          "time_allocation_minutes": 30,
+          "notification": {
+            "title": "Your Genie is calling",
+            "body": "Boss, it's time! Let's make magic with this task"
+          }
         }
       ]
     }
@@ -516,20 +563,34 @@ Example for Day ${startDay}:
 - Each preferred day should have ${tasksPerDay} task(s)
 - WRITE CONCISE, VALUABLE DESCRIPTIONS (2-3 sentences, no more!)
 - Include ONE key tip or insight per task - no over-explaining
-- Add search suggestions ONLY when they add real value (max 1-2 per task)
+- 🔍 CRITICAL: Add 1-3 [SEARCH:Button Text|keywords] tags to EVERY task for helpful resources
+- NEVER skip search tags - they're essential for user success
 - Use format: [SEARCH:Button Text|google search keywords]
 - Be direct and actionable - avoid fluff
 
 NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${workingDaysCount} WORKING DAYS, ${tasksInThisWeek} TASKS TOTAL).
-REMEMBER: Descriptions should be valuable but CONCISE - 2-3 sentences maximum!
-When adding search suggestions, use relevant keywords that will return helpful Google results.
+
+🚨 CRITICAL REQUIREMENTS - WILL BE REJECTED IF MISSING:
+1. Descriptions: 2-3 sentences MAXIMUM
+2. 🔍 SEARCH TAGS: EVERY task MUST end with 1-2 [SEARCH:Title|keywords] tags - NO EXCEPTIONS!
+   Format: [SEARCH:Watch Tutorial|how to do X step by step youtube]
+   Example: "Learn to hold guitar properly. [SEARCH:Guitar Grip Tutorial|proper guitar holding technique youtube] [SEARCH:Common Mistakes|beginner guitar grip mistakes]"
+3. Notification: EVERY task needs a "notification" object (Genie-style, same language)
+4. Subtasks: 2-3 per task
+5. Time allocation: 25-45 minutes
+
+VALIDATION: Before outputting, check EVERY task has:
+✓ Description with [SEARCH:...|...] tags at the end
+✓ Notification object
+✓ Subtasks array
+
 OUTPUT JSON ONLY:`;
 
     // Calculate max_tokens dynamically based on tasks needed
-    // Each task ~450 tokens (title + concise description + subtasks + optional resources + JSON structure)
-    // Optimized for 2-3 sentence descriptions with one key insight
+    // Each task ~500 tokens (title + concise description + subtasks + resources + notification + JSON structure)
+    // Optimized for 2-3 sentence descriptions with one key insight + Genie-style notification
     // Add 1200 tokens for JSON overhead and buffer
-    const estimatedTokensPerTask = 450;
+    const estimatedTokensPerTask = 500;
     const jsonOverhead = 1200;
     const safetyBuffer = 800;
     const calculatedMaxTokens = Math.min(
@@ -746,6 +807,7 @@ OUTPUT JSON ONLY:`;
             subtasks: task.subtasks || [],
             time_allocation_minutes: task.time_allocation_minutes || 30,
             custom_time: task.time,
+            notification: task.notification || null, // AI-generated notification
           });
           console.log(
             `[${requestId}] DEBUG: Added task ${task.title}, total tasks: ${tasks.length}`
@@ -757,10 +819,33 @@ OUTPUT JSON ONLY:`;
     }
 
     console.log(`[${requestId}] Generated ${tasks.length} tasks from AI`);
+    
+    // Validate that tasks have SEARCH tags
+    const tasksWithSearchTags = tasks.filter(t => 
+      t.description && t.description.includes('[SEARCH:')
+    ).length;
+    const searchTagPercentage = tasks.length > 0 ? (tasksWithSearchTags / tasks.length) * 100 : 0;
+    
+    console.log(`[${requestId}] SEARCH TAGS VALIDATION: ${tasksWithSearchTags}/${tasks.length} tasks (${searchTagPercentage.toFixed(0)}%) have search tags`);
+    
+    if (searchTagPercentage < 50) {
+      console.error(`[${requestId}] ❌ CRITICAL: Only ${searchTagPercentage.toFixed(0)}% of tasks have search tags (minimum 80% required)!`);
+      console.error(`[${requestId}] AI failed to follow SEARCH tag requirements - tasks will lack resources`);
+    } else if (searchTagPercentage < 80) {
+      console.warn(`[${requestId}] ⚠️ WARNING: Only ${searchTagPercentage.toFixed(0)}% of tasks have search tags (recommended 100%)`);
+    } else {
+      console.log(`[${requestId}] ✅ Good: ${searchTagPercentage.toFixed(0)}% of tasks have search tags`);
+    }
+    
     return {
       tasks,
       usedModel: 'claude-haiku-4-5-20251001',
       tokenUsage: tokenUsage || undefined,
+      metadata: {
+        searchTagCoverage: searchTagPercentage,
+        tasksWithSearchTags,
+        totalTasks: tasks.length,
+      },
     };
   } catch (error) {
     console.error(`[${requestId}] AI generation error:`, error);
@@ -854,7 +939,7 @@ function extractPlanOutline(savedOutline: any): any[] {
 async function insertTasks(
   supabase: any,
   goalId: string,
-  tasks: TaskTemplate[],
+  tasks: (TaskTemplate & { notification?: { title: string; body: string } })[],
   deviceNowIso: string,
   preferredTimeRanges: PreferredTimeRange[] | null,
   requestId: string
@@ -900,10 +985,10 @@ async function insertTasks(
 
   // Create scheduled notifications for each task
   if (data && data.length > 0) {
-    // Get user_id from goal
+    // Get user_id and title from goal
     const { data: goalData, error: goalError } = await supabase
       .from('goals')
-      .select('user_id')
+      .select('user_id, title')
       .eq('id', goalId)
       .single();
 
@@ -913,35 +998,52 @@ async function insertTasks(
         goalError
       );
     } else {
-      // Detect language from goal title to match notification language
-      const isHebrew = /[\u0590-\u05FF]/.test(goal.title || '');
+      // Use AI-generated notifications if available, otherwise fallback to variations
+      const isHebrew = /[\u0590-\u05FF]/.test(goalData.title || '');
       
-      // Generate varied, engaging notification messages in Genie's voice
-      // Match the language to the goal's language
-      const notificationVariations = isHebrew ? [
-        { title: 'הג׳יני שלך קורא לך', body: (title: string) => `בוא נעשה ביחד: ${title}` },
-        { title: 'הגיע הזמן לזוז', body: (title: string) => `${title} - קדימה, אתה יכול!` },
-        { title: 'המשימה הבאה מחכה', body: (title: string) => `${title} כבר מחכה שתתחיל` },
-        { title: 'הג׳יני שלך כאן', body: (title: string) => `${title} - יאלה נתקדם!` },
-        { title: 'זה הזמן שלך', body: (title: string) => `${title} - הזמן הזה בשבילך` },
+      // Fallback variations (only used if AI didn't provide notifications)
+      const fallbackVariations = isHebrew ? [
+        { title: 'הג׳יני שלך כאן בשבילך', body: (title: string) => `בוס, הגיע הזמן! ${title} - בוא נעשה קסמים ביחד` },
+        { title: 'יש לי משימה בשבילך', body: (title: string) => `חבר, ${title} - אני כאן לעזור לך להצליח!` },
+        { title: 'הקסם מתחיל עכשיו', body: (title: string) => `${title} - יאלה נראה מה אתה מסוגל!` },
+        { title: 'הג׳יני שלך מזכיר לך', body: (title: string) => `${title} - ביחד נגשים את המשאלה הזאת!` },
+        { title: 'זמן להפתיע את עצמך', body: (title: string) => `${title} - אתה יותר מוכשר ממה שאתה חושב!` },
       ] : [
-        { title: 'Your Genie is calling', body: (title: string) => `Let's do this together: ${title}` },
-        { title: 'Time to move forward', body: (title: string) => `${title} - you got this!` },
-        { title: 'Next task is ready', body: (title: string) => `${title} is waiting for you` },
-        { title: 'Your Genie is here', body: (title: string) => `${title} - let's make progress!` },
-        { title: 'This is your time', body: (title: string) => `${title} - this time is for you` },
+        { title: 'Your Genie here for you', body: (title: string) => `Boss, it's time! ${title} - let's make some magic together` },
+        { title: 'I have a task for you', body: (title: string) => `Friend, ${title} - I'm here to help you succeed!` },
+        { title: 'The magic starts now', body: (title: string) => `${title} - let's see what you're capable of!` },
+        { title: 'Your Genie reminds you', body: (title: string) => `${title} - together we'll make this wish come true!` },
+        { title: 'Time to surprise yourself', body: (title: string) => `${title} - you're more talented than you think!` },
       ];
 
       const scheduledNotifications = data.map((task: any, index: number) => {
-        // Rotate through notification variations to keep them fresh
-        const variation = notificationVariations[index % notificationVariations.length];
+        // Find corresponding task in the original tasks array to get AI notification
+        const originalTask = tasks.find(t => 
+          t.title === task.title && t.day_offset === task.day_offset
+        );
+        
+        let notifTitle, notifBody;
+        
+        if (originalTask?.notification?.title && originalTask?.notification?.body) {
+          // Use AI-generated notification
+          notifTitle = originalTask.notification.title;
+          notifBody = originalTask.notification.body;
+          console.log(`[${requestId}] Using AI notification for task: ${task.title.substring(0, 30)}...`);
+        } else {
+          // Use fallback variation
+          const variation = fallbackVariations[index % fallbackVariations.length];
+          notifTitle = variation.title;
+          notifBody = variation.body(task.title);
+          console.log(`[${requestId}] Using fallback notification for task: ${task.title.substring(0, 30)}...`);
+        }
+        
         return {
           user_id: goalData.user_id,
           task_id: task.id,
           goal_id: goalId,
           type: 'task_reminder',
-          title: variation.title,
-          body: variation.body(task.title),
+          title: notifTitle,
+          body: notifBody,
           scheduled_for: task.run_at,
           sent: false,
         };
@@ -1084,8 +1186,7 @@ serve(async (req) => {
 
     // Set defaults for device info
     const finalDeviceNow = device_now_iso || new Date().toISOString();
-    const finalTimezone = device_timezone || 'UTC';
-
+    
     // Week number: default to 1 if not provided
     const currentWeek = week_number || 1;
 
@@ -1121,6 +1222,39 @@ serve(async (req) => {
         requestId,
         Date.now() - startTime
       );
+    }
+
+    // Get user preferences as fallback for missing goal settings (includes timezone)
+    console.log(`[${requestId}] Fetching user preferences`);
+    const { data: userPrefs } = await supabase
+      .from('user_preferences')
+      .select('plan_duration_days, preferred_time_ranges, preferred_days, tasks_per_day_min, tasks_per_day_max, timezone')
+      .eq('user_id', user_id)
+      .single();
+
+    console.log(`[${requestId}] User preferences:`, userPrefs);
+    console.log(`[${requestId}] User timezone from preferences:`, userPrefs?.timezone);
+
+    // Priority for timezone: device_timezone > user preferences > goal timezone > UTC
+    const finalTimezone = device_timezone || userPrefs?.timezone || goal.device_timezone || 'UTC';
+    console.log(`[${requestId}] Final timezone: ${finalTimezone}`);
+
+    // Apply user preferences as defaults if not set in goal
+    if (!goal.preferred_time_ranges && userPrefs?.preferred_time_ranges) {
+      goal.preferred_time_ranges = userPrefs.preferred_time_ranges;
+      console.log(`[${requestId}] Using preferred_time_ranges from user preferences`);
+    }
+    if (!goal.preferred_days && userPrefs?.preferred_days) {
+      goal.preferred_days = userPrefs.preferred_days;
+      console.log(`[${requestId}] Using preferred_days from user preferences`);
+    }
+    if (!goal.tasks_per_day_min && userPrefs?.tasks_per_day_min) {
+      goal.tasks_per_day_min = userPrefs.tasks_per_day_min;
+      console.log(`[${requestId}] Using tasks_per_day_min from user preferences`);
+    }
+    if (!goal.tasks_per_day_max && userPrefs?.tasks_per_day_max) {
+      goal.tasks_per_day_max = userPrefs.tasks_per_day_max;
+      console.log(`[${requestId}] Using tasks_per_day_max from user preferences`);
     }
 
     // Check goal status - allow both 'paused' and 'active' states
@@ -1455,21 +1589,28 @@ serve(async (req) => {
       console.log(`[${requestId}] Goal status updated to active`);
     }
 
-    // Get total task count for final notification
+    // Get total task count and goal title for final notification
     const { count: totalTaskCount } = await supabase
       .from('goal_tasks')
       .select('*', { count: 'exact', head: true })
       .eq('goal_id', goal_id);
 
+    const { data: goalForNotification } = await supabase
+      .from('goals')
+      .select('title')
+      .eq('id', goal_id)
+      .single();
+
     // Send push notification for completion
     // Detect language from goal title
-    const isHebrew = /[\u0590-\u05FF]/.test(goal.title || '');
+    const goalTitle = goalForNotification?.title || '';
+    const isHebrew = /[\u0590-\u05FF]/.test(goalTitle);
     const completionMessage = isHebrew ? {
-      title: 'התוכנית שלך מוכנה',
-      body: `${goal.title} - ${totalTaskCount || insertedTasks.length} משימות מחכות לך. בוא נתחיל!`,
+      title: 'הקסם מוכן',
+      body: `בוס, ${goalTitle} - ${totalTaskCount || insertedTasks.length} משימות מחכות! הג'יני שלך מוכן לעזור`,
     } : {
-      title: 'Your plan is ready',
-      body: `${goal.title} - ${totalTaskCount || insertedTasks.length} tasks are waiting. Let's begin!`,
+      title: 'The magic is ready',
+      body: `Boss, ${goalTitle} - ${totalTaskCount || insertedTasks.length} tasks await! Your Genie is ready to help`,
     };
     
     try {

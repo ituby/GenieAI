@@ -134,25 +134,54 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   // Check if user is subscribed
   const [isSubscribed, setIsSubscribed] = useState(false);
 
+  // Load user preferences on mount
   useEffect(() => {
-    const checkSubscription = async () => {
+    const loadUserPreferences = async () => {
       if (user?.id) {
         try {
-          const { data } = await supabase
+          // Check subscription
+          const { data: tokenData } = await supabase
             .from('user_tokens')
             .select('is_subscribed')
             .eq('user_id', user.id)
             .single();
 
-          setIsSubscribed(data?.is_subscribed || false);
+          setIsSubscribed(tokenData?.is_subscribed || false);
+
+          // Load user preferences (includes timezone synced from users table)
+          const { data: prefs, error } = await supabase
+            .from('user_preferences')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!error && prefs) {
+            console.log('📋 Loaded user preferences:', prefs);
+            console.log('📋 User timezone from preferences:', prefs.timezone);
+            setFormData((prev) => ({
+              ...prev,
+              planDurationDays: prefs.plan_duration_days || 21,
+              tasksPerDayRange: {
+                min: prefs.tasks_per_day_min || 3,
+                max: prefs.tasks_per_day_max || 5,
+              },
+              preferredTimeRanges: prefs.preferred_time_ranges || [
+                { start_hour: 8, end_hour: 12, label: 'Morning' },
+                { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+                { start_hour: 19, end_hour: 23, label: 'Evening' },
+              ],
+              preferredDays: prefs.preferred_days || [1, 2, 3, 4, 5, 6],
+            }));
+          } else {
+            console.log('📋 No user preferences found, using defaults');
+          }
         } catch (error) {
-          console.log('User subscription check failed:', error);
-          setIsSubscribed(false);
+          console.log('User preferences load failed:', error);
         }
       }
     };
 
-    checkSubscription();
+    loadUserPreferences();
   }, [user?.id]);
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -846,6 +875,40 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleSaveAdvancedSettings = async () => {
+    if (!user?.id) {
+      setShowAdvancedSettings(false);
+      return;
+    }
+
+    try {
+      console.log('💾 Saving advanced settings to user preferences...');
+      const { error: prefsError } = await supabase
+        .from('user_preferences')
+        .upsert(
+          {
+            user_id: user.id,
+            plan_duration_days: formData.planDurationDays,
+            tasks_per_day_min: formData.tasksPerDayRange.min,
+            tasks_per_day_max: formData.tasksPerDayRange.max,
+            preferred_time_ranges: formData.preferredTimeRanges,
+            preferred_days: formData.preferredDays,
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (prefsError) {
+        console.warn('⚠️ Failed to save advanced settings:', prefsError);
+      } else {
+        console.log('✅ Advanced settings saved to user preferences');
+      }
+    } catch (error) {
+      console.warn('⚠️ Error saving advanced settings:', error);
+    }
+
+    setShowAdvancedSettings(false);
+  };
+
   const handleSubmit = async () => {
     if (!validateForm() || !user?.id) return;
 
@@ -866,6 +929,34 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       }, 800); // Change step every 800ms for 40 messages = ~32 seconds total
 
       setLoadingInterval(interval);
+
+      // Update user preferences with current form data
+      try {
+        console.log('💾 Updating user preferences...');
+        const { error: prefsError } = await supabase
+          .from('user_preferences')
+          .upsert(
+            {
+              user_id: user.id,
+              plan_duration_days: formData.planDurationDays,
+              tasks_per_day_min: formData.tasksPerDayRange.min,
+              tasks_per_day_max: formData.tasksPerDayRange.max,
+              preferred_time_ranges: formData.preferredTimeRanges,
+              preferred_days: formData.preferredDays,
+            },
+            { onConflict: 'user_id' }
+          );
+
+        if (prefsError) {
+          console.warn('⚠️ Failed to update user preferences:', prefsError);
+          // Don't block goal creation if preferences update fails
+        } else {
+          console.log('✅ User preferences updated successfully');
+        }
+      } catch (prefsUpdateError) {
+        console.warn('⚠️ Error updating preferences:', prefsUpdateError);
+        // Continue with goal creation
+      }
 
       // Get selected category config
       const selectedCategoryConfig = CATEGORY_CONFIG.find(
@@ -933,6 +1024,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 formData.preferredDays.length > 0
                   ? formData.preferredDays
                   : undefined,
+              tasks_per_day_min: formData.tasksPerDayRange.min,
+              tasks_per_day_max: formData.tasksPerDayRange.max,
             },
           }
         );
@@ -2501,7 +2594,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.modalSaveButton}
-                    onPress={() => setShowAdvancedSettings(false)}
+                    onPress={handleSaveAdvancedSettings}
                     activeOpacity={0.8}
                   >
                     <Text
@@ -2642,7 +2735,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             preferredTimeRanges={formData.preferredTimeRanges}
             preferredDays={formData.preferredDays}
             stage={loadingStep <= 20 ? 'outline' : 'tasks'}
-            onStop={() => {
+            onStop={async () => {
               // Stop the loading process
               if (loadingInterval) {
                 clearInterval(loadingInterval);
@@ -2651,14 +2744,31 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               setIsCreatingPlan(false);
               setLoadingStep(1);
 
-              // If we have a created goal, we can optionally delete it or keep it paused
+              // If we have a created goal, mark it as failed to prevent it from showing
               if (createdGoalId) {
                 console.log(
                   '🛑 User stopped plan generation for goal:',
                   createdGoalId
                 );
-                // Keep the goal in paused state for potential resume
+                
+                // Update goal status to failed so it won't appear in the dashboard
+                try {
+                  await supabase
+                    .from('goals')
+                    .update({ 
+                      status: 'failed',
+                      error_message: 'User cancelled plan generation'
+                    })
+                    .eq('id', createdGoalId);
+                  
+                  console.log('✅ Marked cancelled goal as failed');
+                } catch (error) {
+                  console.error('Error updating cancelled goal:', error);
+                }
               }
+              
+              // Clear progress
+              await clearProgress();
             }}
           />
 

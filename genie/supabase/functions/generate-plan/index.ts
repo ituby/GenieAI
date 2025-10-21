@@ -640,17 +640,27 @@ REQUIRED JSON STRUCTURE:
   }
 }
 
-CRITICAL - REWARDS GENERATION:
-You MUST create a reward for EACH week in the plan_outline.
-- Number of rewards = Number of weeks in plan_outline
-- Each reward represents completing that week's milestone
-- Reward points range: 10-200, progressively increasing
-  * Week 1: Lower points (around 10-50)
-  * Middle weeks: Medium points (around 50-150)
-  * Final week: Highest points (around 150-200)
-  * Use the formula: points = 10 + ((190 / totalWeeks) * weekNumber), rounded to nearest 5
-- Reward title: Motivating, achievement-focused (2-4 words in same language as goal)
-- Reward description: What they accomplished (1-2 sentences, celebrate their progress)
+🏆 CRITICAL - REWARDS GENERATION (MANDATORY):
+You MUST create a "rewards" array in your JSON response!
+- Create EXACTLY ONE reward for EACH week in the plan_outline
+- If you have 3 weeks → create 3 rewards
+- If you have 6 weeks → create 6 rewards
+- Number of rewards MUST EQUAL number of weeks
+
+REWARD STRUCTURE:
+- week: The week number (1, 2, 3, etc.)
+- title: Celebratory achievement title (2-5 words, in same language as goal)
+- description: What they accomplished (1-2 sentences, celebrate progress, in same language)
+- points: Progressive points using this formula:
+  * Week 1: 10 + (190 / totalWeeks) × 1 = lower points (around 10-75)
+  * Week N: 10 + (190 / totalWeeks) × N = middle points (around 50-150)
+  * Final week: 10 + (190 / totalWeeks) × totalWeeks = 200 points
+  * Always round to nearest 5
+
+EXAMPLE for 3-week plan:
+- Week 1 reward: {"week": 1, "title": "Foundation Complete", "description": "Great start! You built strong foundations.", "points": 75}
+- Week 2 reward: {"week": 2, "title": "Skills Growing", "description": "Amazing! Your skills are developing fast.", "points": 135}
+- Week 3 reward: {"week": 3, "title": "Goal Achieved", "description": "Incredible! You completed the journey!", "points": 200}
 
 EXAMPLE for "Learn Spanish" (3 weeks):
 {
@@ -676,6 +686,7 @@ FOCUS ON:
 - Keeping descriptions MAXIMUM 30 WORDS per week (strict limit!)
 - Using SPECIFIC titles related to the goal (NOT generic "Foundation/Development/Mastery")
 - Make each week title unique and action-oriented
+- 🏆 CREATING THE REWARDS ARRAY - This is MANDATORY! Don't forget it!
 - Maintaining consistent quality throughout
 - Being ultra-concise - every word counts
 
@@ -1219,6 +1230,8 @@ serve(async (req) => {
       plan_duration_days = 21,
       preferred_time_ranges,
       preferred_days,
+      tasks_per_day_min,
+      tasks_per_day_max,
       stage = 'outline',
       device_now_iso,
       device_timezone,
@@ -1277,10 +1290,10 @@ serve(async (req) => {
       return errorResponse(400, `Invalid intensity: ${intensity}`, requestId);
     }
 
-    // Get advanced settings from goal (already fetched above for token check)
+    // Get advanced settings from goal and user preferences
     const { data: goalDetails, error: goalError } = await supabase
       .from('goals')
-      .select('id, plan_duration_days, preferred_time_ranges, preferred_days')
+      .select('id, plan_duration_days, preferred_time_ranges, preferred_days, tasks_per_day_min, tasks_per_day_max')
       .eq('id', goal_id)
       .eq('user_id', user_id)
       .single();
@@ -1289,15 +1302,57 @@ serve(async (req) => {
       return errorResponse(404, 'Goal not found', requestId);
     }
 
+    // Get user preferences as fallback (includes timezone synced from users table)
+    const { data: userPrefs } = await supabase
+      .from('user_preferences')
+      .select('plan_duration_days, preferred_time_ranges, preferred_days, tasks_per_day_min, tasks_per_day_max, timezone')
+      .eq('user_id', user_id)
+      .single();
+
     console.log(`[${requestId}] Generating outline for: ${title}`);
+    console.log(`[${requestId}] User preferences:`, userPrefs);
+    console.log(`[${requestId}] User timezone from preferences:`, userPrefs?.timezone);
 
-    // Use goal's advanced settings if available, otherwise use request parameters
-    const finalPlanDuration = goalDetails.plan_duration_days || plan_duration_days;
-    const finalTimeRanges = goalDetails.preferred_time_ranges || preferred_time_ranges;
-    const finalPreferredDays = goalDetails.preferred_days || preferred_days;
+    // Priority: request params > goal settings > user preferences > defaults
+    const finalPlanDuration = 
+      plan_duration_days || 
+      goalDetails.plan_duration_days || 
+      userPrefs?.plan_duration_days || 
+      21;
+    
+    const finalTimeRanges = 
+      preferred_time_ranges || 
+      goalDetails.preferred_time_ranges || 
+      userPrefs?.preferred_time_ranges || 
+      [
+        { start_hour: 8, end_hour: 12, label: 'Morning' },
+        { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+        { start_hour: 19, end_hour: 23, label: 'Evening' },
+      ];
+    
+    const finalPreferredDays = 
+      preferred_days || 
+      goalDetails.preferred_days || 
+      userPrefs?.preferred_days || 
+      [1, 2, 3, 4, 5, 6];
+    
+    const finalTasksPerDayMin = 
+      tasks_per_day_min || 
+      goalDetails.tasks_per_day_min || 
+      userPrefs?.tasks_per_day_min || 
+      3;
+    
+    const finalTasksPerDayMax = 
+      tasks_per_day_max || 
+      goalDetails.tasks_per_day_max || 
+      userPrefs?.tasks_per_day_max || 
+      5;
 
+    // Priority for timezone: device_timezone > user preferences > UTC
+    const finalTimezone = device_timezone || userPrefs?.timezone || 'UTC';
+    
     console.log(
-      `[${requestId}] Using settings: duration=${finalPlanDuration}, timeRanges=${JSON.stringify(finalTimeRanges)}, preferredDays=${JSON.stringify(finalPreferredDays)}`
+      `[${requestId}] Using settings: duration=${finalPlanDuration}, timeRanges=${JSON.stringify(finalTimeRanges)}, preferredDays=${JSON.stringify(finalPreferredDays)}, tasksPerDay=${finalTasksPerDayMin}-${finalTasksPerDayMax}, timezone=${finalTimezone}`
     );
 
     // STAGE 1: Generate and save outline
@@ -1310,7 +1365,7 @@ serve(async (req) => {
       finalTimeRanges,
       finalPreferredDays,
       device_now_iso || new Date().toISOString(),
-      device_timezone || 'UTC'
+      finalTimezone
     );
 
     await savePlanOutline(supabase, goal_id, user_id, result, startTime);
@@ -1322,7 +1377,7 @@ serve(async (req) => {
         icon_name: result.iconName,
         color: result.color,
         category: result.category,
-        device_timezone: device_timezone || 'UTC',
+        device_timezone: finalTimezone,
       })
       .eq('id', goal_id);
 
@@ -1330,11 +1385,11 @@ serve(async (req) => {
     // Detect language from goal title
     const isHebrew = /[\u0590-\u05FF]/.test(title || '');
     const approvalMessage = isHebrew ? {
-      title: 'התוכנית מוכנה',
-      body: `${title} - התוכנית שלך מחכה לאישור. בוא תבדוק!`,
+      title: 'הג׳יני הכין משהו מיוחד',
+      body: `חבר, ${title} - יצרתי לך תוכנית מושלמת! בוא תבדוק`,
     } : {
-      title: 'Your plan is ready',
-      body: `${title} - Your plan is ready for review. Check it out!`,
+      title: 'Your Genie made something special',
+      body: `Friend, ${title} - I crafted the perfect plan for you! Check it out`,
     };
     
     try {
