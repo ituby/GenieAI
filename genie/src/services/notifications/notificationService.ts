@@ -83,25 +83,31 @@ class NotificationService {
         return null;
       }
 
-      // Check if running on simulator or web
-      if (Platform.OS === 'web' || (Platform.OS === 'ios' && __DEV__)) {
-        console.warn('⚠️ Push notifications not supported on web/simulator');
+      // Skip push tokens on web only (not on real devices in dev mode)
+      if (Platform.OS === 'web') {
+        console.warn('⚠️ Push notifications not supported on web');
         return null;
       }
 
-      // Skip push token registration in development/simulator
-      if (__DEV__) {
-        console.warn('⚠️ Skipping push token registration in development mode');
-        return null;
-      }
-
+      // Get the token (works on real devices even in __DEV__ mode)
       const token = await Notifications.getExpoPushTokenAsync();
 
       this.expoPushToken = token.data;
-      console.log('📱 Expo push token:', this.expoPushToken);
+      console.log('📱 Expo push token obtained:', this.expoPushToken);
 
-      // Save token to Supabase
+      // Check if it's a simulator token
+      const isSimulatorToken = token.data.includes('simulator') || 
+                               token.data.includes('dev-token') ||
+                               token.data.includes('ExponentPushToken[SIMULATOR');
+
+      if (isSimulatorToken) {
+        console.warn('⚠️ Simulator token detected, not saving to database');
+        return this.expoPushToken; // Return it but don't save
+      }
+
+      // Save real device token to Supabase
       await this.savePushTokenToDatabase(this.expoPushToken);
+      console.log('✅ Push token saved to database');
 
       return this.expoPushToken;
     } catch (error) {

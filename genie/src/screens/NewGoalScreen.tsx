@@ -883,6 +883,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
     try {
       console.log('💾 Saving advanced settings to user preferences...');
+      
+      // Get timezone from users table
+      const { data: userData } = await supabase
+        .from('users')
+        .select('timezone')
+        .eq('id', user.id)
+        .single();
+
+      const userTimezone = userData?.timezone || 'UTC';
+      console.log('📍 User timezone from users table:', userTimezone);
+
       const { error: prefsError } = await supabase
         .from('user_preferences')
         .upsert(
@@ -893,6 +904,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             tasks_per_day_max: formData.tasksPerDayRange.max,
             preferred_time_ranges: formData.preferredTimeRanges,
             preferred_days: formData.preferredDays,
+            timezone: userTimezone, // שאיבה מטבלת users
           },
           { onConflict: 'user_id' }
         );
@@ -900,7 +912,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       if (prefsError) {
         console.warn('⚠️ Failed to save advanced settings:', prefsError);
       } else {
-        console.log('✅ Advanced settings saved to user preferences');
+        console.log('✅ Advanced settings saved to user preferences with timezone:', userTimezone);
       }
     } catch (error) {
       console.warn('⚠️ Error saving advanced settings:', error);
@@ -933,6 +945,17 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       // Update user preferences with current form data
       try {
         console.log('💾 Updating user preferences...');
+        
+        // Get timezone from users table
+        const { data: userData } = await supabase
+          .from('users')
+          .select('timezone')
+          .eq('id', user.id)
+          .single();
+
+        const userTimezone = userData?.timezone || 'UTC';
+        console.log('📍 User timezone from users table:', userTimezone);
+
         const { error: prefsError } = await supabase
           .from('user_preferences')
           .upsert(
@@ -943,6 +966,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
               tasks_per_day_max: formData.tasksPerDayRange.max,
               preferred_time_ranges: formData.preferredTimeRanges,
               preferred_days: formData.preferredDays,
+              timezone: userTimezone, // שאיבה מטבלת users
             },
             { onConflict: 'user_id' }
           );
@@ -951,7 +975,7 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
           console.warn('⚠️ Failed to update user preferences:', prefsError);
           // Don't block goal creation if preferences update fails
         } else {
-          console.log('✅ User preferences updated successfully');
+          console.log('✅ User preferences updated successfully with timezone:', userTimezone);
         }
       } catch (prefsUpdateError) {
         console.warn('⚠️ Error updating preferences:', prefsUpdateError);

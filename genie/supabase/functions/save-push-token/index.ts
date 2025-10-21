@@ -70,18 +70,29 @@ serve(async (req) => {
       throw checkError;
     }
 
-    // Check if this exact token already exists (same token, same platform)
+    // Check if this exact token already exists (same token)
     const existingToken = existingTokens?.find(token => 
-      token.expo_token === expo_token && token.platform === platform
+      token.expo_token === expo_token
     );
     
     if (existingToken) {
-      console.log('ℹ️ Token already exists for this platform', isDevToken ? '(dev token)' : '');
+      console.log('ℹ️ Token already exists', isDevToken ? '(dev token)' : '');
+      
+      // Update last_used_at to keep it active
+      const { error: updateError } = await supabaseClient
+        .from('push_tokens')
+        .update({
+          last_used_at: new Date().toISOString(),
+          is_active: true
+        })
+        .eq('id', existingToken.id);
+
+      if (updateError) console.warn('⚠️ Failed to update token timestamp:', updateError);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Push token already exists for this platform',
+          message: 'Push token already exists',
           action: 'exists',
           is_dev_token: isDevToken
         }),
@@ -92,57 +103,25 @@ serve(async (req) => {
       );
     }
 
-    // Check if there's an existing token for the same platform (different token)
-    const existingPlatformToken = existingTokens?.find(token => 
-      token.platform === platform
-    );
-    
-    if (existingPlatformToken) {
-      console.log('🔄 Updating existing token for platform:', platform);
+    // Allow multiple tokens per user (up to 5 devices: simulator + 2 iOS + 2 Android)
+    // If limit is reached, delete the oldest inactive token, or the oldest token if all active
+
+    // Check if user has reached the limit of 5 tokens
+    if (existingTokens && existingTokens.length >= 5) {
+      console.log(`🗑️ User has ${existingTokens.length} tokens (limit: 5). Deleting oldest token...`);
       
-      // Update the existing token for this platform
-      const { error: updateError } = await supabaseClient
-        .from('push_tokens')
-        .update({
-          expo_token
-        })
-        .eq('id', existingPlatformToken.id);
-
-      if (updateError) throw updateError;
-
-      console.log('✅ Updated existing push token for platform:', platform, isDevToken ? '(dev token)' : '');
+      // Try to find an inactive token first
+      const inactiveToken = existingTokens.find(token => !token.is_active);
+      const tokenToDelete = inactiveToken || existingTokens[0]; // Delete oldest if no inactive found
       
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Push token updated successfully',
-          action: 'updated',
-          is_dev_token: isDevToken
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Allow multiple tokens per user (up to 2 total)
-    // If limit is reached, delete the oldest token and add the new one
-
-    // Check if user has reached the limit of 2 tokens
-    if (existingTokens && existingTokens.length >= 2 && !existingPlatformToken) {
-      console.log(`🗑️ User has ${existingTokens.length} tokens (limit: 2). Deleting oldest token...`);
-      
-      // Delete the oldest token
-      const oldestToken = existingTokens[0]; // First one is oldest due to ascending order
       const { error: deleteError } = await supabaseClient
         .from('push_tokens')
         .delete()
-        .eq('id', oldestToken.id);
+        .eq('id', tokenToDelete.id);
 
       if (deleteError) throw deleteError;
       
-      console.log('🗑️ Deleted oldest token from platform:', oldestToken.platform);
+      console.log('🗑️ Deleted token:', tokenToDelete.expo_token.substring(0, 30) + '...');
     }
 
     // Insert new token
