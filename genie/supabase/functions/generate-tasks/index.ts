@@ -74,39 +74,53 @@ function computeRunAt(
   dayNumber: number,
   timeOfDay: string,
   deviceNowIso: string,
-  preferredTimeRanges: PreferredTimeRange[] | null
+  preferredTimeRanges: PreferredTimeRange[] | null,
+  customTime?: string
 ): string {
   const deviceNow = new Date(deviceNowIso);
-
-  const timeSlots: Record<string, number> = {
-    morning: 8,
-    mid_morning: 10,
-    afternoon: 14,
-    evening: 20,
-  };
-
+  
   let targetHour = 8;
-  if (preferredTimeRanges?.length) {
+  let targetMinute = 0;
+  
+  // Priority 1: Use custom_time if provided (AI-specified exact time like "06:00")
+  if (customTime) {
+    const [hourStr, minStr] = customTime.split(':');
+    targetHour = parseInt(hourStr, 10);
+    targetMinute = minStr ? parseInt(minStr, 10) : 0;
+    console.log(`[COMPUTE] Using custom_time: ${customTime} → ${targetHour}:${targetMinute.toString().padStart(2, '0')}`);
+  }
+  // Priority 2: Use preferred_time_ranges
+  else if (preferredTimeRanges?.length) {
     const rangeIndex =
       timeOfDay === 'afternoon' ? 1 : timeOfDay === 'evening' ? 2 : 0;
     targetHour = preferredTimeRanges[rangeIndex]?.start_hour || 8;
-  } else {
+    console.log(`[COMPUTE] Using preferred_time_ranges[${rangeIndex}].start_hour: ${targetHour}:00`);
+  }
+  // Priority 3: Default time slots
+  else {
+    const timeSlots: Record<string, number> = {
+      morning: 8,
+      mid_morning: 10,
+      afternoon: 14,
+      evening: 20,
+    };
     targetHour = timeSlots[timeOfDay] || 8;
+    console.log(`[COMPUTE] Using default for ${timeOfDay}: ${targetHour}:00`);
   }
 
   const targetDate = new Date(deviceNow);
   targetDate.setDate(targetDate.getDate() + (dayNumber - 1));
-  targetDate.setHours(targetHour, 0, 0, 0);
+  targetDate.setHours(targetHour, targetMinute, 0, 0);
 
-  // Clamp to 07:00-23:00
-  const clampedHour = Math.max(7, Math.min(23, targetDate.getHours()));
-  targetDate.setHours(clampedHour, 0, 0, 0);
+  // Clamp to 06:00-23:00 (allow early morning)
+  const clampedHour = Math.max(6, Math.min(23, targetDate.getHours()));
+  targetDate.setHours(clampedHour, targetMinute, 0, 0);
 
   // Ensure not in the past
   if (targetDate <= deviceNow) {
     const tomorrow = new Date(deviceNow);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(targetHour, 0, 0, 0);
+    tomorrow.setHours(clampedHour, targetMinute, 0, 0);
     return tomorrow.toISOString();
   }
 
@@ -215,7 +229,7 @@ async function generateTasksWithAI(
     if (outlineArray.length === 0) {
       console.warn(`[${requestId}] No outline found, using template fallback`);
       return {
-        tasks: generateTemplateTasks(goal),
+        tasks: generateTemplateTasks(goal, deviceNowIso),
         usedModel: 'template-fallback',
       };
     }
@@ -237,10 +251,19 @@ async function generateTasksWithAI(
     const endDay = Math.min(weekNumber * 7, goal.plan_duration_days);
     const daysInThisWeek = endDay - startDay + 1;
 
+    // Calculate goal start date once (used for all date calculations)
+    const goalStartDate = new Date(deviceNowIso);
+    
     // Calculate actual working days in this week based on preferred_days
+    // Use actual dates, not modulo calculation!
     let workingDaysCount = 0;
+    
     for (let day = startDay; day <= endDay; day++) {
-      const dayOfWeek = (day - 1) % 7; // 0=Sunday, 1=Monday, etc.
+      // Calculate actual day of week based on goal start date
+      const currentDate = new Date(goalStartDate);
+      currentDate.setDate(goalStartDate.getDate() + (day - 1));
+      const dayOfWeek = currentDate.getDay(); // 0=Sunday, 1=Monday, etc.
+      
       if (preferredDays.includes(dayOfWeek)) {
         workingDaysCount++;
       }
@@ -277,6 +300,21 @@ async function generateTasksWithAI(
     const taskGuidance =
       categoryTaskGuidance[goal.category] || categoryTaskGuidance['custom'];
 
+    // Get actual time slots from preferred_time_ranges FIRST (needed for logs below)
+    const timeSlots: string[] = [];
+    const timeLabels: string[] = [];
+    if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
+      goal.preferred_time_ranges.forEach((range, idx) => {
+        const hour = range.start_hour.toString().padStart(2, '0');
+        timeSlots.push(`${hour}:00`);
+        timeLabels.push(range.label || `Slot ${idx + 1}`);
+      });
+    } else {
+      // Default time slots if not specified
+      timeSlots.push('09:00', '14:00', '19:00');
+      timeLabels.push('Morning', 'Afternoon', 'Evening');
+    }
+
     // Prepare preferred days and time ranges info
     const dayNames = [
       'Sunday',
@@ -288,10 +326,30 @@ async function generateTasksWithAI(
       'Saturday',
     ];
     const preferredDaysText = preferredDays.map((d) => dayNames[d]).join(', ');
-
-    // Get actual time slots from preferred_time_ranges
-    const timeSlots: string[] = [];
-    const timeLabels: string[] = [];
+    
+    // Build explicit list of which specific days to create tasks for in this week
+    const explicitDaysForThisWeek: string[] = [];
+    
+    for (let day = startDay; day <= endDay; day++) {
+      const currentDate = new Date(goalStartDate);
+      currentDate.setDate(goalStartDate.getDate() + (day - 1));
+      const dayOfWeek = currentDate.getDay();
+      
+      if (preferredDays.includes(dayOfWeek)) {
+        const dayName = dayNames[dayOfWeek];
+        const dateStr = currentDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          timeZone: deviceTimezone 
+        });
+        explicitDaysForThisWeek.push(`Day ${day} (${dayName}, ${dateStr})`);
+      }
+    }
+    
+    console.log(`[${requestId}] 📅 Explicit days for week ${weekNumber}: ${explicitDaysForThisWeek.join(', ')}`);
+    console.log(
+      `[${requestId}] 🗓️ Goal starts: ${goalStartDate.toDateString()}, Preferred days: ${preferredDays}, Time slots: ${timeSlots.join(', ')}`
+    );
     if (goal.preferred_time_ranges && goal.preferred_time_ranges.length > 0) {
       goal.preferred_time_ranges.forEach((range, idx) => {
         const hour = range.start_hour.toString().padStart(2, '0');
@@ -459,14 +517,24 @@ Category: ${goal.category}
 Timezone: ${deviceTimezone}
 Current time: ${new Date(deviceNowIso).toLocaleString('en-US', { timeZone: deviceTimezone })}
 
-⚙️ USER PREFERENCES
-Preferred Days: ${preferredDaysText}
-⚠️ CRITICAL: Create tasks ONLY for these days! Skip other days completely.
+⚙️ USER PREFERENCES - DAYS AND TIMES
+🚨 CRITICAL - EXACT DAYS FOR THIS WEEK:
+You must create tasks for these SPECIFIC days ONLY:
+${explicitDaysForThisWeek.map(d => `  ✅ ${d}`).join('\n')}
 
-Tasks Per Day: ${minTasks === maxTasks ? `${tasksPerDay} task(s)` : `${minTasks}-${maxTasks} tasks (using ${tasksPerDay} based on available time slots)`}
+Total: ${workingDaysCount} working days in this week
+Preferred Days of Week: ${preferredDaysText}
 
-Preferred Time Slots: ${timeSlots.map((time, idx) => `${time} (${timeLabels[idx]})`).join(', ')}
-⚠️ CRITICAL: Use ONLY these exact time slots for tasks!
+🚨 DO NOT create tasks for ANY other days!
+Example: If the list shows "Day 1 (Monday), Day 3 (Wednesday), Day 5 (Friday)"
+→ Create tasks ONLY for days 1, 3, and 5
+→ SKIP days 2, 4, 6, 7 completely
+
+Tasks Per Day: ${tasksPerDay} task(s) per working day
+
+Preferred Time Slots (${deviceTimezone} timezone):
+${timeSlots.map((time, idx) => `  ✅ ${timeLabels[idx]}: "${time}" ← USE THIS EXACT TIME`).join('\n')}
+⚠️ CRITICAL: Use ONLY these exact times - NO other times allowed!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 THIS WEEK'S FOCUS (Week ${weekNumber}/${totalWeeks})
@@ -490,13 +558,18 @@ Task Distribution:
   • Follow the progression in the plan outline
   • SKIP days that are NOT in the preferred days list
 
-Time Slots (user's selected times in ${deviceTimezone}):
-${timeSlots.map((time, idx) => `  • ${timeLabels[idx]}: "${time}"`).join('\n')}
-  ${tasksPerDay === 1 ? `\n  ⚠️ Use ONLY the first time slot: ${timeSlots[0]}` : ''}
-  ${tasksPerDay === 2 ? `\n  ⚠️ Use ONLY first two time slots: ${timeSlots[0]} and ${timeSlots[1]}` : ''}
-  ${tasksPerDay === 3 ? `\n  ⚠️ Use ALL three time slots: ${timeSlots.join(', ')}` : ''}
+Time Slots (user's timezone: ${deviceTimezone}):
+${timeSlots.map((time, idx) => `  • ${timeLabels[idx]}: "${time}" (EXACTLY THIS TIME)`).join('\n')}
+  ${tasksPerDay === 1 ? `\n  🚨 CRITICAL: Use ONLY the first time slot: ${timeSlots[0]} - NO OTHER TIMES ALLOWED!` : ''}
+  ${tasksPerDay === 2 ? `\n  🚨 CRITICAL: Use ONLY first two time slots: ${timeSlots[0]} and ${timeSlots[1]} - NO OTHER TIMES!` : ''}
+  ${tasksPerDay === 3 ? `\n  🚨 CRITICAL: Use ALL three time slots: ${timeSlots.join(', ')} - EXACTLY THESE TIMES!` : ''}
   
-  IMPORTANT: Use these EXACT times - the user specifically chose them!
+  🚨 CRITICAL - TIME REQUIREMENTS:
+  - Use ONLY the times listed above - NO exceptions!
+  - Times are in ${deviceTimezone} timezone
+  - DO NOT create tasks at ANY other times (no 09:00, 10:00, etc. unless explicitly listed)
+  - Each task MUST use one of these EXACT times: ${timeSlots.join(', ')}
+  - The user specifically selected these times - respect their schedule!
 
 Task Composition:
   • Each task MUST have 2-3 subtasks
@@ -556,19 +629,29 @@ Example for Day ${startDay}:
   ]
 }
 
-⚠️ IMPORTANT REMINDERS:
-- Create tasks ONLY for preferred days: ${preferredDaysText}
-- Use ONLY these time slots: ${timeSlots.join(', ')}
-- Skip any days that are NOT in the preferred days list
-- Each preferred day should have ${tasksPerDay} task(s)
-- WRITE CONCISE, VALUABLE DESCRIPTIONS (2-3 sentences, no more!)
-- Include ONE key tip or insight per task - no over-explaining
-- 🔍 CRITICAL: Add 1-3 [SEARCH:Button Text|keywords] tags to EVERY task for helpful resources
-- NEVER skip search tags - they're essential for user success
-- Use format: [SEARCH:Button Text|google search keywords]
-- Be direct and actionable - avoid fluff
+🚨 CRITICAL REQUIREMENTS - WILL BE REJECTED IF VIOLATED:
 
-NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay} (${workingDaysCount} WORKING DAYS, ${tasksInThisWeek} TASKS TOTAL).
+1. DAYS - Create tasks ONLY for: ${preferredDaysText}
+   - DO NOT create tasks for any other days
+   - Skip days not in this list completely
+   - Working days in this week: ${workingDaysCount} days
+
+2. TIMES - Use ONLY: ${timeSlots.join(', ')} (in ${deviceTimezone} timezone)
+   - DO NOT use any other times (no 08:00, 09:00, etc. unless listed above)
+   - Each task must use one of these EXACT times
+   - Tasks per working day: ${tasksPerDay} task(s)
+
+3. CONTENT:
+   - WRITE CONCISE, VALUABLE DESCRIPTIONS (2-3 sentences maximum!)
+   - Include ONE key tip or insight per task
+   - 🔍 Add 1-3 [SEARCH:Button Text|keywords] tags to EVERY task
+   - Use format: [SEARCH:Button Text|google search keywords]
+   - Be direct and actionable - avoid fluff
+
+NOW CREATE WEEK ${weekNumber} - DAYS ${startDay} TO ${endDay}:
+- Total tasks to create: ${tasksInThisWeek} tasks (${workingDaysCount} working days × ${tasksPerDay} tasks/day)
+- Use ONLY the days: ${preferredDaysText}
+- Use ONLY the times: ${timeSlots.join(', ')}
 
 🚨 CRITICAL REQUIREMENTS - WILL BE REJECTED IF MISSING:
 1. Descriptions: 2-3 sentences MAXIMUM
@@ -665,7 +748,7 @@ OUTPUT JSON ONLY:`;
         `[${requestId}] Using template fallback due to invalid response`
       );
       return {
-        tasks: generateTemplateTasks(goal),
+        tasks: generateTemplateTasks(goal, deviceNowIso),
         usedModel: 'template-fallback',
       };
     }
@@ -738,7 +821,7 @@ OUTPUT JSON ONLY:`;
         `[${requestId}] Using template fallback due to parse error${isTruncated ? ' (truncated response)' : ''}`
       );
       return {
-        tasks: generateTemplateTasks(goal),
+        tasks: generateTemplateTasks(goal, deviceNowIso),
         usedModel: 'template-fallback',
         metadata: {
           parseError: true,
@@ -770,10 +853,15 @@ OUTPUT JSON ONLY:`;
 
       // Check preferred days
       if (goal.preferred_days?.length) {
-        const dayOfWeek = (dayNumber - 1) % 7;
+        // Calculate the actual day of week based on goal start date
+        const goalStartDate = new Date(deviceNowIso);
+        goalStartDate.setDate(goalStartDate.getDate() + (dayNumber - 1));
+        const dayOfWeek = goalStartDate.getDay(); // 0=Sunday, 1=Monday, etc.
+        
         console.log(
-          `[${requestId}] DEBUG: Day ${dayNumber} is day of week ${dayOfWeek}, preferred days: ${goal.preferred_days}`
+          `[${requestId}] DEBUG: Day ${dayNumber} is ${goalStartDate.toDateString()} (day of week ${dayOfWeek}), preferred days: ${goal.preferred_days}`
         );
+        
         if (!goal.preferred_days.includes(dayOfWeek)) {
           console.log(
             `[${requestId}] DEBUG: Skipping day ${dayNumber} - not in preferred days`
@@ -796,7 +884,8 @@ OUTPUT JSON ONLY:`;
             dayNumber,
             timeOfDay,
             deviceNowIso,
-            goal.preferred_time_ranges
+            goal.preferred_time_ranges,
+            task.time // Pass custom_time to computeRunAt
           );
 
           tasks.push({
@@ -850,7 +939,7 @@ OUTPUT JSON ONLY:`;
   } catch (error) {
     console.error(`[${requestId}] AI generation error:`, error);
     return {
-      tasks: generateTemplateTasks(goal),
+      tasks: generateTemplateTasks(goal, deviceNowIso),
       usedModel: 'template-fallback',
     };
   }
@@ -860,7 +949,7 @@ OUTPUT JSON ONLY:`;
 // TEMPLATE FALLBACK
 // ============================================================================
 
-function generateTemplateTasks(goal: Goal): TaskTemplate[] {
+function generateTemplateTasks(goal: Goal, deviceNowIso?: string): TaskTemplate[] {
   const tasks: TaskTemplate[] = [];
 
   // Calculate tasks per day based on user preferences
@@ -885,19 +974,36 @@ function generateTemplateTasks(goal: Goal): TaskTemplate[] {
 
   const timeOfDays = ['morning', 'afternoon', 'evening'];
 
+  // Get goal start date to calculate actual day of week
+  const goalStartDate = deviceNowIso ? new Date(deviceNowIso) : new Date();
+  console.log(`[TEMPLATE] Goal starts on: ${goalStartDate.toDateString()} (day ${goalStartDate.getDay()})`);
+  console.log(`[TEMPLATE] Preferred days: ${goal.preferred_days}`);
+  console.log(`[TEMPLATE] Preferred times: ${timeSlots.join(', ')}`);
+  
   for (let day = 1; day <= goal.plan_duration_days; day++) {
     // Check if this day is in preferred_days
     if (goal.preferred_days?.length) {
-      const dayOfWeek = (day - 1) % 7;
+      // Calculate actual day of week based on goal start date
+      const currentDate = new Date(goalStartDate);
+      currentDate.setDate(goalStartDate.getDate() + (day - 1));
+      const dayOfWeek = currentDate.getDay(); // 0=Sunday, 1=Monday, etc.
+      
+      console.log(`[TEMPLATE] Day ${day}: ${currentDate.toDateString()} = day of week ${dayOfWeek}`);
+      
       if (!goal.preferred_days.includes(dayOfWeek)) {
+        console.log(`[TEMPLATE] ❌ Skipping day ${day} - not in preferred days`);
         continue; // Skip this day
       }
+      
+      console.log(`[TEMPLATE] ✅ Day ${day} included - is in preferred days`);
     }
 
     for (let taskIdx = 0; taskIdx < tasksPerDay; taskIdx++) {
       const timeOfDay = timeOfDays[taskIdx] || 'morning';
       const customTime = timeSlots[taskIdx] || timeSlots[0];
       const label = timeLabels[taskIdx] || 'Session';
+
+      console.log(`[TEMPLATE] 📝 Day ${day}, Task ${taskIdx + 1}: ${customTime} (${label}) - time_of_day: ${timeOfDay}`);
 
       tasks.push({
         title: `Day ${day}: ${['Foundation', 'Development', 'Practice'][taskIdx] || 'Progress'}`,
@@ -910,7 +1016,7 @@ function generateTemplateTasks(goal: Goal): TaskTemplate[] {
           { title: 'Document your progress', estimated_minutes: 5 },
         ],
         time_allocation_minutes: 30,
-        custom_time: customTime,
+        custom_time: customTime, // This will be passed to computeRunAt!
       });
     }
   }
@@ -952,7 +1058,8 @@ async function insertTasks(
       task.day_offset + 1,
       task.time_of_day,
       deviceNowIso,
-      preferredTimeRanges
+      preferredTimeRanges,
+      task.custom_time // Pass custom_time to computeRunAt
     );
 
     return {
@@ -1380,12 +1487,13 @@ serve(async (req) => {
     );
 
     // Check if fallback tasks were used - this means AI generation failed
+    // Mark goal as 'failed' and let user retry manually
     if (tasksResult.usedModel === 'template-fallback') {
       const metadata = tasksResult.metadata || {};
       const isTruncated = metadata.truncated;
 
       console.error(
-        `[${requestId}] AI generation failed for week ${currentWeek}, fallback tasks were generated`
+        `[${requestId}] AI generation failed for week ${currentWeek}, marking goal as failed`
       );
 
       if (isTruncated) {
@@ -1395,7 +1503,7 @@ serve(async (req) => {
       }
 
       // Save failure to ai_runs for tracking
-      const { error: aiRunError } = await supabase.from('ai_runs').insert({
+      await supabase.from('ai_runs').insert({
         goal_id: goal_id,
         stage: `tasks_week_${currentWeek}`,
         status: 'failed',
@@ -1406,15 +1514,26 @@ serve(async (req) => {
         metadata: {
           reason: isTruncated
             ? `Response truncated - exceeded max_tokens (${metadata.maxTokens})`
-            : 'AI generation failed, would have used fallback tasks',
+            : 'AI generation failed - user can retry',
           ...metadata,
         },
         completed_at: new Date().toISOString(),
       });
 
+      // Mark goal as failed so polling stops
+      await supabase
+        .from('goals')
+        .update({
+          status: 'failed',
+          error_message: isTruncated
+            ? 'AI response was too long. Please try again.'
+            : 'Task generation failed. Please try again.',
+        })
+        .eq('id', goal_id);
+
       const errorMessage = isTruncated
-        ? `AI response was truncated for week ${currentWeek}. The system is generating comprehensive task descriptions which exceeded the token limit. Please try again - the system will automatically adjust.`
-        : `AI generation failed for week ${currentWeek}. Please try again or contact support.`;
+        ? `AI response was truncated for week ${currentWeek}. Please try again - the system will adjust automatically.`
+        : `AI generation failed for week ${currentWeek}. Please click "Try Again" to retry.`;
 
       return errorResponse(
         500,

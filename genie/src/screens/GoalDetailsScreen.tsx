@@ -51,6 +51,8 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
   const [currentGoal, setCurrentGoal] = useState<GoalWithProgress>(goal);
   const [visibleTaskCount, setVisibleTaskCount] = useState<number>(6);
   const [refreshBreathingAnimation] = useState(new Animated.Value(1));
+  const [isRetryingTaskGeneration, setIsRetryingTaskGeneration] = useState(false);
+  const [goalCreatedAt] = useState(new Date(goal.created_at));
 
   const handleRefresh = async () => {
     setShowRefreshLoader(true);
@@ -448,6 +450,144 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
     }
   };
 
+  const handleRetryTaskGeneration = async () => {
+    if (!user?.id) return;
+
+    setIsRetryingTaskGeneration(true);
+    setLoading(true); // Show loading indicator
+    
+    try {
+      console.log('🔄 Retrying task generation for goal:', goal.id);
+      
+      // First, reset goal status to 'active' to restart polling
+      await supabase
+        .from('goals')
+        .update({
+          status: 'active',
+          error_message: null,
+        })
+        .eq('id', goal.id);
+      
+      console.log('✅ Goal status reset to active');
+      
+      // Get device timezone and current time
+      const deviceNow = new Date();
+      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+      console.log('📍 Retry with timezone:', deviceTimezone);
+
+      // Call generate-tasks function with timeout handling
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 120000) // 2 minute timeout
+      );
+
+      const generatePromise = supabase.functions.invoke('generate-tasks', {
+        body: {
+          user_id: user.id,
+          goal_id: goal.id,
+          device_now_iso: deviceNow.toISOString(),
+          device_timezone: deviceTimezone,
+          week_number: 1, // Start with week 1
+        },
+      });
+
+      const result = await Promise.race([generatePromise, timeoutPromise]) as any;
+
+      // Check if it timed out (expected for long-running task generation)
+      const isTimeout = result instanceof Error && result.message === 'timeout';
+
+      if (!isTimeout && result.error) {
+        console.error('Error retrying task generation:', result.error);
+        Alert.alert(
+          'Generation Error',
+          'Failed to generate tasks. Please check your connection and try again.'
+        );
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ Task generation request sent successfully');
+      
+      // Poll for tasks with exponential backoff
+      let attempts = 0;
+      const maxAttempts = 20; // Poll for up to 2 minutes
+      
+      const pollForTasks = async (): Promise<boolean> => {
+        attempts++;
+        console.log(`📊 Polling for tasks, attempt ${attempts}/${maxAttempts}`);
+        
+        const { data: tasksData } = await supabase
+          .from('goal_tasks')
+          .select('id')
+          .eq('goal_id', goal.id);
+
+        const taskCount = tasksData?.length || 0;
+        
+        if (taskCount > 0) {
+          console.log(`✅ Found ${taskCount} tasks!`);
+          return true;
+        }
+        
+        if (attempts >= maxAttempts) {
+          console.warn('⏰ Max polling attempts reached');
+          return false;
+        }
+        
+        // Wait before next attempt (exponential backoff: 2s, 4s, 6s, 8s...)
+        await new Promise(resolve => setTimeout(resolve, Math.min(2000 * attempts, 10000)));
+        return pollForTasks();
+      };
+
+      const tasksFound = await pollForTasks();
+      
+      // Refresh UI
+      await Promise.all([
+        fetchTasks(),
+        fetchUpdatedGoal(),
+        fetchRewards(),
+      ]);
+
+      if (tasksFound) {
+        Alert.alert(
+          'Success! 🎉',
+          'Your personalized plan is ready. Tasks have been created based on your preferences.'
+        );
+      } else {
+        Alert.alert(
+          'Still Processing',
+          'Tasks are being generated in the background. Please refresh in a moment.'
+        );
+      }
+
+    } catch (error) {
+      console.error('Error in retry task generation:', error);
+      
+      // Even on error, try to refresh to see if tasks were created
+      try {
+        await fetchTasks();
+        await fetchUpdatedGoal();
+      } catch (refreshError) {
+        console.error('Error refreshing after retry failure:', refreshError);
+      }
+      
+      Alert.alert(
+        'Request Sent',
+        'Your request was sent. Tasks may take a moment to appear. Please refresh if needed.'
+      );
+    } finally {
+      setIsRetryingTaskGeneration(false);
+      setLoading(false);
+    }
+  };
+
+  // Check if goal was created more than 1 minute ago
+  const isGoalOlderThanOneMinute = () => {
+    const now = new Date();
+    const diffMs = now.getTime() - goalCreatedAt.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    return diffMinutes >= 1;
+  };
+
   return (
     <View
       style={[
@@ -657,26 +797,42 @@ export const GoalDetailsScreen: React.FC<GoalDetailsScreenProps> = ({
           ) : dailyTasks.length === 0 ? (
             <Card variant="default" padding="lg" style={styles.emptyState}>
               <Text variant="h4" style={styles.emptyTitle}>
-                No tasks yet
+                {currentGoal.status === 'failed'
+                  ? 'Generation Failed'
+                  : 'Your Genie is working on it'}
               </Text>
               <Text
                 variant="body"
                 color="secondary"
                 style={styles.emptyDescription}
               >
-                Genie will create a personalized 21-day plan with daily tasks
+                {currentGoal.status === 'failed'
+                  ? currentGoal.error_message || "Task generation encountered an issue. Click below to try again with updated settings."
+                  : "Creating your personalized plan with daily tasks based on your preferences. This usually takes a moment..."}
               </Text>
-              <LinearGradient
-                colors={['#FFFF68', '#FFFFFF']}
-                style={styles.createPlanGradientBorder}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <TouchableOpacity style={styles.createPlanButton}>
-                  <Icon name="brain" size={18} color="#FFFFFF" />
-                  <Text style={styles.createPlanText}>Create Plan</Text>
-                </TouchableOpacity>
-              </LinearGradient>
+              {currentGoal.status === 'failed' && (
+                <LinearGradient
+                  colors={['#FFFF68', '#FFFFFF']}
+                  style={styles.createPlanGradientBorder}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <TouchableOpacity 
+                    style={styles.createPlanButton}
+                    onPress={handleRetryTaskGeneration}
+                    disabled={isRetryingTaskGeneration}
+                  >
+                    {isRetryingTaskGeneration ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Icon name="arrow-clockwise" size={18} color="#FFFFFF" />
+                        <Text style={styles.createPlanText}>Try Again</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </LinearGradient>
+              )}
             </Card>
           ) : (
             <View style={styles.dailyTasksContainer}>
@@ -982,6 +1138,8 @@ const styles = StyleSheet.create({
   emptyDescription: {
     textAlign: 'center',
     marginBottom: 20,
+    paddingHorizontal: 8,
+    lineHeight: 22,
   },
   emptyAction: {
     minWidth: 160,

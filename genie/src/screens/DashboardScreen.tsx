@@ -283,10 +283,12 @@ export const DashboardScreen: React.FC = () => {
   }, [user?.id]);
 
   // Auto-refresh mechanism for goals that are loading (active but no tasks)
+  // Stop polling for failed goals - let user retry manually
   useEffect(() => {
     if (!user?.id) return;
 
     const checkForLoadingGoals = async () => {
+      // Only poll for goals that are 'active' with 0 tasks (not 'failed')
       const loadingGoals = activeGoals.filter(
         (goal) => goal.status === 'active' && goal.total_tasks === 0
       );
@@ -311,7 +313,7 @@ export const DashboardScreen: React.FC = () => {
     checkForLoadingGoals();
 
     // Set up polling every 5 seconds for loading goals
-    // This continues until all goals have tasks loaded
+    // This continues until all goals have tasks loaded or are marked as failed
     const interval = setInterval(checkForLoadingGoals, 5000);
 
     return () => clearInterval(interval);
