@@ -1837,7 +1837,11 @@ export const DashboardScreen: React.FC = () => {
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                <View style={styles.modalContent}>
+                {/* Token Packages Section */}
+                <View style={styles.tokenPackagesSection}>
+                  <Text variant="h4" style={styles.sectionTitle}>
+                    Choose Package
+                  </Text>
                   <View style={styles.tokenOptions}>
                     <TouchableOpacity
                       style={[
@@ -1851,8 +1855,8 @@ export const DashboardScreen: React.FC = () => {
                         setCustomTokenPrice(4.99);
                       }}
                     >
-                      <View style={styles.tokenOptionHeader}>
-                        <View>
+                      <View style={styles.tokenOptionContent}>
+                        <View style={styles.tokenOptionLeft}>
                           <Text variant="h4" style={styles.tokenAmount}>
                             100 Tokens
                           </Text>
@@ -1887,8 +1891,8 @@ export const DashboardScreen: React.FC = () => {
                           POPULAR
                         </Text>
                       </View>
-                      <View style={styles.tokenOptionHeader}>
-                        <View>
+                      <View style={styles.tokenOptionContent}>
+                        <View style={styles.tokenOptionLeft}>
                           <Text variant="h4" style={styles.tokenAmount}>
                             500 Tokens
                           </Text>
@@ -1918,8 +1922,8 @@ export const DashboardScreen: React.FC = () => {
                         setCustomTokenPrice(34.99);
                       }}
                     >
-                      <View style={styles.tokenOptionHeader}>
-                        <View>
+                      <View style={styles.tokenOptionContent}>
+                        <View style={styles.tokenOptionLeft}>
                           <Text variant="h4" style={styles.tokenAmount}>
                             1000 Tokens
                           </Text>
@@ -1939,74 +1943,72 @@ export const DashboardScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* Custom Token Amount Input - Outside modal content card */}
+                {/* Custom Token Amount Input */}
                 <View style={styles.customTokenSection}>
-                    <Text variant="h4" style={styles.customTokenTitle}>
-                      Custom Amount
+                  <Text variant="h4" style={styles.sectionTitle}>
+                    Custom Amount
+                  </Text>
+                  <View style={styles.customTokenInputContainer}>
+                    <TextInput
+                      style={styles.customTokenInput}
+                      value={customTokenAmount}
+                      onChangeText={handleCustomTokenChange}
+                      placeholder="Enter amount"
+                      placeholderTextColor={theme.colors.text.secondary}
+                      keyboardType="numeric"
+                      maxLength={4}
+                    />
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.customTokenLabel}
+                    >
+                      tokens
                     </Text>
-                    <View style={styles.customTokenInputContainer}>
-                      <TextInput
-                        style={styles.customTokenInput}
-                        value={customTokenAmount}
-                        onChangeText={handleCustomTokenChange}
-                        placeholder="Enter amount (50-5000)"
-                        placeholderTextColor={theme.colors.text.secondary}
-                        keyboardType="numeric"
-                        maxLength={4}
-                      />
+                  </View>
+                  {customTokenPrice > 0 && (
+                    <View style={styles.customTokenPriceContainer}>
+                      <Text variant="h3" style={styles.customTokenPrice}>
+                        ${customTokenPrice.toFixed(2)}
+                      </Text>
                       <Text
                         variant="caption"
                         color="secondary"
-                        style={styles.customTokenLabel}
+                        style={styles.customTokenPriceLabel}
                       >
-                        tokens
+                        Total Price
                       </Text>
                     </View>
-                    {customTokenPrice > 0 && (
-                      <View style={styles.customTokenPriceContainer}>
-                        <Text variant="h3" style={styles.customTokenPrice}>
-                          ${customTokenPrice.toFixed(2)}
-                        </Text>
-                        <Text
-                          variant="caption"
-                          color="secondary"
-                          style={styles.customTokenPriceLabel}
-                        >
-                          Total Price
-                        </Text>
-                      </View>
-                    )}
+                  )}
                 </View>
 
-                {/* Purchase Button */}
-                <View style={styles.modalContent}>
-                  <View style={styles.purchaseButtonContainer}>
-                    <TouchableOpacity
-                      style={styles.purchaseButton}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        // TODO: Implement purchase logic
-                        setShowTokenPurchaseModal(false);
-                        alert('Purchase feature coming soon!');
-                      }}
-                    >
-                      <Icon
-                        name="credit-card"
-                        size={20}
-                        color="#000000"
-                        weight="fill"
-                      />
-                      <Text variant="h4" style={styles.purchaseButtonText}>
-                        Complete Purchase
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                {/* Purchase Button Section */}
+                <View style={styles.purchaseSection}>
+                  <TouchableOpacity
+                    style={styles.purchaseButton}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // TODO: Implement purchase logic
+                      setShowTokenPurchaseModal(false);
+                      alert('Purchase feature coming soon!');
+                    }}
+                  >
+                    <Icon
+                      name="credit-card"
+                      size={20}
+                      color="#000000"
+                      weight="fill"
+                    />
+                    <Text variant="h4" style={styles.purchaseButtonText}>
+                      Complete Purchase
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Description */}
                   <Text
                     variant="caption"
                     color="secondary"
-                    style={[styles.modalDescription, { fontSize: 11 }]}
+                    style={styles.purchaseDescription}
                   >
                     1 token = 1 task • ~70 tokens per goal • Non-refundable
                   </Text>
@@ -3057,23 +3059,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   // Token Purchase Modal Styles
+  tokenPackagesSection: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  sectionTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'left',
+    fontSize: 16,
+  },
   tokenOptions: {
     width: '100%',
     flexDirection: 'column',
     gap: 12,
-    marginBottom: 16,
   },
   tokenOption: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     position: 'relative',
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    minHeight: 70,
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -3085,160 +3096,162 @@ const styles = StyleSheet.create({
   },
   tokenOptionSelected: {
     borderColor: '#FFFF68',
-    backgroundColor: 'rgba(255, 255, 104, 0.12)',
+    backgroundColor: 'rgba(255, 255, 104, 0.15)',
     shadowColor: '#FFFF68',
-    shadowOpacity: 0.2,
-  },
-  popularBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FFFF68',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    shadowColor: '#FFFF68',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
     shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
-  popularText: {
-    color: '#000000',
-    fontSize: 8,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  tokenOptionHeader: {
-    flex: 1,
+  tokenOptionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
   },
-  tokenAmount: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-    textAlign: 'left',
-  },
-  tokenPrice: {
-    color: '#FFFF68',
-    fontWeight: '800',
-    fontSize: 18,
-    textAlign: 'right',
-  },
-  tokenDescription: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '400',
-    marginTop: 2,
-    textAlign: 'left',
-  },
-  // Custom Token Input Styles
-  customTokenSection: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  customTokenTitle: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  customTokenInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  customTokenInput: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    minWidth: 100,
-    borderWidth: 0,
+  tokenOptionLeft: {
     flex: 1,
+    marginRight: 12,
   },
-  customTokenLabel: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  customTokenPriceContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-    backgroundColor: 'rgba(255, 255, 104, 0.1)',
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 104, 0.3)',
-  },
-  customTokenPrice: {
-    color: '#FFFF68',
-    fontWeight: '800',
-    fontSize: 18,
-    marginBottom: 2,
-  },
-  customTokenPriceLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  predefinedOptionsTitle: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  // Purchase Button Styles
-  purchaseButtonContainer: {
-    width: '100%',
-    paddingTop: 12,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  purchaseButton: {
+  popularBadge: {
+    position: 'absolute',
+    top: -6,
+    right: 12,
     backgroundColor: '#FFFF68',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
     shadowColor: '#FFFF68',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+    zIndex: 10,
+  },
+  popularText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  tokenAmount: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 18,
+    textAlign: 'left',
+    marginBottom: 4,
+  },
+  tokenPrice: {
+    color: '#FFFF68',
+    fontWeight: '800',
+    fontSize: 22,
+    textAlign: 'right',
+    minWidth: 80,
+  },
+  tokenDescription: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontWeight: '500',
+    textAlign: 'left',
+  },
+  // Custom Token Input Styles
+  customTokenSection: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  customTokenInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 12,
+  },
+  customTokenInput: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    minWidth: 120,
+    borderWidth: 0,
+    flex: 1,
+  },
+  customTokenLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    paddingLeft: 4,
+  },
+  customTokenPriceContainer: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 104, 0.12)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 104, 0.4)',
+  },
+  customTokenPrice: {
+    color: '#FFFF68',
+    fontWeight: '800',
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  customTokenPriceLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Purchase Section Styles
+  purchaseSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  purchaseButton: {
+    backgroundColor: '#FFFF68',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: '#FFFF68',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+    marginBottom: 16,
   },
   purchaseButtonText: {
     color: '#000000',
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 17,
+  },
+  purchaseDescription: {
+    textAlign: 'center',
+    lineHeight: 16,
+    fontSize: 11,
+    opacity: 0.7,
   },
   deleteModalOverlay: {
     position: 'absolute',

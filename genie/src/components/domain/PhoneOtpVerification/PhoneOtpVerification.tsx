@@ -6,7 +6,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Text, Button } from '../../primitives';
 import { useTheme } from '../../../theme';
 import { colors } from '../../../theme/colors';
@@ -122,133 +124,169 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      presentationStyle="overFullScreen"
     >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text variant="h2" style={styles.title}>
-            Verify Your Account
-          </Text>
-          <Text variant="body" color="secondary" style={styles.subtitle}>
-            Check your email for a verification code
-          </Text>
-          <Text variant="body" style={styles.phoneNumber}>
-            {phone}
-          </Text>
-        </View>
+      <View style={styles.modalOverlay}>
+        <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.content}>
+              <View style={styles.header}>
+                <Text variant="h2" style={styles.title}>
+                  Verify Your Account
+                </Text>
+                <Text variant="caption" color="secondary" style={styles.subtitle}>
+                  Check your email for a verification code
+                </Text>
+                <Text variant="body" style={styles.phoneNumber}>
+                  {phone}
+                </Text>
+              </View>
 
-        <View style={styles.otpContainer}>
-          <Text variant="body" color="secondary" style={styles.instruction}>
-            Enter the 6-digit code
-          </Text>
-          
-          {/* Hidden input for autofill */}
-          <TextInput
-            ref={hiddenInputRef}
-            style={styles.hiddenInput}
-            value={otp.join('')}
-            onChangeText={handlePaste}
-            keyboardType="number-pad"
-            maxLength={OTP_LENGTH}
-            autoComplete="sms-otp"
-            textContentType="oneTimeCode"
-          />
+              <View style={styles.otpContainer}>
+                <Text variant="caption" color="secondary" style={styles.instruction}>
+                  Enter the 6-digit code
+                </Text>
+                
+                {/* Hidden input for autofill */}
+                <TextInput
+                  ref={hiddenInputRef}
+                  style={styles.hiddenInput}
+                  value={otp.join('')}
+                  onChangeText={handlePaste}
+                  keyboardType="number-pad"
+                  maxLength={OTP_LENGTH}
+                  autoComplete="sms-otp"
+                  textContentType="oneTimeCode"
+                />
 
-          <View style={styles.otpInputs}>
-            {otp.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => (inputRefs.current[index] = ref)}
-                style={[
-                  styles.otpInput,
-                  digit && styles.otpInputFilled,
-                ]}
-                value={digit}
-                onChangeText={(value) => handleOtpChange(index, value)}
-                onKeyPress={({ nativeEvent }) =>
-                  handleKeyPress(index, nativeEvent.key)
-                }
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
-                textAlign="center"
-              />
-            ))}
-          </View>
-        </View>
+                <View style={styles.otpInputs}>
+                  {otp.map((digit, index) => (
+                    <TextInput
+                      key={index}
+                      ref={(ref) => (inputRefs.current[index] = ref)}
+                      style={[
+                        styles.otpInput,
+                        digit && styles.otpInputFilled,
+                      ]}
+                      value={digit}
+                      onChangeText={(value) => handleOtpChange(index, value)}
+                      onKeyPress={({ nativeEvent }) =>
+                        handleKeyPress(index, nativeEvent.key)
+                      }
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      selectTextOnFocus
+                      textAlign="center"
+                    />
+                  ))}
+                </View>
+              </View>
 
-        <View style={styles.actions}>
-          <Button
-            variant="primary"
-            fullWidth
-            loading={loading}
-            onPress={() => handleVerify()}
-            disabled={otp.some(digit => !digit)}
-          >
-            Verify Code
-          </Button>
+              <View style={styles.actions}>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  loading={loading}
+                  onPress={() => handleVerify()}
+                  disabled={otp.some(digit => !digit)}
+                >
+                  Verify Code
+                </Button>
 
-          <View style={styles.resendContainer}>
-            <Text variant="body" color="secondary">
-              Didn't receive the email?
-            </Text>
-            <Button
-              variant="ghost"
-              onPress={handleResend}
-              disabled={resendTimer > 0}
-              style={styles.resendButton}
-            >
-              {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
-            </Button>
-          </View>
+                <View style={styles.resendContainer}>
+                  <Text variant="body" color="secondary" style={styles.resendText}>
+                    Didn't receive the email?
+                  </Text>
+                  <Button
+                    variant="outline"
+                    onPress={handleResend}
+                    disabled={resendTimer > 0}
+                    style={[
+                      styles.resendButton,
+                      resendTimer > 0 && styles.resendButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.resendButtonText}>
+                      {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+                    </Text>
+                  </Button>
+                </View>
 
-          {onBackToPhone && (
-            <View style={styles.backContainer}>
-              <Button variant="ghost" onPress={onBackToPhone}>
-                Back
-              </Button>
+                {onBackToPhone && (
+                  <View style={styles.backContainer}>
+                    <Button variant="ghost" onPress={onBackToPhone}>
+                      Back
+                    </Button>
+                  </View>
+                )}
+              </View>
             </View>
-          )}
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </View>
-    </KeyboardAvoidingView>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  keyboardAvoid: {
+    width: '100%',
+    justifyContent: 'center',
+  },
+  modalContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 500,
+    borderWidth: 1,
+    borderColor: '#FFFF68',
+    overflow: 'hidden',
   },
   content: {
-    flex: 1,
     padding: 24,
-    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 32,
+    paddingTop: 8,
   },
   title: {
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 4,
+    color: '#FFFFFF',
   },
   subtitle: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    fontSize: 12,
   },
   phoneNumber: {
     textAlign: 'center',
     fontWeight: '600',
+    color: '#FFFF68',
   },
   otpContainer: {
-    marginBottom: 48,
+    marginBottom: 32,
   },
   instruction: {
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
+    fontSize: 13,
   },
   hiddenInput: {
     position: 'absolute',
@@ -261,32 +299,49 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   otpInput: {
-    width: 48,
+    flex: 1,
     height: 56,
     borderWidth: 2,
-    borderColor: colors.border.primary,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 12,
     fontSize: 24,
     fontWeight: '600',
     color: colors.text.primary,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   otpInputFilled: {
-    borderColor: colors.primary.main,
-    backgroundColor: colors.primary.light,
+    borderColor: '#FFFF68',
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
   },
   actions: {
-    gap: 24,
+    gap: 20,
   },
   resendContainer: {
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+  },
+  resendText: {
+    textAlign: 'center',
   },
   resendButton: {
-    paddingHorizontal: 0,
+    borderWidth: 1.5,
+    borderColor: '#FFFF68',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: 'transparent',
+  },
+  resendButtonDisabled: {
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+    opacity: 0.5,
+  },
+  resendButtonText: {
+    color: '#FFFF68',
+    fontWeight: '600',
+    fontSize: 14,
   },
   backContainer: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 8,
   },
 });
