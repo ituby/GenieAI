@@ -706,10 +706,36 @@ You MUST create a "rewards" array in your JSON response!
 - If you have 6 weeks → create 6 rewards
 - Number of rewards MUST EQUAL number of weeks
 
+🚨 LANGUAGE FOR REWARDS:
+ALL reward titles and descriptions MUST be in the SAME LANGUAGE as the goal!
+- If goal is English → rewards in English
+- If goal is Hebrew → rewards in Hebrew
+- If goal is Spanish → rewards in Spanish
+- If goal is German → rewards in German
+- If goal is French → rewards in French
+- If goal is Italian → rewards in Italian
+- If goal is Portuguese → rewards in Portuguese
+- If goal is Russian → rewards in Russian
+- If goal is Chinese → rewards in Chinese
+- If goal is Japanese → rewards in Japanese
+- If goal is Korean → rewards in Korean
+- If goal is Arabic → rewards in Arabic
+- If goal is Hindi → rewards in Hindi
+- If goal is Turkish → rewards in Turkish
+- If goal is Polish → rewards in Polish
+- If goal is Dutch → rewards in Dutch
+- If goal is Swedish → rewards in Swedish
+- If goal is Danish → rewards in Danish
+- If goal is Norwegian → rewards in Norwegian
+(and so on for all supported languages)
+
+NO MIXING LANGUAGES!
+Only High level of native translations and content writing with celebratory, motivating tone.
+
 REWARD STRUCTURE:
 - week: The week number (1, 2, 3, etc.)
-- title: Celebratory achievement title (2-5 words, in same language as goal)
-- description: What they accomplished (1-2 sentences, celebrate progress, in same language)
+- title: Celebratory achievement title (2-5 words, SAME LANGUAGE as goal!)
+- description: What they accomplished (1-2 sentences, celebrate progress, SAME LANGUAGE as goal!)
 - points: Progressive points using this formula:
   * Week 1: 10 + (190 / totalWeeks) × 1 = lower points (around 10-75)
   * Week N: 10 + (190 / totalWeeks) × N = middle points (around 50-150)
