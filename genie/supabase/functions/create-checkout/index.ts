@@ -11,6 +11,8 @@ interface CheckoutRequest {
   type: 'tokens' | 'subscription';
   amount?: number;  // For tokens: number of tokens
   priceId?: string; // For subscription: Stripe price ID
+  successUrl?: string; // Optional custom success URL
+  cancelUrl?: string;  // Optional custom cancel URL
 }
 
 serve(async (req) => {
@@ -55,7 +57,7 @@ serve(async (req) => {
       );
     }
 
-    const { type, amount, priceId }: CheckoutRequest = await req.json();
+    const { type, amount, priceId, successUrl, cancelUrl }: CheckoutRequest = await req.json();
 
     if (!type) {
       return new Response(
@@ -64,11 +66,40 @@ serve(async (req) => {
       );
     }
 
+    // Get or create Stripe customer
+    let stripeCustomerId: string | undefined;
+    const { data: existingCustomer } = await supabase
+      .from('stripe_customers')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingCustomer) {
+      stripeCustomerId = existingCustomer.stripe_customer_id;
+      console.log(`✅ [${requestId}] Using existing Stripe customer: ${stripeCustomerId}`);
+    } else {
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { user_id: user.id },
+      });
+      stripeCustomerId = customer.id;
+
+      // Save to database
+      await supabase.from('stripe_customers').insert({
+        user_id: user.id,
+        stripe_customer_id: customer.id,
+        email: user.email,
+      });
+
+      console.log(`✨ [${requestId}] Created new Stripe customer: ${stripeCustomerId}`);
+    }
+
     let sessionParams: any = {
-      customer_email: user.email,
+      customer: stripeCustomerId,
       mode: type === 'subscription' ? 'subscription' : 'payment',
-      success_url: 'genie://payment-success',
-      cancel_url: 'genie://payment-cancelled',
+      success_url: successUrl || 'genie://payment-success',
+      cancel_url: cancelUrl || 'genie://payment-cancelled',
       metadata: {
         user_id: user.id,
         type: type,
@@ -112,6 +143,13 @@ serve(async (req) => {
         price: priceId,
         quantity: 1,
       }];
+
+      // Add user_id to subscription metadata for webhook processing
+      sessionParams.subscription_data = {
+        metadata: {
+          user_id: user.id,
+        },
+      };
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
