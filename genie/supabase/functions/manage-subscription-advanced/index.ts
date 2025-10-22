@@ -109,11 +109,10 @@ serve(async (req) => {
       );
 
       // Calculate new monthly tokens based on price
-      // This is a simplified example - you might want to store this mapping in your database
       const tokenMapping: Record<string, number> = {
-        'price_basic': 500,
-        'price_standard': 1000,
-        'price_premium': 2500,
+        'price_1SL0uz9mCMmqa2BSombHKoR7': 500,   // Basic
+        'price_1SL0vF9mCMmqa2BSSDnNUCym': 1000,  // Standard
+        'price_1SL0vU9mCMmqa2BSBedO3lAr': 2500,  // Premium
       };
 
       const newMonthlyTokens = tokenMapping[newPriceId] || 1000;

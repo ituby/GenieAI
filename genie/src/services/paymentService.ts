@@ -325,7 +325,7 @@ class PaymentService {
       {
         id: 'basic',
         name: 'Basic',
-        priceId: 'price_basic', // Replace with actual Stripe price ID
+        priceId: 'price_1SL0uz9mCMmqa2BSombHKoR7', // Stripe price ID
         price: 4.99,
         tokens: 500,
         features: [
@@ -337,7 +337,7 @@ class PaymentService {
       {
         id: 'standard',
         name: 'Standard',
-        priceId: 'price_standard', // Replace with actual Stripe price ID
+        priceId: 'price_1SL0vF9mCMmqa2BSSDnNUCym', // Stripe price ID
         price: 9.99,
         tokens: 1000,
         features: [
@@ -351,7 +351,7 @@ class PaymentService {
       {
         id: 'premium',
         name: 'Premium',
-        priceId: 'price_premium', // Replace with actual Stripe price ID
+        priceId: 'price_1SL0vU9mCMmqa2BSBedO3lAr', // Stripe price ID
         price: 19.99,
         tokens: 2500,
         features: [
