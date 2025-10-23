@@ -1997,23 +1997,11 @@ serve(async (req) => {
     } else {
       // Fallback messages (no emojis, Genie style)
       // 🎉 GENIE-STYLE "TASKS READY" NOTIFICATIONS - Exciting, motivating!
-      const hebrewMessages = [
-        { title: 'הכל מוכן בוס!', body: `חבר, ${goalTitle} - ${taskCount} משימות מחכות! יאללה נתחיל את הקסם` },
-        { title: 'זמן לפעולה חבר!', body: `${goalTitle} - ${taskCount} משימות מוכנות. הג׳יני שלך לצידך!` },
-        { title: 'מסע ההצלחה מתחיל!', body: `בוס, ${goalTitle} - ${taskCount} משימות מותאמות מחכות לך` },
-        { title: 'הג׳יני שלך כאן!', body: `${goalTitle} מוכן! ${taskCount} משימות - בוא נעשה קסמים ביחד` },
-        { title: 'יאללה בואנה!', body: `חבר, ${taskCount} משימות ל-${goalTitle} - אתה מוכן לזה!` },
+      const messages = [
+        { title: 'Tasks Ready!', body: `Your Genie created ${taskCount} tasks for "${goalTitle}". Let's get started!` },
+        { title: 'Your Plan is Ready', body: `${taskCount} new tasks created for "${goalTitle}". Time to take action!` },
+        { title: 'Genie Prepared Everything', body: `Tasks for "${goalTitle}" are ready! ${taskCount} steps towards your goal` },
       ];
-      
-      const englishMessages = [
-        { title: 'All set Boss!', body: `Friend, ${goalTitle} - ${taskCount} tasks ready! Let\'s start the magic` },
-        { title: 'Time to act Friend!', body: `${goalTitle} - ${taskCount} tasks ready. Your Genie is with you!` },
-        { title: 'Success journey begins!', body: `Boss, ${goalTitle} - ${taskCount} personalized tasks await you` },
-        { title: 'Your Genie is here!', body: `${goalTitle} ready! ${taskCount} tasks - let\'s make magic together` },
-        { title: 'Let\'s go Champ!', body: `Friend, ${taskCount} tasks for ${goalTitle} - you got this!` },
-      ];
-      
-      const messages = isHebrew ? hebrewMessages : englishMessages;
       completionMessage = messages[Math.floor(Math.random() * messages.length)];
       console.log('⚠️ Using fallback tasks ready notification');
     }

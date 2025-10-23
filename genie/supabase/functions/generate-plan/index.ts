@@ -1498,19 +1498,11 @@ serve(async (req) => {
       console.log('✅ Using AI-generated plan ready notification');
     } else {
       // Fallback messages (no emojis, Genie style)
-      const hebrewMessages = [
-        { title: 'התוכנית מוכנה', body: `חבר, ${title} - הכנתי לך תוכנית מושלמת! בוא תבדוק` },
-        { title: 'הג׳יני הכין משהו מיוחד', body: `${title} - כל פרט מתוכנן בשבילך. בוא נתחיל` },
-        { title: 'הקסם מתחיל', body: `${title} - התוכנית שלך מחכה לך!` },
+      const messages = [
+        { title: 'Plan Outline Ready!', body: `Your Genie created a personalized plan for "${title}". Review and approve to continue!` },
+        { title: 'Your Blueprint is Ready', body: `Plan outline for "${title}" is complete. Check it out and let's get started!` },
+        { title: 'Genie Crafted Your Plan', body: `The outline for "${title}" is ready for your review. Time to make it happen!` },
       ];
-      
-      const englishMessages = [
-        { title: 'Your plan is ready', body: `Friend, ${title} - I crafted the perfect plan for you!` },
-        { title: 'Something special awaits', body: `${title} - Every detail planned just for you. Let\'s begin` },
-        { title: 'The magic begins', body: `${title} - Your personalized plan awaits!` },
-      ];
-      
-      const messages = isHebrew ? hebrewMessages : englishMessages;
       approvalMessage = messages[Math.floor(Math.random() * messages.length)];
       console.log('⚠️ Using fallback plan ready notification');
     }
