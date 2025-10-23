@@ -110,9 +110,10 @@ serve(async (req) => {
 
       // Calculate new monthly tokens based on price
       const tokenMapping: Record<string, number> = {
-        'price_1SL0uz9mCMmqa2BSombHKoR7': 500,   // Basic
-        'price_1SL0vF9mCMmqa2BSSDnNUCym': 1000,  // Standard
-        'price_1SL0vU9mCMmqa2BSBedO3lAr': 2500,  // Premium
+        'price_1SL0uz9mCMmqa2BSombHKoR7': 500,   // Basic ($4.99)
+        'price_1SL0vF9mCMmqa2BSSDnNUCym': 1000,  // Standard Old ($9.99)
+        'price_1SLUWE9mCMmqa2BSeNa94ig7': 1000,  // Standard New ($15.00)
+        'price_1SL0vU9mCMmqa2BSBedO3lAr': 2500,  // Premium ($19.99)
       };
 
       const newMonthlyTokens = tokenMapping[newPriceId] || 1000;

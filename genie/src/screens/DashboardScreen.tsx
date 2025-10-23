@@ -26,6 +26,11 @@ import {
   Stop,
 } from 'react-native-svg';
 import { Text, Card, Icon, Badge, FloatingBottomNav } from '../components';
+import { TokenPurchaseModal } from '../components/domain/TokenPurchaseModal';
+import { paymentService } from '../services/paymentService';
+import { usePaymentNotifications } from '../hooks/usePaymentNotifications';
+import { checkRecentPaymentStatus, checkRecentSubscriptionStatus } from '../utils/paymentUtils';
+import { usePopupContext } from '../contexts/PopupContext';
 import { dataLoadingService } from '../services/dataLoadingService';
 import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Button } from '../components/primitives/Button';
@@ -76,6 +81,10 @@ const STAT_CARD_SIZE = Math.floor(
 export const DashboardScreen: React.FC = () => {
   const theme = useTheme();
   const { user, signOut } = useAuthStore();
+  
+  // Initialize payment notifications
+  usePaymentNotifications();
+  const { showAlert } = usePopupContext();
   const {
     activeGoals,
     loading,
@@ -235,6 +244,23 @@ export const DashboardScreen: React.FC = () => {
 
         // Setup push notifications
         PushTokenService.setupPushNotifications(user.id);
+        
+        // Check for recent payment status and show notifications
+        setTimeout(async () => {
+          try {
+            const paymentResult = await checkRecentPaymentStatus(user.id);
+            if (paymentResult) {
+              showAlert(paymentResult.message, paymentResult.success ? '✅ Payment Success' : '❌ Payment Error');
+            }
+            
+            const subscriptionResult = await checkRecentSubscriptionStatus(user.id);
+            if (subscriptionResult) {
+              showAlert(subscriptionResult.message, '🎉 Subscription Active');
+            }
+          } catch (error) {
+            console.error('Error checking payment status:', error);
+          }
+        }, 2000); // Wait 2 seconds after dashboard loads
 
         // Check if there are pending goals (paused status = waiting for approval)
         (async () => {
@@ -1037,18 +1063,14 @@ export const DashboardScreen: React.FC = () => {
               <TouchableOpacity
                 style={[
                   styles.purchaseTokensButton,
-                  !userTokens.isSubscribed &&
-                    styles.purchaseTokensButtonDisabled,
                 ]}
-                disabled={!userTokens.isSubscribed}
-                activeOpacity={userTokens.isSubscribed ? 0.8 : 1}
+                disabled={false}
+                activeOpacity={0.8}
                 onPress={() => setShowTokenPurchaseModal(true)}
               >
                 <Text
                   style={[
                     styles.purchaseTokensText,
-                    !userTokens.isSubscribed &&
-                      styles.purchaseTokensTextDisabled,
                   ]}
                 >
                   Add Tokens
@@ -1056,11 +1078,7 @@ export const DashboardScreen: React.FC = () => {
                 <Icon
                   name="coins"
                   size={16}
-                  color={
-                    userTokens.isSubscribed
-                      ? '#FFFF68'
-                      : 'rgba(255, 255, 104, 0.4)'
-                  }
+                  color="#FFFF68"
                   weight="fill"
                 />
               </TouchableOpacity>
@@ -1365,7 +1383,7 @@ export const DashboardScreen: React.FC = () => {
                         </Text>
                         <Icon
                           name="sparkle"
-                          size={16}
+                          size={14}
                           color="#FFFFFF"
                           weight="fill"
                         />
@@ -1802,224 +1820,15 @@ export const DashboardScreen: React.FC = () => {
         />
       )}
 
-      {/* Token Purchase Modal (native) */}
-      {showTokenPurchaseModal && (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          presentationStyle="overFullScreen"
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <Icon name="coins" size={24} color="#FFFF68" weight="fill" />
-                <Text variant="h3" style={styles.modalTitle}>
-                  Purchase Tokens
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowTokenPurchaseModal(false);
-                    setCustomTokenAmount('');
-                    setCustomTokenPrice(0);
-                    setSelectedPackage(null);
-                  }}
-                  style={styles.modalCloseButton}
-                >
-                  <Icon
-                    name="x"
-                    size={20}
-                    color={theme.colors.text.secondary}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.modalScrollView}
-                contentContainerStyle={styles.modalScrollContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Token Packages Section */}
-                <View style={styles.tokenPackagesSection}>
-                  <Text variant="h4" style={styles.sectionTitle}>
-                    Choose Package
-                  </Text>
-                  <View style={styles.tokenOptions}>
-                    <TouchableOpacity
-                      style={[
-                        styles.tokenOption,
-                        selectedPackage === 100 && styles.tokenOptionSelected,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setSelectedPackage(100);
-                        setCustomTokenAmount('100');
-                        setCustomTokenPrice(4.99);
-                      }}
-                    >
-                      <View style={styles.tokenOptionContent}>
-                        <View style={styles.tokenOptionLeft}>
-                          <Text variant="h4" style={styles.tokenAmount}>
-                            100 Tokens
-                          </Text>
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            style={styles.tokenDescription}
-                          >
-                            ~1 detailed goal
-                          </Text>
-                        </View>
-                        <Text variant="h3" style={styles.tokenPrice}>
-                          $4.99
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.tokenOption,
-                        selectedPackage === 500 && styles.tokenOptionSelected,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setSelectedPackage(500);
-                        setCustomTokenAmount('500');
-                        setCustomTokenPrice(19.99);
-                      }}
-                    >
-                      <View style={styles.popularBadge}>
-                        <Text variant="caption" style={styles.popularText}>
-                          POPULAR
-                        </Text>
-                      </View>
-                      <View style={styles.tokenOptionContent}>
-                        <View style={styles.tokenOptionLeft}>
-                          <Text variant="h4" style={styles.tokenAmount}>
-                            500 Tokens
-                          </Text>
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            style={styles.tokenDescription}
-                          >
-                            ~7 detailed goals
-                          </Text>
-                        </View>
-                        <Text variant="h3" style={styles.tokenPrice}>
-                          $19.99
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.tokenOption,
-                        selectedPackage === 1000 && styles.tokenOptionSelected,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setSelectedPackage(1000);
-                        setCustomTokenAmount('1000');
-                        setCustomTokenPrice(34.99);
-                      }}
-                    >
-                      <View style={styles.tokenOptionContent}>
-                        <View style={styles.tokenOptionLeft}>
-                          <Text variant="h4" style={styles.tokenAmount}>
-                            1000 Tokens
-                          </Text>
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            style={styles.tokenDescription}
-                          >
-                            ~14 detailed goals • Best value
-                          </Text>
-                        </View>
-                        <Text variant="h3" style={styles.tokenPrice}>
-                          $34.99
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Custom Token Amount Input */}
-                <View style={styles.customTokenSection}>
-                  <Text variant="h4" style={styles.sectionTitle}>
-                    Custom Amount
-                  </Text>
-                  <View style={styles.customTokenInputContainer}>
-                    <TextInput
-                      style={styles.customTokenInput}
-                      value={customTokenAmount}
-                      onChangeText={handleCustomTokenChange}
-                      placeholder="Enter amount"
-                      placeholderTextColor={theme.colors.text.secondary}
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                    <Text
-                      variant="caption"
-                      color="secondary"
-                      style={styles.customTokenLabel}
-                    >
-                      tokens
-                    </Text>
-                  </View>
-                  {customTokenPrice > 0 && (
-                    <View style={styles.customTokenPriceContainer}>
-                      <Text variant="h3" style={styles.customTokenPrice}>
-                        ${customTokenPrice.toFixed(2)}
-                      </Text>
-                      <Text
-                        variant="caption"
-                        color="secondary"
-                        style={styles.customTokenPriceLabel}
-                      >
-                        Total Price
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Purchase Button Section */}
-                <View style={styles.purchaseSection}>
-                  <TouchableOpacity
-                    style={styles.purchaseButton}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      // TODO: Implement purchase logic
-                      setShowTokenPurchaseModal(false);
-                      alert('Purchase feature coming soon!');
-                    }}
-                  >
-                    <Icon
-                      name="credit-card"
-                      size={20}
-                      color="#000000"
-                      weight="fill"
-                    />
-                    <Text variant="h4" style={styles.purchaseButtonText}>
-                      Complete Purchase
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Description */}
-                  <Text
-                    variant="caption"
-                    color="secondary"
-                    style={styles.purchaseDescription}
-                  >
-                    1 token = 1 task • ~70 tokens per goal • Non-refundable
-                  </Text>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      )}
+      {/* Token Purchase Modal */}
+      <TokenPurchaseModal
+        visible={showTokenPurchaseModal}
+        onClose={() => setShowTokenPurchaseModal(false)}
+        onSuccess={() => {
+          // Refresh token data after successful purchase
+          fetchUserTokens();
+        }}
+      />
 
       {/* Subscription Modal */}
       {showSubscriptionModal && (
@@ -2049,8 +1858,7 @@ export const DashboardScreen: React.FC = () => {
                   color="secondary"
                   style={styles.modalDescription}
                 >
-                  Unlock the full potential of Genie with unlimited goals,
-                  advanced AI features, premium rewards, and exclusive benefits.
+                  Join Genie Premium and unlock the full potential with advanced AI features and unlimited access.
                 </Text>
 
                 <View style={styles.modalFeatures}>
@@ -2060,11 +1868,11 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Unlimited goal creation
+                      1000 tokens every month - worth $50
                     </Text>
                     <Icon
-                      name="arrows-clockwise"
-                      size={16}
+                      name="coins"
+                      size={14}
                       color="#FFFF68"
                       weight="fill"
                     />
@@ -2075,11 +1883,11 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Advanced AI insights & analytics
+                      Discounted token purchases
                     </Text>
                     <Icon
-                      name="brain"
-                      size={16}
+                      name="percent"
+                      size={14}
                       color="#FFFF68"
                       weight="fill"
                     />
@@ -2090,11 +1898,11 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Update plan feature
+                      Advanced user preferences
                     </Text>
                     <Icon
-                      name="arrow-clockwise"
-                      size={16}
+                      name="gear"
+                      size={14}
                       color="#FFFF68"
                       weight="fill"
                     />
@@ -2105,11 +1913,11 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Premium rewards & achievements
+                      Early access to beta features
                     </Text>
                     <Icon
-                      name="trophy"
-                      size={16}
+                      name="star"
+                      size={14}
                       color="#FFFF68"
                       weight="fill"
                     />
@@ -2120,11 +1928,11 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Priority customer support
+                      Advanced scoring system
                     </Text>
                     <Icon
-                      name="headset"
-                      size={16}
+                      name="chart-bar"
+                      size={14}
                       color="#FFFF68"
                       weight="fill"
                     />
@@ -2135,15 +1943,25 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Early access to new features
+                      Personal coaching via smart notifications
                     </Text>
                     <Icon
-                      name="sparkle"
-                      size={16}
+                      name="bell"
+                      size={14}
                       color="#FFFF68"
                       weight="fill"
                     />
                   </View>
+                </View>
+
+                <View style={styles.cancellationInfo}>
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.cancellationText}
+                  >
+                    Cancel anytime - billing stops immediately for the next month when you cancel your subscription
+                  </Text>
                 </View>
               </View>
             </ScrollView>
@@ -2151,14 +1969,26 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalSubscribeButton}
-                onPress={() => {
-                  // TODO: Implement subscription logic
+                onPress={async () => {
+                  try {
                   setShowSubscriptionModal(false);
-                  alert('Subscription feature coming soon!');
+                    
+                    // Create subscription checkout with Standard plan ($15)
+                    const response = await paymentService.createSubscription('price_1SLUWE9mCMmqa2BSeNa94ig7');
+                    
+                    if (response.success && response.url) {
+                      await paymentService.openCheckout(response.url);
+                    } else {
+                      alert('Error creating subscription: ' + (response.error || 'Unknown error'));
+                    }
+                  } catch (error) {
+                    console.error('Error starting subscription:', error);
+                    alert('Error starting subscription. Please try again.');
+                  }
                 }}
               >
                 <Text style={styles.modalSubscribeButtonText}>
-                  Subscribe Now - $9.99/month
+                  Subscribe Now - $15/month
                 </Text>
               </TouchableOpacity>
             </View>
@@ -3032,20 +2862,28 @@ const styles = StyleSheet.create({
   modalFeatureText: {
     flex: 1,
     textAlign: 'left',
+    fontSize: 13,
+    lineHeight: 18,
   },
   modalScrollView: {
     flex: 1,
     paddingHorizontal: 16,
   },
   modalScrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   modalActions: {
     width: '100%',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 104, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginTop: 'auto',
   },
   modalSubscribeButton: {
     backgroundColor: '#FFFF68',
@@ -3059,6 +2897,20 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
     fontWeight: '700',
+  },
+  cancellationInfo: {
+    backgroundColor: 'rgba(255, 255, 104, 0.1)',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.2)',
+  },
+  cancellationText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   // Token Purchase Modal Styles
   tokenPackagesSection: {

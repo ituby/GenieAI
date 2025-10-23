@@ -6,10 +6,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { Modal } from '../primitives/Modal/Modal';
+import { Modal } from 'react-native';
 import { Button } from '../primitives/Button/Button';
 import { paymentService } from '../../services/paymentService';
-import { useTheme } from '../../theme/ThemeContext';
+import { useTheme } from '../../theme';
 
 interface SubscriptionManagementModalProps {
   visible: boolean;
@@ -414,13 +414,67 @@ export const SubscriptionManagementModal: React.FC<SubscriptionManagementModalPr
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title="Subscription">
-      {activeSubscription ? renderActiveSubscription() : renderNoSubscription()}
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+              Subscription
+            </Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={[styles.closeButtonText, { color: colors.text.secondary }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            {activeSubscription ? renderActiveSubscription() : renderNoSubscription()}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    padding: 20,
+  },
   container: {
     padding: 20,
   },

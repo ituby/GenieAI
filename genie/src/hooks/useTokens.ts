@@ -59,7 +59,7 @@ export const useTokens = () => {
             monthlyTokens: 100,  // Free users default
             lastResetAt: null,
             canUseTokens: false,
-            canPurchaseTokens: false,
+            canPurchaseTokens: true, // All users can purchase tokens
             needsSubscription: true,
           });
         } else {
@@ -74,7 +74,7 @@ export const useTokens = () => {
           monthlyTokens: data.monthly_tokens || 0,
           lastResetAt: data.last_reset_at || null,
           canUseTokens: (data.tokens_remaining || 0) > 0,
-          canPurchaseTokens: data.is_subscribed || false,
+          canPurchaseTokens: true, // All users can purchase tokens
           needsSubscription: !data.is_subscribed && (data.tokens_remaining || 0) === 0,
         });
       }

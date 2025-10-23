@@ -5,7 +5,8 @@ import { View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { ThemeProvider } from './src/theme/index';
-import { PopupProvider } from './src/contexts/PopupContext';
+import { PopupProvider, usePopupContext } from './src/contexts/PopupContext';
+import { paymentService } from './src/services/paymentService';
 import { useAuthStore } from './src/store/useAuthStore';
 // Text and Icon imports removed - no longer needed
 // useTranslation import removed - no longer needed
@@ -16,6 +17,7 @@ import { TermsAcceptanceScreen } from './src/screens/TermsAcceptanceScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { SplashScreen } from './src/components/SplashScreen';
 import { UpdateAvailableModal } from './src/components/UpdateAvailableModal';
+import { PaymentHandler } from './src/components/PaymentHandler';
 // i18n removed
 
 const ONBOARDING_KEY = 'hasSeenOnboarding';
@@ -82,6 +84,25 @@ export default function App() {
   useEffect(() => {
     const handleDeepLink = async (url: string) => {
       console.log('🔗 Deep link received:', url);
+      
+      // Handle payment callbacks
+      if (url.includes('payment-success') || url.includes('payment-cancelled')) {
+        console.log('💳 Payment callback received:', url);
+        const result = await paymentService.handlePaymentCallback(url);
+        
+        if (result.success && result.type === 'success') {
+          // Payment successful - refresh data and show success popup
+          setTimeout(() => {
+            alert('Payment successful! Your tokens have been added.');
+          }, 1000);
+        } else if (result.type === 'cancelled') {
+          // Payment cancelled
+          setTimeout(() => {
+            alert('Payment cancelled.');
+          }, 1000);
+        }
+        return;
+      }
       
       // Handle password reset deep links
       if (url.includes('reset-password') || url.includes('access_token')) {
@@ -354,6 +375,7 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <PopupProvider>
+          <PaymentHandler>
           <DashboardScreen />
           <UpdateAvailableModal
             visible={showUpdateModal}
@@ -362,6 +384,7 @@ export default function App() {
             updateInfo={updateInfo}
           />
           <StatusBar style="light" />
+          </PaymentHandler>
         </PopupProvider>
       </ThemeProvider>
     </SafeAreaProvider>

@@ -4,7 +4,7 @@
  * Service for handling Stripe payments via Supabase Edge Functions
  */
 
-import { supabase } from './supabase/supabaseClient';
+import { supabase } from './supabase/client';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -312,9 +312,16 @@ class PaymentService {
   /**
    * Calculate token purchase price
    */
-  calculateTokenPrice(amount: number): number {
+  calculateTokenPrice(amount: number, isSubscribed: boolean = false): number {
     const pricePerToken = 0.05; // $0.05 per token
-    return amount * pricePerToken;
+    const basePrice = amount * pricePerToken;
+    
+    // 15% discount for subscribers
+    if (isSubscribed) {
+      return basePrice * 0.85; // 15% discount
+    }
+    
+    return basePrice;
   }
 
   /**
@@ -337,8 +344,8 @@ class PaymentService {
       {
         id: 'standard',
         name: 'Standard',
-        priceId: 'price_1SL0vF9mCMmqa2BSSDnNUCym', // Stripe price ID
-        price: 9.99,
+        priceId: 'price_1SLUWE9mCMmqa2BSeNa94ig7', // Stripe price ID ($15)
+        price: 15.00,
         tokens: 1000,
         features: [
           '1,000 tokens per month',

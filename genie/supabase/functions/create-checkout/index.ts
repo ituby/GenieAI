@@ -115,15 +115,30 @@ serve(async (req) => {
         );
       }
 
+      // Check if user is subscribed for discount
+      const { data: userTokens } = await supabase
+        .from('user_tokens')
+        .select('is_subscribed')
+        .eq('user_id', user.id)
+        .single();
+
+      const isSubscribed = userTokens?.is_subscribed || false;
       const pricePerToken = 0.05; // $0.05 per token
-      const totalPrice = Math.round(amount * pricePerToken * 100); // in cents
+      let totalPrice = amount * pricePerToken;
+      
+      // Apply 15% discount for subscribers
+      if (isSubscribed) {
+        totalPrice = totalPrice * 0.85; // 15% discount
+      }
+      
+      totalPrice = Math.round(totalPrice * 100); // Convert to cents
 
       sessionParams.line_items = [{
         price_data: {
           currency: 'usd',
           product_data: {
-            name: `${amount} Genie Tokens`,
-            description: `${amount} tokens for creating goals and tasks`,
+            name: `${amount} Genie Tokens${isSubscribed ? ' (15% Subscriber Discount)' : ''}`,
+            description: `${amount} tokens for creating goals and tasks${isSubscribed ? ' - Premium subscriber discount applied' : ''}`,
           },
           unit_amount: totalPrice,
         },
