@@ -15,7 +15,8 @@
         "UIBackgroundModes": [
           "remote-notification"
         ]
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {

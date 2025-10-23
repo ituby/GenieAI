@@ -18,12 +18,12 @@ interface TokenPurchaseModalProps {
 }
 
 const TOKEN_PACKAGES = [
-  { amount: 50, price: 2.5, popular: false },
-  { amount: 100, price: 5, popular: false },
-  { amount: 250, price: 12.5, popular: true },
-  { amount: 500, price: 25, popular: false },
-  { amount: 1000, price: 50, popular: false },
-  { amount: 2000, price: 100, popular: false },
+  { amount: 50, price: 2.5 },
+  { amount: 100, price: 5 },
+  { amount: 250, price: 12.5 },
+  { amount: 500, price: 25 },
+  { amount: 1000, price: 50 },
+  { amount: 2000, price: 100 },
 ];
 
 export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
@@ -39,9 +39,13 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
 
   // Calculate prices with subscriber discount
   const getDisplayPrice = (originalPrice: number) => {
+    console.log('🔍 TokenPurchaseModal - isSubscribed:', isSubscribed);
     if (isSubscribed) {
-      return originalPrice * 0.85; // 15% discount
+      const discountedPrice = originalPrice * 0.85; // 15% discount
+      console.log(`💰 Discount applied: $${originalPrice} → $${discountedPrice.toFixed(2)}`);
+      return discountedPrice;
     }
+    console.log(`💰 No discount: $${originalPrice}`);
     return originalPrice;
   };
 
@@ -181,11 +185,6 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                   onPress={() => setSelectedPackage(2)}
                   disabled={loading}
                 >
-                  <View style={styles.popularBadge}>
-                    <Text style={styles.popularText}>
-                      POPULAR
-                    </Text>
-                  </View>
                   <View style={styles.tokenOptionContent}>
                     <Text style={styles.tokenAmount}>
                       250
@@ -416,6 +415,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'column',
     gap: 12,
+    marginBottom: 20,
   },
   tokenRow: {
     flexDirection: 'row',
@@ -457,7 +457,9 @@ const styles = StyleSheet.create({
   popularBadge: {
     position: 'absolute',
     top: -6,
-    right: 12,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     backgroundColor: '#FFFF68',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -471,6 +473,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
     zIndex: 10,
+    alignSelf: 'center',
+    maxWidth: 80,
   },
   popularText: {
     color: '#000000',
