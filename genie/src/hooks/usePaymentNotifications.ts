@@ -27,7 +27,7 @@ export const usePaymentNotifications = () => {
         content: {
           title,
           body,
-          sound: 'magic', // Uses iPhone "Magic" sound on iOS, default on Android
+          sound: 'chime', // Uses iPhone "Chime" sound on iOS, default on Android
           data: { type: 'payment' },
         },
         trigger: null, // Show immediately

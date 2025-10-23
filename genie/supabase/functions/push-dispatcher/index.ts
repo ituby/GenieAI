@@ -105,7 +105,7 @@ serve(async (req) => {
         try {
           const message = {
             to: token.expo_token,
-            sound: sound ? 'default' : undefined,
+            sound: sound ? 'chime' : undefined,
             title,
             body,
             data: data || {},
