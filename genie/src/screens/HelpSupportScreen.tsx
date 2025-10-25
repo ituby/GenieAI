@@ -228,7 +228,7 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
             style={[styles.tab, activeTab === 'faq' && styles.activeTab]}
             onPress={() => setActiveTab('faq')}
           >
-            <Text variant="body" color={activeTab === 'faq' ? 'primary-color' : 'secondary'}>
+            <Text variant="bodySmall" color={activeTab === 'faq' ? 'primary-color' : 'secondary'}>
               FAQ
             </Text>
           </TouchableOpacity>
@@ -236,7 +236,7 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
             style={[styles.tab, activeTab === 'contact' && styles.activeTab]}
             onPress={() => setActiveTab('contact')}
           >
-            <Text variant="body" color={activeTab === 'contact' ? 'primary-color' : 'secondary'}>
+            <Text variant="bodySmall" color={activeTab === 'contact' ? 'primary-color' : 'secondary'}>
               Contact
             </Text>
           </TouchableOpacity>
@@ -244,7 +244,7 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
             style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
             onPress={() => setActiveTab('requests')}
           >
-            <Text variant="body" color={activeTab === 'requests' ? 'primary-color' : 'secondary'}>
+            <Text variant="bodySmall" color={activeTab === 'requests' ? 'primary-color' : 'secondary'}>
               My Requests
             </Text>
           </TouchableOpacity>

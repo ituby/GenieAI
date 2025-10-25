@@ -7,3 +7,4 @@ export * from './Switch';
 export * from './CustomRefreshControl';
 export * from './TalkWithGenieButton';
 export * from './PasswordStrengthMeter';
+export * from './FireflyBackground';

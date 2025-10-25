@@ -398,7 +398,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
                 <Text variant="h2" style={styles.usageNumber}>
                   {subscriptionData.tokensUsed}
                 </Text>
-                <Text variant="caption" style={styles.usageLabel}>
+                <Text variant="caption" color="secondary" style={styles.usageLabel}>
                   Used
                 </Text>
               </View>
@@ -407,17 +407,8 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
                 <Text variant="h2" style={styles.usageNumber}>
                   {subscriptionData.tokensRemaining}
                 </Text>
-                <Text variant="caption" style={styles.usageLabel}>
+                <Text variant="caption" color="secondary" style={styles.usageLabel}>
                   Remaining
-                </Text>
-              </View>
-              <View style={styles.usageDivider} />
-              <View style={styles.usageStat}>
-                <Text variant="h2" style={styles.usageNumber}>
-                  {subscriptionData.monthlyTokens}
-                </Text>
-                <Text variant="caption" style={styles.usageLabel}>
-                  Monthly Limit
                 </Text>
               </View>
             </View>
@@ -428,14 +419,15 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
                   style={[
                     styles.usageProgressFill,
                     {
-                      width: `${(subscriptionData.tokensUsed / subscriptionData.monthlyTokens) * 100}%`,
+                      width: `${(subscriptionData.tokensUsed / (subscriptionData.tokensUsed + subscriptionData.tokensRemaining)) * 100}%`,
                     },
                   ]}
                 />
               </View>
-              <Text variant="caption" style={styles.usageProgressText}>
+              <Text variant="caption" color="tertiary" style={styles.usageProgressText}>
                 {subscriptionData.tokensUsed} of{' '}
-                {subscriptionData.monthlyTokens} tokens used this month
+                {subscriptionData.tokensUsed + subscriptionData.tokensRemaining}{' '}
+                total tokens used
               </Text>
             </View>
           </Card>

@@ -10,6 +10,7 @@ export * from './primitives/Dropdown';
 export * from './primitives/FloatingBottomNav/FloatingBottomNav';
 export * from './primitives/Popup/Popup';
 export * from './primitives/PasswordStrengthMeter';
+export * from './primitives/FireflyBackground';
 
 // Complex components (to be added)
 // export * from './complex/HeaderBar';

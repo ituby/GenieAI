@@ -61,6 +61,7 @@ import { HelpSupportScreen } from './HelpSupportScreen';
 import { SubscriptionScreen } from './SubscriptionScreen';
 import { MyPlansScreen } from './MyPlansScreen';
 import { DailyGoalsScreen } from './DailyGoalsScreen';
+import { OnboardingScreen } from './OnboardingScreen';
 import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 import { useNotificationCount } from '../hooks/useNotificationCount';
@@ -108,6 +109,7 @@ export const DashboardScreen: React.FC = () => {
   const [showSubscription, setShowSubscription] = React.useState(false);
   const [showMyPlans, setShowMyPlans] = React.useState(false);
   const [showDailyGoals, setShowDailyGoals] = React.useState(false);
+  const [showOnboarding, setShowOnboarding] = React.useState(false);
   const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
   const [totalPoints, setTotalPoints] = React.useState(0);
   const [showSideMenu, setShowSideMenu] = React.useState(false);
@@ -1682,6 +1684,19 @@ export const DashboardScreen: React.FC = () => {
               >
                 Help & Support
               </Button>
+              {/* Temporary Onboarding Button */}
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowOnboarding(true);
+                }}
+                rightIcon={<Icon name="info" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                View Tutorial
+              </Button>
               {userTokens.isSubscribed && (
                 <Button
                   variant="ghost"
@@ -1778,6 +1793,13 @@ export const DashboardScreen: React.FC = () => {
             requestAnimationFrame(() => setShowTokenPurchaseModal(true));
           }}
         />
+      )}
+
+      {/* Onboarding Screen - Fullscreen Overlay */}
+      {showOnboarding && (
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]}>
+          <OnboardingScreen onComplete={() => setShowOnboarding(false)} />
+        </View>
       )}
 
       {/* My Plans Screen */}
