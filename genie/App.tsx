@@ -176,19 +176,22 @@ export default function App() {
     checkOtpStatus();
   }, [isAuthenticated, user?.email, checkPendingOtp]);
 
-  // Reset splash screen when user becomes authenticated
+  // Hide splash when initialization is complete
   useEffect(() => {
-    if (isAuthenticated && !needsTermsAcceptance) {
-      setShowSplash(true);
+    if (!loading) {
+      // Small delay to ensure smooth transition
+      setTimeout(() => {
+        setShowSplash(false);
+      }, 500);
     }
-  }, [isAuthenticated, needsTermsAcceptance]);
+  }, [loading]);
 
   // Reset onboarding when user signs out
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !loading) {
       setShowOnboarding(true);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loading]);
 
   const handleOnboardingComplete = () => {
     // Just hide onboarding and show login screen
@@ -230,6 +233,26 @@ export default function App() {
     setShowUpdateModal(false);
     setUpdateInfo(null);
   };
+
+  // Show splash screen during initialization (FIRST!)
+  if (loading || showSplash) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <PopupProvider>
+            <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
+            <StatusBar style="light" />
+          </PopupProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
 
   // Show password reset screen if deep link was triggered
   if (showPasswordReset) {
@@ -341,26 +364,7 @@ export default function App() {
     );
   }
 
-  // Show splash screen before dashboard if authenticated and terms accepted
-  if (showSplash) {
-    return (
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <PopupProvider>
-            <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
-            <UpdateAvailableModal
-              visible={showUpdateModal}
-              onUpdate={handleUpdateApp}
-              onDismiss={handleDismissUpdate}
-              updateInfo={updateInfo}
-            />
-            <StatusBar style="light" />
-          </PopupProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    );
-  }
-
+  // User is fully authenticated - show Dashboard
   console.log('🎯 Rendering Dashboard - user is fully authenticated and verified');
   console.log('🔐 Current auth state:', { isAuthenticated, user: !!user });
   return (

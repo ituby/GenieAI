@@ -903,7 +903,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               {
                 translateY: logoPosition.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0, -180], // Center when 0, moves up 180px when 1
+                  outputRange: [0, -100], // Center when 0, moves up 100px when 1
                 })
               }
             ],
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
   },
   fixedLogoContainer: {
     position: 'absolute',
-    top: 180,
+    top: 260,
     left: 0,
     right: 0,
     zIndex: 1000,
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingTop: 120,
+    paddingTop: 180,
   },
   slideContent: {
     alignItems: 'center',
