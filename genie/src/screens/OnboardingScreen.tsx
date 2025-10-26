@@ -48,6 +48,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   const demoSlideIn = useRef(new Animated.Value(0)).current;
   const demoOpacity = useRef(new Animated.Value(0)).current;
   const taskScrollViewRef = useRef<ScrollView>(null);
+  const preferencesScrollViewRef = useRef<ScrollView>(null);
   const [promptText, setPromptText] = useState('');
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [logoAnimated, setLogoAnimated] = useState(false);
@@ -56,6 +57,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   const [checkedTasks, setCheckedTasks] = useState([false, false, false, false, false, false]);
   const [statValues, setStatValues] = useState([0, 0, 0]);
   const [unlockedRewards, setUnlockedRewards] = useState([false, false, false]);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [planDuration, setPlanDuration] = useState(7);
+  const [showDurationDropdown, setShowDurationDropdown] = useState(false);
+  const [timeRanges, setTimeRanges] = useState<Array<{start_hour: number, end_hour: number}>>([
+    { start_hour: 8, end_hour: 12 },
+    { start_hour: 14, end_hour: 18 },
+    { start_hour: 19, end_hour: 23 },
+  ]);
 
   // Breathing animation for logo - runs continuously
   useEffect(() => {
@@ -106,7 +115,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
     const slideDurations = [
       9000,  // Slide 0: Welcome - 9 seconds (8s + 1s extra)
       7000,  // Slide 1: Prompt typing - 7 seconds (6s + 1s extra)
-      8000,  // Slide 2: Outline progress - 8 seconds (7s + 1s extra)
+      11000, // Slide 2: Day/time/duration selection demo - 11 seconds (10s + 1s extra)
       9000,  // Slide 3: Tasks checking - 9 seconds (8s + 1s extra)
       7000,  // Slide 4: Stats counting - 7 seconds (6s + 1s extra)
       8000,  // Slide 5: Rewards - 8 seconds (7s + 1s extra)
@@ -326,8 +335,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
     },
     {
       key: 'slide2',
-      title: 'Get Your 21-Day Plan',
-      description: 'Receive a personalized roadmap',
+      title: 'Customize Your Plan',
+      description: 'Choose your preferred days\nand times for your 3-week journey',
       icon: 'calendar',
     },
     {
@@ -360,6 +369,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   const startInternalAnimations = (slideIndex: number) => {
     // Reset all demo states
     setPromptText('');
+    setSelectedDays([]);
+    setPlanDuration(7);
+    setShowDurationDropdown(false);
+    setTimeRanges([
+      { start_hour: 0, end_hour: 1 },
+      { start_hour: 0, end_hour: 1 },
+      { start_hour: 0, end_hour: 1 },
+    ]);
     setOutlineProgress([0, 0, 0]);
     setCheckedTasks([false, false, false, false, false, false]);
     setStatValues([0, 0, 0]);
@@ -385,7 +402,83 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
     }
 
     if (slideIndex === 2) {
-      // Slide 3: Progress bars animation
+      // Slide 3: Day, time, and duration selection animation
+      setTimeout(() => {
+        // Step 1: Open dropdown
+        setTimeout(() => {
+          setShowDurationDropdown(true);
+        }, 300);
+        
+        // Step 2: Animate plan duration from 7 to 21 days (inside open dropdown)
+        setTimeout(() => {
+          let currentDuration = 7;
+          const durationInterval = setInterval(() => {
+            if (currentDuration <= 21) {
+              setPlanDuration(currentDuration);
+              currentDuration += 7;
+            } else {
+              clearInterval(durationInterval);
+            }
+          }, 400);
+        }, 500);
+        
+        // Step 3: Close dropdown after selection
+        setTimeout(() => {
+          setShowDurationDropdown(false);
+        }, 1800);
+        
+        // Step 4: Animate selecting days: Monday, Tuesday, Wednesday, Thursday, Friday
+        setTimeout(() => {
+          const daysToSelect = [1, 2, 3, 4, 5];
+          daysToSelect.forEach((day, idx) => {
+            setTimeout(() => {
+              setSelectedDays(prev => [...prev, day]);
+            }, idx * 350);
+          });
+        }, 2200);
+        
+        // Step 5: Scroll down to show time ranges (needs to scroll more!)
+        setTimeout(() => {
+          preferencesScrollViewRef.current?.scrollTo({
+            y: 200,  // Increased scroll distance
+            animated: true,
+          });
+        }, 4200);
+        
+        // Step 6: Show time ranges being adjusted
+        setTimeout(() => {
+          // Adjust morning time
+          setTimeout(() => {
+            setTimeRanges(prev => [
+              { start_hour: 8, end_hour: 12 },
+              prev[1],
+              prev[2],
+            ]);
+          }, 600);
+          
+          // Adjust afternoon time
+          setTimeout(() => {
+            setTimeRanges(prev => [
+              prev[0],
+              { start_hour: 14, end_hour: 18 },
+              prev[2],
+            ]);
+          }, 1200);
+          
+          // Adjust evening time
+          setTimeout(() => {
+            setTimeRanges(prev => [
+              prev[0],
+              prev[1],
+              { start_hour: 19, end_hour: 23 },
+            ]);
+          }, 1800);
+        }, 5000);
+      }, 300);
+    }
+
+    if (slideIndex === 3) {
+      // Slide 4: Progress bars animation
       setTimeout(() => {
         // Week 1 progress
         setTimeout(() => {
@@ -560,38 +653,150 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
     }
 
     if (index === 2) {
-      // Slide 3: Get Your Plan - Outline demonstration (using real outline structure)
+      // Slide 3: Customize Your Plan - Day and time selection
       return (
         <View style={styles.demoContainer}>
-          <Card variant="elevated" padding="md" style={styles.demoCardReal}>
+          <Card variant="elevated" padding="md" style={styles.demoCardRealScrollable}>
             <View style={styles.demoCardHeaderRow}>
               <Icon name="calendar" size={20} color="#FFFF68" weight="fill" />
-              <Text variant="h4" style={styles.demoCardTitleReal}>Your 21-Day Plan</Text>
+              <Text variant="h4" style={styles.demoCardTitleReal}>3-Week Plan</Text>
             </View>
-            <View style={styles.demoOutlineList}>
+            
+            <ScrollView 
+              ref={preferencesScrollViewRef}
+              style={styles.demoScrollView}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={false}
+            >
+              {/* Plan Duration Selection */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={styles.demoSectionTitle}>Plan Duration</Text>
+                <View style={styles.demoDurationSelector}>
+                  <Icon name="calendar-blank" size={16} color="#FFFF68" weight="fill" />
+                  <Text style={styles.demoDurationText}>
+                    {planDuration} days ({planDuration / 7} {planDuration === 7 ? 'week' : 'weeks'})
+                  </Text>
+                  <Icon 
+                    name={showDurationDropdown ? "caret-up" : "caret-down"} 
+                    size={14} 
+                    color="rgba(255, 255, 255, 0.5)" 
+                    weight="fill" 
+                  />
+                </View>
+                {/* Dropdown Options */}
+                {showDurationDropdown && (
+                  <View style={styles.demoDropdownOptions}>
+                    {[7, 14, 21].map((days) => (
+                      <View 
+                        key={days}
+                        style={[
+                          styles.demoDropdownOption,
+                          planDuration === days && styles.demoDropdownOptionSelected
+                        ]}
+                      >
+                        <Text 
+                          style={[
+                            styles.demoDropdownOptionText,
+                            planDuration === days && styles.demoDropdownOptionTextSelected
+                          ]}
+                        >
+                          {days} days ({days / 7} {days === 7 ? 'week' : 'weeks'})
+                        </Text>
+                        {planDuration === days && (
+                          <Icon name="check" size={14} color="#FFFF68" weight="bold" />
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+              
+              {/* Days Selection */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={styles.demoSectionTitle}>Choose Your Days</Text>
+                <View style={styles.demoDaysGrid}>
+                {[
+                  { value: 0, label: 'S' },
+                  { value: 1, label: 'M' },
+                  { value: 2, label: 'T' },
+                  { value: 3, label: 'W' },
+                  { value: 4, label: 'T' },
+                  { value: 5, label: 'F' },
+                  { value: 6, label: 'S' },
+                ].map((day) => (
+                  <View
+                    key={day.value}
+                    style={[
+                      styles.demoDayOption,
+                      selectedDays.includes(day.value) && styles.demoDayOptionActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.demoDayText,
+                        selectedDays.includes(day.value) && styles.demoDayTextActive,
+                      ]}
+                    >
+                      {day.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            
+            {/* Time Ranges Selection */}
+            <View>
+              <Text style={styles.demoSectionTitle}>Preferred Times</Text>
               {[
-                { 
-                  title: 'Week 1 • Fitness Journey - Foundation',
-                  description: 'Establish core routines. Build momentum. Create strong foundations for success.',
-                },
-                { 
-                  title: 'Week 2 • Fitness Journey - Development',
-                  description: 'Develop skills and deepen expertise. Practice and apply what you learned.',
-                },
-                { 
-                  title: 'Week 3 • Fitness Journey - Mastery',
-                  description: 'Master your skills. Achieve your goals. Celebrate your transformation.',
-                },
-              ].map((item, idx) => (
-                <View key={idx} style={styles.demoOutlineItemReal}>
-                  <Text style={styles.demoOutlineWeekTitle}>{item.title}</Text>
-                  <Text style={styles.demoOutlineDescription}>{item.description}</Text>
-                  <View style={styles.demoProgressBar}>
-                    <View style={[styles.demoProgressFill, { width: `${outlineProgress[idx]}%` }]} />
+                { idx: 0, label: 'Morning', icon: 'sun' },
+                { idx: 1, label: 'Afternoon', icon: 'sun-horizon' },
+                { idx: 2, label: 'Evening', icon: 'moon' },
+              ].map((time) => (
+                <View key={time.idx} style={styles.demoTimeRangeCard}>
+                  <View style={styles.demoTimeRangeHeader}>
+                    <Icon
+                      name={time.icon}
+                      size={16}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                    <Text style={styles.demoTimeRangeLabel}>
+                      {time.label}
+                    </Text>
+                  </View>
+                  <View style={styles.demoTimeInputs}>
+                    <View style={styles.demoTimePickerContainer}>
+                      <View style={styles.demoTimePickerButton}>
+                        <Icon name="minus" size={12} color="#FFFF68" weight="bold" />
+                      </View>
+                      <View style={styles.demoTimeDisplay}>
+                        <Text style={styles.demoTimeDisplayText}>
+                          {timeRanges[time.idx].start_hour.toString().padStart(2, '0')}:00
+                        </Text>
+                      </View>
+                      <View style={styles.demoTimePickerButton}>
+                        <Icon name="plus" size={12} color="#FFFF68" weight="bold" />
+                      </View>
+                    </View>
+                    <Text style={styles.demoTimeSeparator}>To</Text>
+                    <View style={styles.demoTimePickerContainer}>
+                      <View style={styles.demoTimePickerButton}>
+                        <Icon name="minus" size={12} color="#FFFF68" weight="bold" />
+                      </View>
+                      <View style={styles.demoTimeDisplay}>
+                        <Text style={styles.demoTimeDisplayText}>
+                          {timeRanges[time.idx].end_hour.toString().padStart(2, '0')}:00
+                        </Text>
+                      </View>
+                      <View style={styles.demoTimePickerButton}>
+                        <Icon name="plus" size={12} color="#FFFF68" weight="bold" />
+                      </View>
+                    </View>
                   </View>
                 </View>
               ))}
-            </View>
+              </View>
+            </ScrollView>
           </Card>
         </View>
       );
@@ -619,6 +824,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               ref={taskScrollViewRef}
               style={styles.demoTasksScroll} 
               showsVerticalScrollIndicator={false}
+              scrollEnabled={false}
             >
               {tasks.map((task, idx) => (
                 <View key={idx} style={styles.demoTaskItemReal}>
@@ -1107,6 +1313,14 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'rgba(20, 22, 30, 0.95)',
   },
+  demoCardRealScrollable: {
+    width: '100%',
+    backgroundColor: 'rgba(20, 22, 30, 0.95)',
+    maxHeight: 320,
+  },
+  demoScrollView: {
+    maxHeight: 260,
+  },
   demoCardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1299,5 +1513,143 @@ const styles = StyleSheet.create({
   },
   demoRewardPointsLocked: {
     opacity: 0.4,
+  },
+  demoSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 10,
+  },
+  demoDurationSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  demoDurationText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  demoDropdownOptions: {
+    marginTop: 8,
+    backgroundColor: 'rgba(20, 22, 30, 0.98)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    overflow: 'hidden',
+  },
+  demoDropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  demoDropdownOptionSelected: {
+    backgroundColor: 'rgba(255, 255, 104, 0.15)',
+  },
+  demoDropdownOptionText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  demoDropdownOptionTextSelected: {
+    color: '#FFFF68',
+    fontWeight: '600',
+  },
+  demoDaysGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  demoDayOption: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  demoDayOptionActive: {
+    backgroundColor: '#FFFF68',
+    borderColor: '#FFFF68',
+  },
+  demoDayText: {
+    fontWeight: '600',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  demoDayTextActive: {
+    color: '#000000',
+  },
+  demoTimeRangeCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  demoTimeRangeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  demoTimeRangeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  demoTimeInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  demoTimePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  demoTimePickerButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 104, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  demoTimeDisplay: {
+    minWidth: 42,
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  demoTimeDisplayText: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: '#FFFF68',
+  },
+  demoTimeSeparator: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.5)',
+    paddingHorizontal: 4,
   },
 });
