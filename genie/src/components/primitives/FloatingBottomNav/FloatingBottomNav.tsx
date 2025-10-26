@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Text,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -75,7 +76,11 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
         style={styles.gradientBorderWrapper}
       >
         <View style={styles.navBarWrapper}>
-          <BlurView intensity={60} tint="dark" style={styles.navBar}>
+          <BlurView 
+            intensity={Platform.OS === 'android' ? 20 : 60} 
+            tint="dark" 
+            style={styles.navBar}
+          >
             {navItems.map((item, index) => (
               <View key={item.id} style={styles.navItemContainer}>
                 {/* Background indicator - only show for active item */}
@@ -149,7 +154,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 12, // Reduced horizontal padding
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: Platform.OS === 'android' ? 'rgba(10, 10, 15, 0.98)' : 'rgba(0, 0, 0, 0.4)',
     borderRadius: 48,
   },
   navItemContainer: {

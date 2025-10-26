@@ -11,6 +11,7 @@ import {
   Dimensions,
   TextInput,
   Modal,
+  Platform,
 } from 'react-native';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
@@ -940,7 +941,10 @@ export const DashboardScreen: React.FC = () => {
     >
       {/* Absolute Header */}
       <View style={styles.absoluteHeader}>
-        <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
+        <BlurView 
+          intensity={Platform.OS === 'android' ? 5 : 20} 
+          style={StyleSheet.absoluteFillObject} 
+        />
         <View style={styles.headerLeft}>
           <Button variant="ghost" onPress={() => setShowNotifications(true)}>
             <View style={styles.notificationIconContainer}>
@@ -1624,67 +1628,7 @@ export const DashboardScreen: React.FC = () => {
               />
             </View>
             <View style={styles.sideMenuContent}>
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={() => {
-                  closeSideMenu();
-                  setShowMyPlans(true);
-                }}
-                rightIcon={<Icon name="target" size={20} color="#FFFF68" />}
-                style={styles.sideMenuButton}
-              >
-                My Plans
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={() => {
-                  closeSideMenu();
-                  setShowDailyGoals(true);
-                }}
-                rightIcon={<Icon name="calendar" size={20} color="#FFFF68" />}
-                style={styles.sideMenuButton}
-              >
-                Daily Goals
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={() => {
-                  closeSideMenu();
-                  setShowProfile(true);
-                }}
-                rightIcon={<Icon name="user" size={20} color="#FFFF68" />}
-                style={styles.sideMenuButton}
-              >
-                Profile
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={() => {
-                  closeSideMenu();
-                  setShowSettings(true);
-                }}
-                rightIcon={<Icon name="gear" size={20} color="#FFFF68" />}
-                style={styles.sideMenuButton}
-              >
-                Settings
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={() => {
-                  closeSideMenu();
-                  setShowHelpSupport(true);
-                }}
-                rightIcon={<Icon name="headset" size={20} color="#FFFF68" />}
-                style={styles.sideMenuButton}
-              >
-                Help & Support
-              </Button>
-              {/* Temporary Onboarding Button */}
+              {/* View Tutorial - ראשון (למעלה) */}
               <Button
                 variant="ghost"
                 fullWidth
@@ -1697,6 +1641,59 @@ export const DashboardScreen: React.FC = () => {
               >
                 View Tutorial
               </Button>
+              {/* My Plans */}
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowMyPlans(true);
+                }}
+                rightIcon={<Icon name="target" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                My Plans
+              </Button>
+              {/* Daily Goals */}
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowDailyGoals(true);
+                }}
+                rightIcon={<Icon name="calendar" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                Daily Goals
+              </Button>
+              {/* Profile */}
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowProfile(true);
+                }}
+                rightIcon={<Icon name="user" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                Profile
+              </Button>
+              {/* Settings */}
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowSettings(true);
+                }}
+                rightIcon={<Icon name="gear" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                Settings
+              </Button>
+              {/* My Subscription - only if subscribed */}
               {userTokens.isSubscribed && (
                 <Button
                   variant="ghost"
@@ -1711,6 +1708,19 @@ export const DashboardScreen: React.FC = () => {
                   My Subscription
                 </Button>
               )}
+              {/* Help & Support - אחרון לפני Logout (למטה) */}
+              <Button
+                variant="ghost"
+                fullWidth
+                onPress={() => {
+                  closeSideMenu();
+                  setShowHelpSupport(true);
+                }}
+                rightIcon={<Icon name="headset" size={20} color="#FFFF68" />}
+                style={styles.sideMenuButton}
+              >
+                Help & Support
+              </Button>
               <Button
                 variant="ghost"
                 fullWidth
@@ -2120,7 +2130,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60, // Increased safe area padding
     paddingBottom: 10, // Added padding below header
-    backgroundColor: 'rgba(26, 28, 36, 0.8)', // Dark blue instead of black, matching background color
+    backgroundColor: Platform.OS === 'android' ? 'rgba(10, 12, 18, 0.98)' : 'rgba(26, 28, 36, 0.8)', // Much darker on Android
     minHeight: 110, // Increased minimum height
     overflow: 'hidden',
   },

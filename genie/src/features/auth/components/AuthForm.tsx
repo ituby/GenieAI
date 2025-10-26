@@ -202,9 +202,13 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
                 isNewUser: false,
               });
               
-              setShowOtpScreen(true);
               setIsProcessingOtp(false);
-              console.log('✅ OTP screen shown');
+              
+              // Use setTimeout to ensure state is updated properly
+              setTimeout(() => {
+                setShowOtpScreen(true);
+                console.log('✅ OTP screen shown');
+              }, 50);
             } catch (otpError: any) {
               console.error('❌ Failed to handle OTP:', otpError);
               setIsProcessingOtp(false);
@@ -248,9 +252,15 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       console.log('✅ User created and OTP sent to:', phone);
 
       setPhoneNumber(phone);
+      
+      // First close terms screen, then open OTP screen in next tick
       setShowTermsScreen(false);
-      setShowOtpScreen(true);
-      console.log('✅ OTP screen state set to true - should show now');
+      
+      // Use setTimeout to ensure terms screen is closed before opening OTP screen
+      setTimeout(() => {
+        setShowOtpScreen(true);
+        console.log('✅ OTP screen state set to true - should show now');
+      }, 50);
     } catch (error: any) {
       console.error('❌ Registration failed:', error);
       
