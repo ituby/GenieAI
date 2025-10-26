@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
@@ -30,8 +30,9 @@ export default function App() {
     checkPendingOtp,
     user,
   } = useAuthStore();
-  const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
+  const hasShownInitialSplash = useRef(false);
+  const [dismissOnboarding, setDismissOnboarding] = useState(false);
   const [hasPendingOtp, setHasPendingOtp] = useState<boolean | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -176,26 +177,33 @@ export default function App() {
     checkOtpStatus();
   }, [isAuthenticated, user?.email, checkPendingOtp]);
 
-  // Hide splash when initialization is complete
+  // Hide splash ONLY after initial loading is complete (once!)
   useEffect(() => {
-    if (!loading) {
-      // Small delay to ensure smooth transition
+    // Only hide splash once after initial load
+    if (!loading && showSplash && !hasShownInitialSplash.current) {
+      hasShownInitialSplash.current = true;
       setTimeout(() => {
         setShowSplash(false);
       }, 500);
     }
   }, [loading]);
 
-  // Reset onboarding when user signs out
+  // Reset onboarding and splash when user becomes unauthenticated (sign out)
+  const prevAuthRef = useRef(isAuthenticated);
   useEffect(() => {
-    if (!isAuthenticated && !loading) {
-      setShowOnboarding(true);
+    // Detect when user transitions from authenticated to not authenticated (sign out)
+    if (prevAuthRef.current === true && isAuthenticated === false) {
+      console.log('🚪 User signed out, resetting onboarding and splash');
+      setDismissOnboarding(false);
+      setShowSplash(true);
+      hasShownInitialSplash.current = false;
     }
-  }, [isAuthenticated, loading]);
+    prevAuthRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   const handleOnboardingComplete = () => {
-    // Just hide onboarding and show login screen
-    setShowOnboarding(false);
+    // Dismiss onboarding for this session only
+    setDismissOnboarding(true);
   };
 
   const handleSplashFinish = () => {
@@ -234,13 +242,13 @@ export default function App() {
     setUpdateInfo(null);
   };
 
-  // Show splash screen during initialization (FIRST!)
-  if (loading || showSplash) {
+  // Show splash screen ONLY during initialization (not during login flow!)
+  if (showSplash && loading) {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
           <PopupProvider>
-            <SplashScreen onAnimationFinish={() => setShowSplash(false)} />
+            <SplashScreen onAnimationFinish={handleSplashFinish} />
             <UpdateAvailableModal
               visible={showUpdateModal}
               onUpdate={handleUpdateApp}
@@ -277,28 +285,29 @@ export default function App() {
     );
   }
 
-  // Show onboarding if user is not authenticated and hasn't dismissed it
-  if (!isAuthenticated && showOnboarding) {
-    return (
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <PopupProvider>
-            <OnboardingScreen onComplete={handleOnboardingComplete} />
-            <UpdateAvailableModal
-              visible={showUpdateModal}
-              onUpdate={handleUpdateApp}
-              onDismiss={handleDismissUpdate}
-              updateInfo={updateInfo}
-            />
-            <StatusBar style="light" />
-          </PopupProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    );
-  }
-
-  // Show login screen if not authenticated (after onboarding)
+  // Show onboarding or login if user is not authenticated
   if (!isAuthenticated) {
+    // Show onboarding unless dismissed for this session
+    if (!dismissOnboarding) {
+      return (
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <PopupProvider>
+              <OnboardingScreen onComplete={handleOnboardingComplete} />
+              <UpdateAvailableModal
+                visible={showUpdateModal}
+                onUpdate={handleUpdateApp}
+                onDismiss={handleDismissUpdate}
+                updateInfo={updateInfo}
+              />
+              <StatusBar style="light" />
+            </PopupProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      );
+    }
+    
+    // Show login screen after onboarding dismissed
     console.log('🔐 User not authenticated, showing login screen');
     return (
       <SafeAreaProvider>

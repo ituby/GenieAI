@@ -1097,6 +1097,18 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       {/* Firefly Background Effect */}
       <FireflyBackground count={60} />
 
+      {/* Skip Button - Top Right */}
+      <Button
+        variant="ghost"
+        onPress={onComplete}
+        style={styles.skipButton}
+      >
+        <View style={styles.skipButtonContent}>
+          <Text style={styles.skipButtonText}>Skip</Text>
+          <Text style={styles.skipButtonArrow}>›</Text>
+        </View>
+      </Button>
+
       {/* Fixed Logo - outside ScrollView, positioned dynamically */}
       <Animated.View 
         style={[
@@ -1166,6 +1178,29 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  skipButton: {
+    position: 'absolute',
+    top: 120,
+    right: 25,
+    zIndex: 2000,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  skipButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  skipButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  skipButtonArrow: {
+    fontSize: 20,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginLeft: 3,
   },
   fixedLogoContainer: {
     position: 'absolute',
