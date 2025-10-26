@@ -38,7 +38,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
   const handleDecline = () => {
     Alert.alert(
       'Terms Not Accepted',
-      'You must accept the terms and conditions to use GenieAI. Would you like to review them again?',
+      'You must accept the terms and conditions to use GenieApp. Would you like to review them again?',
       [
         { text: 'Review Again', style: 'cancel' },
         { text: 'Exit', style: 'destructive', onPress: onDecline },
@@ -88,7 +88,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
                   1. Acceptance of Terms
                 </Text>
                 {'\n\n'}
-                By using GenieAI, you agree to be bound by these Terms and
+                By using GenieApp, you agree to be bound by these Terms and
                 Conditions. If you do not agree to these terms, please do not use
                 our service.
                 {'\n\n'}
@@ -96,7 +96,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
                   2. Description of Service
                 </Text>
                 {'\n\n'}
-                GenieAI is an AI-powered goal companion that helps you achieve
+                GenieApp is an AI-powered goal companion that helps you achieve
                 your personal and professional objectives through intelligent task
                 generation, progress tracking, and personalized notifications.
                 {'\n\n'}
@@ -130,7 +130,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
                   6. Limitation of Liability
                 </Text>
                 {'\n\n'}
-                GenieAI shall not be liable for any indirect, incidental, special,
+                GenieApp shall not be liable for any indirect, incidental, special,
                 or consequential damages arising from your use of the service.
                 {'\n\n'}
                 <Text variant="h4" style={styles.sectionTitle}>

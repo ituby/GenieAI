@@ -214,7 +214,7 @@ export const LoginScreen: React.FC = () => {
               resizeMode="contain"
             />
             <Text style={styles.footerText}>
-              © 2024 GenieAI • Version 1.0.0
+              © 2025-2026 GenieApp • Version 1.0.3
             </Text>
           </View>
         </ScrollView>

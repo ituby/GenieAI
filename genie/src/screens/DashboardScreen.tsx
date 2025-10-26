@@ -1737,7 +1737,7 @@ export const DashboardScreen: React.FC = () => {
             </View>
             <View style={styles.sideMenuFooter}>
               <Text style={styles.sideMenuFooterText}>
-                © 2024 GenieAI • Version 1.0.0
+                © 2025-2026 GenieApp • Version 1.0.3
               </Text>
             </View>
           </Animated.View>
