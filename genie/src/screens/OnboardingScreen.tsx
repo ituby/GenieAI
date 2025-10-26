@@ -6,6 +6,7 @@ import {
   Dimensions,
   Animated,
   Image,
+  Text as RNText,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // i18n removed
@@ -37,18 +38,45 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   const descSlideAnim = useRef(new Animated.Value(0)).current;
   const descOpacity = useRef(new Animated.Value(0)).current;
   const wordOpacities = useRef<Animated.Value[]>([]).current;
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clear typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    // Title slide up animation with mask effect (first slide only)
+    // Clear any existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Clear previous text immediately for smooth transition
+    setTypedWords([]);
+    
+    // Reset all word opacities
+    wordOpacities.forEach(opacity => opacity.setValue(0));
+    
+    // Reset animations
+    titleSlideAnim.setValue(80);
+    titleOpacity.setValue(0);
+    descSlideAnim.setValue(0);
+    descOpacity.setValue(0);
+
+    // Animate title
     Animated.parallel([
       Animated.timing(titleSlideAnim, {
         toValue: 0,
-        duration: 1000,
+        duration: currentIndex === 0 ? 1000 : 600,
         useNativeDriver: true,
       }),
       Animated.timing(titleOpacity, {
         toValue: 1,
-        duration: 1000,
+        duration: currentIndex === 0 ? 1000 : 600,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -59,85 +87,100 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
         useNativeDriver: true,
       }).start(() => {
         // Start typing animation after description area fades in
-        setTimeout(() => startTypingAnimation(), 300);
+        setTimeout(() => startTypingAnimation(currentIndex), 300);
       });
     });
-  }, []);
+  }, [currentIndex]);
 
-  const startTypingAnimation = () => {
-    const line1 = 'Transform your dreams into reality';
-    const line2 = 'with AI-powered guidance, one day at a time';
-    const fullText = line1 + ' ' + line2;
-    const words = fullText.split(' ');
-    const line1WordCount = line1.split(' ').length;
+  const startTypingAnimation = (slideIndex: number) => {
+    // Get the current slide's description
+    const currentDescription = slides[slideIndex].description;
     
-    // Initialize opacity values for each word
-    while (wordOpacities.length < words.length) {
+    // Split by newlines first, then split each line by spaces
+    const lines = currentDescription.split('\n');
+    const wordsWithBreaks: string[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      const lineWords = line.split(' ').filter(w => w.length > 0);
+      wordsWithBreaks.push(...lineWords);
+      // Add line break after each line except the last
+      if (lineIndex < lines.length - 1) {
+        wordsWithBreaks.push('\n');
+      }
+    });
+    
+    // Set all words immediately (no typing effect)
+    setTypedWords(wordsWithBreaks);
+    
+    // Initialize opacity values for each word if needed (excluding line breaks)
+    const actualWordCount = wordsWithBreaks.filter(w => w !== '\n').length;
+    while (wordOpacities.length < actualWordCount) {
       wordOpacities.push(new Animated.Value(0));
     }
     
     let currentWordIndex = 0;
-    const displayedWords: string[] = [];
+    let actualWordIndex = 0;
 
-    const typeWord = () => {
-      if (currentWordIndex < words.length) {
-        // Add line break after first line
-        if (currentWordIndex === line1WordCount) {
-          displayedWords.push('\n');
+    const fadeInWord = () => {
+      if (currentWordIndex < wordsWithBreaks.length) {
+        // Skip line breaks in animation
+        if (wordsWithBreaks[currentWordIndex] === '\n') {
+          currentWordIndex++;
+          fadeInWord();
+          return;
         }
-        displayedWords.push(words[currentWordIndex]);
-        setTypedWords([...displayedWords]);
         
         // Fade in the current word
-        Animated.timing(wordOpacities[currentWordIndex], {
+        Animated.timing(wordOpacities[actualWordIndex], {
           toValue: 1,
           duration: 400,
           useNativeDriver: true,
         }).start();
         
         currentWordIndex++;
-        setTimeout(typeWord, 300); // 300ms delay between words (slower)
+        actualWordIndex++;
+        typingTimeoutRef.current = setTimeout(fadeInWord, 300); // 300ms delay between words
       }
     };
 
-    typeWord();
+    fadeInWord();
   };
 
   const slides: OnboardingSlide[] = [
     {
       key: 'welcome',
       title: 'Genie Is Out',
-      description: 'Transform your dreams into reality\nwith AI-powered guidance, one day at a time',
+      description: 'Transform your dreams into reality\nwith AI-powered guidance,\none day at a time',
       icon: 'brain',
     },
     {
       key: 'slide1',
       title: 'Talk with Genie',
-      description: 'Share your goals and aspirations with your AI genie',
+      description: 'Share your goals and aspirations\nwith your AI genie',
       icon: 'sparkle',
     },
     {
       key: 'slide2',
       title: 'Get Your 21-Day Plan',
-      description: 'Receive a personalized roadmap with daily actionable tasks',
+      description: 'Receive a personalized roadmap\nwith daily actionable tasks',
       icon: 'calendar',
     },
     {
       key: 'slide3',
       title: 'Complete Daily Tasks',
-      description: 'Stay on track with simple daily missions tailored to your goals',
+      description: 'Stay on track with simple\ndaily missions tailored\nto your goals',
       icon: 'clipboard-check',
     },
     {
       key: 'slide4',
       title: 'Track Your Progress',
-      description: 'Monitor your streaks, achievements, and growth journey',
+      description: 'Monitor your streaks,\nachievements, and growth journey',
       icon: 'trend-up',
     },
     {
       key: 'slide5',
       title: 'Earn Rewards',
-      description: 'Collect points and unlock achievements as you progress',
+      description: 'Collect points and unlock\nachievements as you progress',
       icon: 'trophy',
     },
   ];
@@ -149,44 +192,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       setCurrentIndex(index);
     }
   };
-
-  useEffect(() => {
-    // Animate content when slide changes
-    if (currentIndex > 0) {
-      // Reset and animate for new slide
-      titleSlideAnim.setValue(80);
-      titleOpacity.setValue(0);
-      descSlideAnim.setValue(0);
-      descOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(titleSlideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(titleOpacity, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        // Animate description after title
-        Animated.parallel([
-          Animated.timing(descSlideAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(descOpacity, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
-    }
-  }, [currentIndex]);
 
   const goToNext = () => {
     if (currentIndex < slides.length - 1) {
@@ -261,69 +266,61 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
             resizeMode="contain"
           />
         </View>
-        {/* Title with slide animation */}
-        <View style={{ overflow: 'hidden', height: 50 }}>
+        {/* Title with slide animation and yellow marker highlight */}
+        <View style={{ overflow: 'hidden', height: 44, alignItems: 'center', marginBottom: 4 }}>
           <Animated.View
             style={{
               transform: [{ translateY: titleSlideAnim }],
               opacity: titleOpacity,
             }}
           >
-            <Text variant="h1" style={styles.slideTitle}>
-              {slide.title}
-            </Text>
+            <View style={styles.titleWrapper}>
+              {/* Yellow marker background */}
+              <View style={[styles.titleHighlightBackground, { backgroundColor: theme.colors.yellow[500] }]} />
+              {/* Dark text on yellow marker */}
+              <RNText style={styles.titleTextOnMarker}>
+                {slide.title}
+              </RNText>
+            </View>
           </Animated.View>
         </View>
 
-        {/* Description with fade animation */}
-        {index === 0 ? (
-          // First slide with typing animation
-          <Animated.View 
-            style={[
-              styles.typingContainer,
-              {
-                opacity: descOpacity,
-                transform: [{ translateY: descSlideAnim }],
-              },
-            ]}
-          >
-            <View style={styles.typingLine}>
-              {typedWords.map((word, idx) => {
-                if (word === '\n') {
-                  return null;
-                }
-                const actualWordIdx = typedWords.slice(0, idx).filter(w => w !== '\n').length;
-                return (
-                  <Animated.Text
-                    key={idx}
-                    style={[
-                      styles.typedWord,
-                      {
-                        opacity: wordOpacities[actualWordIdx] || 0,
-                      },
-                    ]}
-                  >
-                    {word + ' '}
-                  </Animated.Text>
-                );
-              })}
-            </View>
-          </Animated.View>
-        ) : (
-          // Other slides with normal description
-          <Animated.View
-            style={{
-              opacity: descOpacity,
-              transform: [{ translateY: descSlideAnim }],
-            }}
-          >
-            <Text variant="bodyLarge" 
-                  color="secondary" 
-                  style={styles.slideDescription}>
-              {slide.description}
-            </Text>
-          </Animated.View>
-        )}
+        {/* Description with word-by-word typing animation for all slides - Fixed height to prevent jumping */}
+        <View style={styles.descriptionFixedContainer}>
+          {index === currentIndex && (
+            <Animated.View 
+              style={[
+                styles.typingContainer,
+                {
+                  opacity: descOpacity,
+                  transform: [{ translateY: descSlideAnim }],
+                },
+              ]}
+            >
+              <View style={styles.typingLine}>
+                {typedWords.map((word, idx) => {
+                  if (word === '\n') {
+                    return <View key={idx} style={{ width: '100%', height: 0 }} />;
+                  }
+                  const actualWordIdx = typedWords.slice(0, idx).filter(w => w !== '\n').length;
+                  return (
+                    <Animated.Text
+                      key={idx}
+                      style={[
+                        styles.typedWord,
+                        {
+                          opacity: wordOpacities[actualWordIdx] || 0,
+                        },
+                      ]}
+                    >
+                      {word + ' '}
+                    </Animated.Text>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -445,6 +442,37 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 32,
   },
+  titleWrapper: {
+    position: 'relative',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleHighlightBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 0,
+  },
+  titleTextOnMarker: {
+    fontSize: 26,
+    fontWeight: '900',
+    textAlign: 'center',
+    color: 'rgba(20, 20, 40, 0.85)',
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(255, 255, 255, 0.3)',
+    textShadowOffset: { width: 0, height: 0.5 },
+    textShadowRadius: 0,
+  },
+  descriptionFixedContainer: {
+    minHeight: 120,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
   firstSlideDescription: {
     textAlign: 'center',
     fontSize: 18,
@@ -452,19 +480,21 @@ const styles = StyleSheet.create({
   },
   typingContainer: {
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 4,
   },
   typingLine: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     maxWidth: 380,
+    rowGap: 0,
   },
   typedWord: {
     fontSize: 18,
-    lineHeight: 28,
+    lineHeight: 24,
     color: '#FFFFFF',
     opacity: 0.7,
+    letterSpacing: -0.5,
   },
   slideSubtitle: {
     textAlign: 'center',
