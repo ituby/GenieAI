@@ -2,7 +2,6 @@
   "expo": {
     "name": "genie",
     "slug": "genie",
-    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/AppIcon.png",
     "userInterfaceStyle": "light",
@@ -15,8 +14,7 @@
         "UIBackgroundModes": [
           "remote-notification"
         ]
-      },
-      "buildNumber": "2"
+      }
     },
     "android": {
       "adaptiveIcon": {
