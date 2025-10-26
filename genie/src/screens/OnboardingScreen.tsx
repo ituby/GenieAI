@@ -102,15 +102,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
       clearTimeout(autoPlayTimeoutRef.current);
     }
 
-    // Different timing for each slide based on internal animations
+    // Different timing for each slide based on internal animations + 1s extra
     const slideDurations = [
-      8000,  // Slide 0: Welcome - 8 seconds (longer to set the mood)
-      6000,  // Slide 1: Prompt typing - 6 seconds (2.5s typing + 3.5s read)
-      7000,  // Slide 2: Outline progress - 7 seconds (3s animation + 4s read)
-      8000,  // Slide 3: Tasks checking - 8 seconds (4.5s animation + 3.5s read)
-      6000,  // Slide 4: Stats counting - 6 seconds (2s animation + 4s read)
-      7000,  // Slide 5: Rewards - 7 seconds (2s animation + 5s read)
-      4000,  // Slide 6: CTA - 4 seconds (centered, no demo)
+      9000,  // Slide 0: Welcome - 9 seconds (8s + 1s extra)
+      7000,  // Slide 1: Prompt typing - 7 seconds (6s + 1s extra)
+      8000,  // Slide 2: Outline progress - 8 seconds (7s + 1s extra)
+      9000,  // Slide 3: Tasks checking - 9 seconds (8s + 1s extra)
+      7000,  // Slide 4: Stats counting - 7 seconds (6s + 1s extra)
+      8000,  // Slide 5: Rewards - 8 seconds (7s + 1s extra)
+      5000,  // Slide 6: CTA - 5 seconds (4s + 1s extra)
     ];
 
     const duration = slideDurations[currentIndex] || 6000;
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
   },
   fixedLogoContainer: {
     position: 'absolute',
-    top: 280,
+    top: 180,
     left: 0,
     right: 0,
     zIndex: 1000,
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingTop: 200,
+    paddingTop: 120,
   },
   slideContent: {
     alignItems: 'center',

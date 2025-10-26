@@ -20,8 +20,6 @@ import { UpdateAvailableModal } from './src/components/UpdateAvailableModal';
 import { PaymentHandler } from './src/components/PaymentHandler';
 // i18n removed
 
-const ONBOARDING_KEY = 'hasSeenOnboarding';
-
 export default function App() {
   const {
     initialize,
@@ -32,9 +30,7 @@ export default function App() {
     checkPendingOtp,
     user,
   } = useAuthStore();
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
-    null
-  );
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [hasPendingOtp, setHasPendingOtp] = useState<boolean | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
@@ -66,11 +62,6 @@ export default function App() {
       } else {
         console.log('🔄 OTA updates disabled in development mode');
       }
-
-      // Check if user has seen onboarding
-      const onboardingStatus = await AsyncStorage.getItem(ONBOARDING_KEY);
-      console.log('👁️ Has seen onboarding:', onboardingStatus === 'true');
-      setHasSeenOnboarding(onboardingStatus === 'true');
 
       // Initialize auth (this will check for existing session)
       await initialize();
@@ -192,9 +183,16 @@ export default function App() {
     }
   }, [isAuthenticated, needsTermsAcceptance]);
 
-  const handleOnboardingComplete = async () => {
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-    setHasSeenOnboarding(true);
+  // Reset onboarding when user signs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setShowOnboarding(true);
+    }
+  }, [isAuthenticated]);
+
+  const handleOnboardingComplete = () => {
+    // Just hide onboarding and show login screen
+    setShowOnboarding(false);
   };
 
   const handleSplashFinish = () => {
@@ -233,32 +231,6 @@ export default function App() {
     setUpdateInfo(null);
   };
 
-  // Skip loading screen - go directly to onboarding or login
-  if (hasSeenOnboarding === null) {
-    // Initialize onboarding state without showing loading screen
-    return null;
-  }
-
-  // Show onboarding if user hasn't seen it
-  if (!hasSeenOnboarding) {
-    return (
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <PopupProvider>
-            <OnboardingScreen onComplete={handleOnboardingComplete} />
-            <UpdateAvailableModal
-              visible={showUpdateModal}
-              onUpdate={handleUpdateApp}
-              onDismiss={handleDismissUpdate}
-              updateInfo={updateInfo}
-            />
-            <StatusBar style="light" />
-          </PopupProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    );
-  }
-
   // Show password reset screen if deep link was triggered
   if (showPasswordReset) {
     return (
@@ -282,7 +254,27 @@ export default function App() {
     );
   }
 
-  // Show login screen if not authenticated
+  // Show onboarding if user is not authenticated and hasn't dismissed it
+  if (!isAuthenticated && showOnboarding) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <PopupProvider>
+            <OnboardingScreen onComplete={handleOnboardingComplete} />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
+            <StatusBar style="light" />
+          </PopupProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show login screen if not authenticated (after onboarding)
   if (!isAuthenticated) {
     console.log('🔐 User not authenticated, showing login screen');
     return (
