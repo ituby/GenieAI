@@ -98,8 +98,8 @@ serve(async (req) => {
     let sessionParams: any = {
       customer: stripeCustomerId,
       mode: type === 'subscription' ? 'subscription' : 'payment',
-      success_url: successUrl || 'genie://payment-success',
-      cancel_url: cancelUrl || 'genie://payment-cancelled',
+      success_url: successUrl || 'genie-ai://payment-success',
+      cancel_url: cancelUrl || 'genie-ai://payment-cancelled',
       metadata: {
         user_id: user.id,
         type: type,

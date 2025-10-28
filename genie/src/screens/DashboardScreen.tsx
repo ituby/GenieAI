@@ -251,12 +251,12 @@ export const DashboardScreen: React.FC = () => {
           try {
             const paymentResult = await checkRecentPaymentStatus(user.id);
             if (paymentResult) {
-              showAlert(paymentResult.message, paymentResult.success ? '✅ Payment Success' : '❌ Payment Error');
+              showAlert(paymentResult.message, paymentResult.success ? 'Payment Success' : 'Payment Error');
             }
             
             const subscriptionResult = await checkRecentSubscriptionStatus(user.id);
             if (subscriptionResult) {
-              showAlert(subscriptionResult.message, '🎉 Subscription Active');
+              showAlert(subscriptionResult.message, 'Subscription Active');
             }
           } catch (error) {
             console.error('Error checking payment status:', error);

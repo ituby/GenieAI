@@ -133,11 +133,14 @@ class PaymentService {
    */
   async openCheckout(checkoutUrl: string): Promise<void> {
     try {
-      // Use deep linking to return to app after payment
-      const redirectUrl = Linking.createURL('payment-callback');
-      
-      // Open browser with checkout URL
-      const result = await WebBrowser.openBrowserAsync(checkoutUrl);
+      // Open browser with checkout URL and enable dismiss on redirect
+      const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
+        dismissButtonStyle: 'close',
+        showTitle: false,
+        enableBarCollapsing: false,
+        // This will make the browser close automatically when redirecting to app
+        createTask: false,
+      });
       
       console.log('Checkout browser result:', result);
     } catch (error) {
@@ -330,21 +333,9 @@ class PaymentService {
   getSubscriptionTiers() {
     return [
       {
-        id: 'basic',
-        name: 'Basic',
-        priceId: 'price_1SL0uz9mCMmqa2BSombHKoR7', // Stripe price ID
-        price: 4.99,
-        tokens: 500,
-        features: [
-          '500 tokens per month',
-          'Basic AI models',
-          'Email support',
-        ],
-      },
-      {
-        id: 'standard',
-        name: 'Standard',
-        priceId: 'price_1SLUWE9mCMmqa2BSeNa94ig7', // Stripe price ID ($15)
+        id: 'premium',
+        name: 'Premium',
+        priceId: 'price_1SNHrn9mCMmqa2BSvCym8Pq7', // Live Stripe price ID ($15)
         price: 15.00,
         tokens: 1000,
         features: [
@@ -354,20 +345,6 @@ class PaymentService {
           'Early access to features',
         ],
         popular: true,
-      },
-      {
-        id: 'premium',
-        name: 'Premium',
-        priceId: 'price_1SL0vU9mCMmqa2BSBedO3lAr', // Stripe price ID
-        price: 19.99,
-        tokens: 2500,
-        features: [
-          '2,500 tokens per month',
-          'Premium AI models',
-          'Priority support',
-          'Custom integrations',
-          'Analytics dashboard',
-        ],
       },
     ];
   }

@@ -29,6 +29,14 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+  icons: {
+    icon: [
+      { url: "/LogoSymbol.webp", type: "image/webp" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: { url: "/LogoSymbol.webp", type: "image/webp" },
+    shortcut: "/LogoSymbol.webp",
+  },
   metadataBase: new URL("https://genie.app"),
   openGraph: {
     title: "Genie - Transform Your Dreams Into Reality",
@@ -68,6 +76,13 @@ export const metadata: Metadata = {
   verification: {
     google: "your-google-verification-code",
   },
+  themeColor: "#FFFF68",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -77,15 +92,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <head>
-        <link rel="icon" href="/LogoSymbol.webp" />
-        <link rel="apple-touch-icon" href="/LogoSymbol.webp" />
-        <meta name="theme-color" content="#FFFF68" />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1"
-        />
-      </head>
       <body
         className={`${inter.variable} font-sans antialiased bg-genie-background-primary text-white`}
       >

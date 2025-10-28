@@ -1,0 +1,25 @@
+{
+  "name": "Genie - Transform Your Dreams Into Reality",
+  "short_name": "Genie",
+  "description": "Transform your dreams into reality with AI-powered guidance, one day at a time",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#FFFF68",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/LogoSymbol.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/LogoSymbol.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
