@@ -754,13 +754,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
               ].map((time) => (
                 <View key={time.idx} style={styles.demoTimeRangeCard}>
                   <View style={styles.demoTimeRangeHeader}>
-                    <Icon
-                      name={time.icon}
-                      size={16}
-                      color="#FFFF68"
-                      weight="fill"
-                    />
-                    <Text style={styles.demoTimeRangeLabel}>
+                    <View style={{ position: 'absolute', left: 0 }}>
+                      <Icon
+                        name={time.icon}
+                        size={16}
+                        color="#FFFF68"
+                        weight="fill"
+                      />
+                    </View>
+                    <Text style={[styles.demoTimeRangeLabel, { width: '100%', textAlign: 'center' }]}>
                       {time.label}
                     </Text>
                   </View>
@@ -885,25 +887,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
             </View>
             <View style={styles.demoRewardsList}>
               {[
-                { title: 'First Steps', points: '+50', icon: 'star' },
-                { title: 'Week Warrior', points: '+100', icon: 'fire' },
-                { title: 'Task Master', points: '+200', icon: 'crown' },
+                { title: 'First Steps', points: '+50' },
+                { title: 'Week Warrior', points: '+100' },
+                { title: 'Task Master', points: '+200' },
               ].map((reward, idx) => (
                 <View key={idx} style={[
                   styles.demoRewardItem,
                   !unlockedRewards[idx] && styles.demoRewardItemLocked
                 ]}>
-                  <View style={[
-                    styles.demoRewardIcon,
-                    unlockedRewards[idx] && styles.demoRewardIconUnlocked
-                  ]}>
-                    <Icon 
-                      name={reward.icon} 
-                      size={16} 
-                      color={unlockedRewards[idx] ? "#000000" : "rgba(255, 255, 255, 0.3)"} 
-                      weight="fill" 
-                    />
-                  </View>
                   <View style={styles.demoRewardTextContainer}>
                     <Text style={[
                       styles.demoRewardTitle,

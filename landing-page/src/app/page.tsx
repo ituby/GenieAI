@@ -3,27 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import OnboardingPreview from "../components/OnboardingPreview";
+import { FireflyBackground } from "../components/FireflyBackground";
 import {
-  Brain,
   Sparkle,
   Calendar,
-  Check,
+  CheckCircle,
   TrendUp,
   Trophy,
-  Star,
-  Fire,
 } from "phosphor-react";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-linear-to-b from-black via-black to-genie-yellow-500">
-      {/* Background Effects */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-genie-yellow-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-genie-yellow-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-genie-yellow-500/5 rounded-full blur-3xl"></div>
-      </div>
-
+    <main className="min-h-screen bg-black relative">
       {/* Navigation */}
       <nav className="relative z-10 px-6 py-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -44,12 +35,6 @@ export default function Home() {
           </div>
           <div className="hidden md:flex items-center space-x-8">
             <Link
-              href="#features"
-              className="text-sm text-genie-text-secondary hover:text-genie-yellow-500 transition-colors"
-            >
-              Features
-            </Link>
-            <Link
               href="#how-it-works"
               className="text-sm text-genie-text-secondary hover:text-genie-yellow-500 transition-colors"
             >
@@ -61,18 +46,61 @@ export default function Home() {
             >
               Download
             </Link>
+            <Link
+              href="/privacy"
+              className="text-sm text-genie-text-secondary hover:text-genie-yellow-500 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              href="/terms"
+              className="text-sm text-genie-text-secondary hover:text-genie-yellow-500 transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              href="/contact"
+              className="text-sm text-genie-text-secondary hover:text-genie-yellow-500 transition-colors"
+            >
+              Contact
+            </Link>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 px-6 py-20 bg-linear-to-b from-black via-black to-genie-yellow-500">
-        <div className="max-w-7xl mx-auto text-center">
+      <section className="relative z-10 px-6 py-20 min-h-screen bg-linear-to-b from-black/95 from-0% via-black/70 via-60% to-black/50 to-100% overflow-hidden">
+        {/* Background Effects - 5 Harmonious Layers - Only in Hero */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          {/* Layer 1: Ambient glow effects - very subtle */}
+          <div className="absolute -top-60 -right-60 w-[800px] h-[800px] bg-[#FCD34D]/4 rounded-full blur-[200px]"></div>
+          <div className="absolute -bottom-60 -left-60 w-[800px] h-[800px] bg-[#FCD34D]/6 rounded-full blur-[200px]"></div>
+          <div className="absolute top-1/3 left-1/4 w-[900px] h-[900px] bg-[#FCD34D]/3 rounded-full blur-[250px]"></div>
+          
+          {/* Layer 2: Medium yellow glow from bottom - smooth transition */}
+          <div className="absolute bottom-0 left-0 right-0 h-[900px] bg-linear-to-t from-[#FCD34D]/6 from-0% via-[#FCD34D]/3 via-30% to-transparent to-100% blur-3xl"></div>
+          
+          {/* Layer 3: Soft yellow lighting from bottom - gentle and diffused */}
+          <div className="absolute bottom-0 left-0 right-0 h-[600px] bg-linear-to-t from-[#FCD34D]/10 from-0% via-[#FCD34D]/5 via-40% to-transparent to-100% blur-2xl"></div>
+          
+          {/* Layer 4: Extra soft diffused yellow from bottom - very gentle */}
+          <div className="absolute bottom-0 left-0 right-0 h-[400px] bg-linear-to-t from-[#FCD34D]/12 from-0% via-[#FCD34D]/6 via-50% to-transparent to-100% blur-3xl"></div>
+          
+          {/* Layer 5: Subtle concentrated yellow from bottom - soft focus */}
+          <div className="absolute bottom-0 left-0 right-0 h-[200px] bg-linear-to-t from-[#FCD34D]/15 from-0% via-[#FCD34D]/8 via-60% to-transparent to-100% blur-2xl"></div>
+        </div>
+
+        {/* Firefly Background Animation - Only in Hero */}
+        <FireflyBackground count={60} />
+        
+        <div className="max-w-7xl mx-auto text-center relative z-10">
           {/* Onboarding Preview - Exact Copy from App */}
           <OnboardingPreview />
+        </div>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-16">
+        {/* CTA Buttons - Separate container with clear separation */}
+        <div className="max-w-7xl mx-auto text-center relative z-10 mt-96">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="#download"
               className="bg-linear-to-r from-genie-yellow-500 to-genie-yellow-400 text-black px-8 py-4 rounded-full font-bold text-lg hover:from-genie-yellow-400 hover:to-genie-yellow-300 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-genie-yellow-500/25"
@@ -81,10 +109,17 @@ export default function Home() {
             </Link>
             <Link
               href="#how-it-works"
-              className="border-2 border-genie-border-primary text-white px-8 py-4 rounded-full font-semibold text-lg hover:border-genie-yellow-500 hover:text-genie-yellow-500 transition-all duration-300"
+              className="border-2 border-white text-white px-8 py-4 rounded-full font-semibold text-lg hover:border-genie-yellow-500 hover:text-genie-yellow-500 transition-all duration-300"
             >
               Read more
             </Link>
+          </div>
+        </div>
+
+        {/* Thin Yellow Gradient Divider */}
+        <div className="relative z-20 mt-20 px-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="w-full h-0.5 bg-linear-to-r from-transparent via-genie-yellow-500 to-transparent"></div>
           </div>
         </div>
       </section>
@@ -92,10 +127,10 @@ export default function Home() {
       {/* How It Works Section */}
       <section
         id="how-it-works"
-        className="relative z-10 px-6 py-20 bg-genie-background-secondary/50"
+        className="relative z-10 px-6 py-20 bg-linear-to-b from-black/50 from-0% via-black/80 via-50% to-black/95 to-100%"
       >
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16 pt-40">
             <h2 className="text-2xl md:text-3xl font-bold text-genie-yellow-500 mb-6">
               How Genie Works
             </h2>
@@ -108,7 +143,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center bg-zinc-900/85 rounded-2xl p-6 border border-zinc-800">
               <div className="w-20 h-20 bg-linear-to-br from-genie-yellow-500 to-genie-yellow-400 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <Sparkle size={32} color="#FCD34D" />
+                <Sparkle size={32} color="#FCD34D" weight="fill" />
               </div>
               <h3 className="text-xl font-bold text-white mb-4">
                 Share Your Goal
@@ -121,19 +156,19 @@ export default function Home() {
 
             <div className="text-center bg-zinc-900/85 rounded-2xl p-6 border border-zinc-800">
               <div className="w-20 h-20 bg-linear-to-br from-genie-yellow-500 to-genie-yellow-400 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <Calendar size={32} color="#FCD34D" />
+                <Calendar size={32} color="#FCD34D" weight="fill" />
               </div>
               <h3 className="text-xl font-bold text-white mb-4">
                 AI Creates Your Plan
               </h3>
               <p className="text-genie-text-tertiary">
-                Genie generates a personalized 3-week roadmap with daily tasks
+                Genie generates a personalized roadmap with daily tasks, tailored to your chosen duration
               </p>
             </div>
 
             <div className="text-center bg-zinc-900/85 rounded-2xl p-6 border border-zinc-800">
               <div className="w-20 h-20 bg-linear-to-br from-genie-yellow-500 to-genie-yellow-400 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <Check size={32} color="#FCD34D" />
+                <CheckCircle size={32} color="#FCD34D" weight="fill" />
               </div>
               <h3 className="text-xl font-bold text-white mb-4">
                 Track Progress
@@ -145,7 +180,7 @@ export default function Home() {
 
             <div className="text-center bg-zinc-900/85 rounded-2xl p-6 border border-zinc-800">
               <div className="w-20 h-20 bg-linear-to-br from-genie-yellow-500 to-genie-yellow-400 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <Trophy size={32} color="#FCD34D" />
+                <Trophy size={32} color="#FCD34D" weight="fill" />
               </div>
               <h3 className="text-xl font-bold text-white mb-4">
                 Earn Rewards
@@ -158,132 +193,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="relative z-10 px-6 py-20">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-2xl md:text-3xl font-bold text-genie-yellow-500 mb-6">
-              Why Choose Genie?
-            </h2>
-            <p className="text-xl text-genie-text-secondary max-w-3xl mx-auto">
-              The only AI companion that turns your dreams into daily reality
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <div className="space-y-8">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-genie-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
-                    <Brain size={24} color="#FCD34D" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">
-                      AI-Powered Guidance
-                    </h3>
-                    <p className="text-genie-text-tertiary">
-                      Advanced AI creates personalized plans tailored to your
-                      specific goals and schedule
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-genie-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
-                    <Check size={24} color="#FCD34D" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">
-                      Daily Task Management
-                    </h3>
-                    <p className="text-genie-text-tertiary">
-                      Simple, actionable tasks that build momentum and keep you
-                      on track
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-genie-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
-                    <TrendUp size={24} color="#FCD34D" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">
-                      Progress Tracking
-                    </h3>
-                    <p className="text-genie-text-tertiary">
-                      Visual progress tracking with streaks, achievements, and
-                      growth metrics
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-genie-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
-                    <Star size={24} color="#FCD34D" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">
-                      Reward System
-                    </h3>
-                    <p className="text-genie-text-tertiary">
-                      Earn points and unlock achievements to stay motivated
-                      throughout your journey
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="bg-zinc-900/85 rounded-2xl p-8 border border-zinc-800 max-w-sm mx-auto">
-                <div className="space-y-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-genie-yellow-500 rounded-full flex items-center justify-center">
-                      <Fire size={16} color="#000000" />
-                    </div>
-                    <span className="text-white font-semibold">
-                      7 Day Streak
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-genie-yellow-500 rounded-full flex items-center justify-center">
-                      <Check size={16} color="#000000" />
-                    </div>
-                    <span className="text-white font-semibold">
-                      12 Tasks Done
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-genie-yellow-500 rounded-full flex items-center justify-center">
-                      <TrendUp size={16} color="#000000" />
-                    </div>
-                    <span className="text-white font-semibold">
-                      85% Completion
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Download Section */}
       <section
         id="download"
-        className="relative z-10 px-6 py-20 bg-genie-background-secondary/50"
+        className="relative z-10 px-6 py-20 bg-black"
       >
-        <div className="max-w-7xl mx-auto text-center">
+        <div className="max-w-7xl mx-auto text-center pt-32">
           <h2 className="text-2xl md:text-3xl font-bold text-genie-yellow-500 mb-6">
             Ready to Begin?
           </h2>
           <p className="text-xl text-genie-text-secondary mb-12 max-w-3xl mx-auto">
             Your transformation starts now.
             <br />
-            Let Genie guide you to success,
-            <br />
-            one wish at a time.
+            Let Genie guide you to success, one wish at a time.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
@@ -311,47 +233,58 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 px-6 py-12 border-t border-genie-border-primary">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center space-x-3 mb-4 md:mb-0">
-              <div className="logo-container w-8 h-8">
-                <Image
-                  src="/LogoSymbol.webp"
-                  alt="Genie Logo"
-                  width={32}
-                  height={32}
-                  className="w-full h-full"
-                  priority
-                  quality={100}
-                  style={{ objectFit: "contain" }}
-                />
+      <footer className="relative z-10 pt-32">
+        {/* Custom dark gray divider */}
+        <div className="w-full h-px" style={{ backgroundColor: '#3f3f46' }}></div>
+        
+        {/* Footer content with dark gray background */}
+        <div className="px-6 py-12" style={{ backgroundColor: '#18181b' }}>
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              {/* Logo */}
+              <div className="flex items-center space-x-3">
+                <div className="logo-container w-8 h-8">
+                  <Image
+                    src="/LogoSymbol.webp"
+                    alt="Genie Logo"
+                    width={32}
+                    height={32}
+                    className="w-full h-full"
+                    priority
+                    quality={100}
+                    style={{ objectFit: "contain" }}
+                  />
+                </div>
+                <span className="text-xl font-bold text-white">Genie</span>
               </div>
-              <span className="text-xl font-bold text-white">Genie</span>
-            </div>
+              
+              {/* Copyright - Center */}
+              <div className="text-center text-genie-text-tertiary text-sm">
+                <p>© 2025-2026 GenieApp • Version 1.0.3</p>
+              </div>
+              
+            {/* Links - Right */}
             <div className="flex items-center space-x-6 text-genie-text-tertiary text-sm">
               <Link
-                href="#"
+                href="/privacy"
                 className="hover:text-yellow-400 transition-colors"
               >
                 Privacy Policy
               </Link>
               <Link
-                href="#"
+                href="/terms"
                 className="hover:text-yellow-400 transition-colors"
               >
                 Terms of Service
               </Link>
               <Link
-                href="#"
+                href="/contact"
                 className="hover:text-yellow-400 transition-colors"
               >
                 Contact
               </Link>
             </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-genie-border-primary/30 text-center text-genie-text-tertiary text-sm">
-            <p>© 2025-2026 GenieApp • Version 1.0.3</p>
+            </div>
           </div>
         </div>
       </footer>

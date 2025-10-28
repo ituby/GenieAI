@@ -12,16 +12,16 @@ const config: Config = {
         // Genie's official color palette
         genie: {
           yellow: {
-            50: "#FFFFF0",
-            100: "#FFFFE0",
-            200: "#FFFFC0",
-            300: "#FFFFA0",
-            400: "#FFFF80",
-            500: "#FFFF68", // Official Genie yellow
-            600: "#FFFF68",
-            700: "#FFFF68",
-            800: "#B3B300",
-            900: "#999900",
+            50: "#FEF3C7",
+            100: "#FDE68A",
+            200: "#FCD34D",
+            300: "#FBBF24",
+            400: "#F59E0B",
+            500: "#FCD34D", // Official Genie yellow
+            600: "#D97706",
+            700: "#B45309",
+            800: "#92400E",
+            900: "#78350F",
           },
           dark: {
             50: "#F9F9F9",
@@ -77,7 +77,10 @@ const config: Config = {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
-        "genie-gradient": "linear-gradient(135deg, #FFFF68 0%, #FFFFFF 100%)",
+        "genie-gradient": "linear-gradient(135deg, #FCD34D 0%, #FFFFFF 100%)",
+        "hero-gradient": "linear-gradient(to bottom, #000000 0%, #000000 50%, #FCD34D 100%)",
+        "section-gradient-1": "linear-gradient(to bottom, #FCD34D 0%, #000000 50%, #000000 100%)",
+        "section-gradient-2": "linear-gradient(to bottom, #000000 0%, #FCD34D 50%, #000000 100%)",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

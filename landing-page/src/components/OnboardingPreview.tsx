@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { Sparkle, Calendar, CheckCircle, TrendUp, Trophy, CalendarBlank, CaretDown, CaretUp, Sun, Moon } from "phosphor-react";
 
 interface OnboardingSlide {
   key: string;
@@ -13,6 +14,8 @@ interface OnboardingSlide {
 const OnboardingPreview: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const preferencesScrollRef = useRef<HTMLDivElement>(null);
+  const tasksScrollRef = useRef<HTMLDivElement>(null);
 
   // Animation states for slide-up effects
   const [titleVisible, setTitleVisible] = useState(false);
@@ -35,8 +38,6 @@ const OnboardingPreview: React.FC = () => {
     false,
     false,
     false,
-    false,
-    false,
   ]);
   const [statValues, setStatValues] = useState([0, 0, 0]);
   const [unlockedRewards, setUnlockedRewards] = useState([false, false, false]);
@@ -46,45 +47,45 @@ const OnboardingPreview: React.FC = () => {
       key: "welcome",
       title: "Genie Is Out",
       description:
-        "Transform your dreams into reality\nwith AI-powered guidance,\none day at a time",
+        "Transform your dreams into reality\nwith AI-powered guidance\none day at a time",
       icon: "brain",
     },
     {
       key: "slide1",
       title: "Talk with Genie",
-      description: "Share your goals and aspirations",
+      description: "Share your goals and aspirations\nGenie will create a personalized plan\njust for you",
       icon: "sparkle",
     },
     {
       key: "slide2",
       title: "Customize Your Plan",
       description:
-        "Choose your preferred days\nand times for your 3-week journey",
+        "Choose your plan duration,\npreferred days, and daily time slots\nto fit your schedule perfectly",
       icon: "calendar",
     },
     {
       key: "slide3",
       title: "Complete Daily Tasks",
-      description: "Stay on track with simple daily missions",
+      description: "Follow AI-generated daily tasks\ntailored to your goals\nand availability",
       icon: "clipboard-check",
     },
     {
       key: "slide4",
       title: "Track Your Progress",
-      description: "Monitor your streaks,\nachievements, and growth journey",
+      description: "Monitor your streaks,\ncompletion rate, and achievements\nas you move forward",
       icon: "trend-up",
     },
     {
       key: "slide5",
       title: "Earn Rewards",
-      description: "Collect points and unlock\nachievements as you progress",
+      description: "Unlock achievements\nand collect points for every\nmilestone you reach",
       icon: "trophy",
     },
     {
       key: "cta",
       title: "Ready to Begin?",
       description:
-        "Your transformation starts now.\nLet Genie guide you to success,\none wish at a time.",
+        "Your transformation starts now\nLet Genie guide you to success\none wish at a time",
       icon: "sparkle",
     },
     {
@@ -98,16 +99,17 @@ const OnboardingPreview: React.FC = () => {
   // Start internal animations when currentIndex changes
   useEffect(() => {
     if (currentIndex === slides.length - 1) {
-      // Special handling for logo slide - start with black screen
+      // Special handling for logo slide
       setTitleVisible(false);
+      setDescriptionVisible(false);
 
       setTimeout(() => {
         setTitleVisible(true);
-      }, 1000); // Black screen for 1 second, then logo appears
+      }, 400); // Quick fade in
 
       setTimeout(() => {
         setTitleVisible(false);
-      }, 3000); // Disappear after 2 seconds of visibility
+      }, 3000); // Fade out smoothly
     } else {
       startInternalAnimations(currentIndex);
       startSlideAnimations();
@@ -137,8 +139,11 @@ const OnboardingPreview: React.FC = () => {
       setTimeout(() => {
         const nextIndex = (currentIndex + 1) % slides.length;
         setCurrentIndex(nextIndex);
-        // Start animations for new slide
-        startSlideAnimations();
+        
+        // Don't start animations here for logo slide
+        if (nextIndex !== slides.length - 1) {
+          startSlideAnimations();
+        }
       }, 300);
     }, getSlideDuration(currentIndex));
 
@@ -159,7 +164,7 @@ const OnboardingPreview: React.FC = () => {
       7000, // Slide 4: Stats counting - 7 seconds
       8000, // Slide 5: Rewards - 8 seconds
       5000, // Slide 6: CTA - 5 seconds
-      4000, // Slide 7: Logo - 2 seconds + 2 seconds pause
+      4000, // Slide 7: Logo - smooth fade in/out
     ];
     return slideDurations[index] || 6000;
   };
@@ -176,9 +181,17 @@ const OnboardingPreview: React.FC = () => {
       { start_hour: 0, end_hour: 1 },
       { start_hour: 0, end_hour: 1 },
     ]);
-    setCheckedTasks([false, false, false, false, false, false]);
+    setCheckedTasks([false, false, false, false]);
     setStatValues([0, 0, 0]);
     setUnlockedRewards([false, false, false]);
+    
+    // Reset scroll positions
+    if (preferencesScrollRef.current) {
+      preferencesScrollRef.current.scrollTop = 0;
+    }
+    if (tasksScrollRef.current) {
+      tasksScrollRef.current.scrollTop = 0;
+    }
 
     if (slideIndex === 1) {
       // Slide 2: Typing animation for prompt - exact timing from app
@@ -235,7 +248,17 @@ const OnboardingPreview: React.FC = () => {
           });
         }, 2200);
 
-        // Step 5: Show time ranges being adjusted
+        // Step 5: Scroll down to show time ranges
+        setTimeout(() => {
+          if (preferencesScrollRef.current) {
+            preferencesScrollRef.current.scrollTo({
+              top: 200,
+              behavior: 'smooth',
+            });
+          }
+        }, 4400);
+
+        // Step 6: Show time ranges being adjusted
         setTimeout(() => {
           // Adjust morning time
           setTimeout(() => {
@@ -268,9 +291,9 @@ const OnboardingPreview: React.FC = () => {
     }
 
     if (slideIndex === 3) {
-      // Slide 4: Check tasks one by one - exact timing from app
+      // Slide 4: Check tasks one by one with auto-scroll
       setTimeout(() => {
-        const delays = [500, 1000, 2000, 2500, 3000, 3500];
+        const delays = [500, 1000, 2000, 2500];
         delays.forEach((delay, idx) => {
           setTimeout(() => {
             setCheckedTasks((prev) => {
@@ -278,6 +301,14 @@ const OnboardingPreview: React.FC = () => {
               newChecked[idx] = true;
               return newChecked;
             });
+            
+            // Scroll to show the checked task (especially the last one)
+            if (idx >= 2 && tasksScrollRef.current) {
+              tasksScrollRef.current.scrollTo({
+                top: idx * 35,
+                behavior: 'smooth',
+              });
+            }
           }, delay);
         });
       }, 700); // 200ms after description starts + 500ms internal delay
@@ -333,21 +364,15 @@ const OnboardingPreview: React.FC = () => {
     if (index === 1) {
       // Talk with Genie demo - exact copy from app with typing animation
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-4 border border-genie-border-primary max-w-sm w-full mt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <svg
-              className="w-5 h-5 text-genie-yellow-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span className="text-white font-semibold text-sm">
+        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
+          <div className="flex items-center gap-3 mb-4">
+            <Sparkle size={24} color="#FCD34D" weight="fill" />
+            <span className="text-white font-semibold text-base">
               Share Your Goal
             </span>
           </div>
-          <div className="bg-genie-background-primary/50 rounded-lg p-3 border border-genie-yellow-500/30 min-h-[80px]">
-            <p className="text-genie-text-secondary text-sm leading-relaxed">
+          <div className="bg-genie-background-primary/50 rounded-lg p-4 border border-genie-yellow-500/30 min-h-[100px]">
+            <p className="text-genie-text-secondary text-base leading-relaxed">
               {promptText}
               {promptText.length > 0 && (
                 <span className="animate-pulse">|</span>
@@ -361,59 +386,31 @@ const OnboardingPreview: React.FC = () => {
     if (index === 2) {
       // Customize Plan demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-4 border border-genie-border-primary max-w-sm w-full mt-4 max-h-[320px] overflow-y-auto">
-          <div className="flex items-center gap-2 mb-3">
-            <svg
-              className="w-5 h-5 text-genie-yellow-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-white font-semibold text-sm">
-              3-Week Plan
+        <div ref={preferencesScrollRef} className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2 max-h-[380px] overflow-hidden">
+          <div className="flex items-center gap-3 mb-4">
+            <Calendar size={24} color="#FCD34D" weight="fill" />
+            <span className="text-white font-semibold text-base">
+              Your Personalized Plan
             </span>
           </div>
 
           {/* Plan Duration */}
-          <div className="mb-4">
-            <p className="text-genie-text-secondary text-xs font-semibold mb-2">
+          <div className="mb-5">
+            <p className="text-genie-text-secondary text-sm font-semibold mb-3">
               Plan Duration
             </p>
-            <div className="bg-genie-background-primary/50 rounded-lg p-3 border border-genie-border-primary">
-              <div className="flex items-center gap-2">
-                <svg
-                  className="w-4 h-4 text-genie-yellow-500"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-white text-sm font-semibold">
+            <div className="bg-genie-background-primary/50 rounded-lg p-4 border border-genie-border-primary">
+              <div className="flex items-center relative">
+                <CalendarBlank size={20} color="#FCD34D" weight="fill" className="absolute left-0" />
+                <span className="text-white text-base font-semibold w-full text-center">
                   {planDuration} days ({planDuration / 7}{" "}
                   {planDuration === 7 ? "week" : "weeks"})
                 </span>
-                <svg
-                  className={`w-3 h-3 text-genie-text-tertiary ml-auto transition-transform duration-300 ${
-                    showDurationDropdown ? "rotate-180" : ""
-                  }`}
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                {showDurationDropdown ? (
+                  <CaretUp size={16} color="rgba(255, 255, 255, 0.5)" weight="fill" className="absolute right-0" />
+                ) : (
+                  <CaretDown size={16} color="rgba(255, 255, 255, 0.5)" weight="fill" className="absolute right-0" />
+                )}
               </div>
             </div>
 
@@ -428,7 +425,7 @@ const OnboardingPreview: React.FC = () => {
                     }`}
                   >
                     <span
-                      className={`text-sm ${
+                      className={`text-base ${
                         planDuration === days
                           ? "text-genie-yellow-500 font-semibold"
                           : "text-genie-text-secondary"
@@ -443,15 +440,15 @@ const OnboardingPreview: React.FC = () => {
           </div>
 
           {/* Days Selection */}
-          <div className="mb-4">
-            <p className="text-genie-text-secondary text-xs font-semibold mb-2">
+          <div className="mb-5">
+            <p className="text-genie-text-secondary text-sm font-semibold mb-3">
               Choose Your Days
             </p>
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => (
                 <div
                   key={idx}
-                  className={`w-8 h-8 rounded flex items-center justify-center text-xs font-semibold transition-all duration-300 ${
+                  className={`w-10 h-10 rounded flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
                     selectedDays.includes(idx)
                       ? "bg-genie-yellow-500 text-black"
                       : "bg-genie-background-primary/50 text-genie-text-tertiary border border-genie-border-primary"
@@ -465,10 +462,10 @@ const OnboardingPreview: React.FC = () => {
 
           {/* Time Ranges */}
           <div>
-            <p className="text-genie-text-secondary text-xs font-semibold mb-2">
+            <p className="text-genie-text-secondary text-sm font-semibold mb-3">
               Preferred Times
             </p>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {[
                 { label: "Morning", icon: "sun" },
                 { label: "Afternoon", icon: "sun-horizon" },
@@ -476,35 +473,33 @@ const OnboardingPreview: React.FC = () => {
               ].map((time, idx) => (
                 <div
                   key={idx}
-                  className="bg-genie-background-primary/30 rounded-lg p-2 border border-genie-border-primary"
+                  className="bg-genie-background-primary/30 rounded-lg p-3 border border-genie-border-primary"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4 text-genie-yellow-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.457 4.907a1 1 0 01-1.414 1.414l-1.06-1.06a1 1 0 011.414-1.414l1.06 1.06zm-4.95-4.95a1 1 0 010 1.414l-1.06 1.06a1 1 0 11-1.414-1.414l1.06-1.06zm6.414 0a1 1 0 010 1.414l-1.06 1.06a1 1 0 01-1.414-1.414l1.06-1.06zM16 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1z" />
-                      </svg>
-                      <span className="text-white text-xs font-semibold">
+                    <div className="flex items-center gap-3 relative flex-1">
+                      {idx === 2 ? (
+                        <Moon size={20} color="#FCD34D" weight="fill" className="absolute left-0" />
+                      ) : (
+                        <Sun size={20} color="#FCD34D" weight="fill" className="absolute left-0" />
+                      )}
+                      <span className="text-white text-sm font-semibold w-full text-center">
                         {time.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className="bg-genie-background-primary/50 rounded px-2 py-1">
-                        <span className="text-genie-text-secondary text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-genie-background-primary/50 rounded px-3 py-1">
+                        <span className="text-genie-text-secondary text-sm">
                           {timeRanges[idx].start_hour
                             .toString()
                             .padStart(2, "0")}
                           :00
                         </span>
                       </div>
-                      <span className="text-genie-text-tertiary text-xs">
+                      <span className="text-genie-text-tertiary text-sm">
                         -
                       </span>
-                      <div className="bg-genie-background-primary/50 rounded px-2 py-1">
-                        <span className="text-genie-text-secondary text-xs">
+                      <div className="bg-genie-background-primary/50 rounded px-3 py-1">
+                        <span className="text-genie-text-secondary text-sm">
                           {timeRanges[idx].end_hour.toString().padStart(2, "0")}
                           :00
                         </span>
@@ -522,38 +517,26 @@ const OnboardingPreview: React.FC = () => {
     if (index === 3) {
       // Complete Tasks demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-4 border border-genie-border-primary max-w-sm w-full mt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <svg
-              className="w-5 h-5 text-genie-yellow-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-white font-semibold text-sm">
+        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
+          <div className="flex items-center gap-3 mb-4">
+            <CheckCircle size={24} color="#FCD34D" weight="fill" />
+            <span className="text-white font-semibold text-base">
               Today&apos;s Tasks
             </span>
           </div>
-          <div className="space-y-2 max-h-[130px] overflow-y-auto">
+          <div ref={tasksScrollRef} className="space-y-3 max-h-[160px] overflow-hidden">
             {[
               "Morning stretching routine",
               "Drink 8 glasses of water",
               "30-minute walk",
-              "Healthy meal prep",
               "Evening meditation",
-              "Read 10 pages",
             ].map((task, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-2 py-1 border-b border-genie-border-primary/20"
+                className="flex items-center gap-3 py-2 border-b border-genie-border-primary/20"
               >
                 <div
-                  className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
                     checkedTasks[idx]
                       ? "bg-genie-yellow-500"
                       : "border-2 border-genie-border-primary"
@@ -561,7 +544,7 @@ const OnboardingPreview: React.FC = () => {
                 >
                   {checkedTasks[idx] && (
                     <svg
-                      className="w-2 h-2 text-black"
+                      className="w-3 h-3 text-black"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -574,7 +557,7 @@ const OnboardingPreview: React.FC = () => {
                   )}
                 </div>
                 <span
-                  className={`text-xs flex-1 transition-all duration-300 ${
+                  className={`text-sm flex-1 transition-all duration-300 ${
                     checkedTasks[idx]
                       ? "text-genie-text-tertiary line-through"
                       : "text-genie-text-secondary"
@@ -592,39 +575,29 @@ const OnboardingPreview: React.FC = () => {
     if (index === 4) {
       // Track Progress demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-4 border border-genie-border-primary max-w-sm w-full mt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <svg
-              className="w-5 h-5 text-genie-yellow-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-white font-semibold text-sm">Your Stats</span>
+        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
+          <div className="flex items-center gap-3 mb-4">
+            <TrendUp size={24} color="#FCD34D" weight="fill" />
+            <span className="text-white font-semibold text-base">Your Stats</span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-genie-yellow-500/20 rounded-lg p-3 text-center border border-genie-yellow-500/30">
-              <div className="text-genie-yellow-500 font-bold text-lg mb-1">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-genie-yellow-500/20 rounded-lg p-4 text-center border border-genie-yellow-500/30">
+              <div className="text-genie-yellow-500 font-bold text-2xl mb-2">
                 {statValues[0]}
               </div>
-              <div className="text-genie-text-tertiary text-xs">Day Streak</div>
+              <div className="text-genie-text-tertiary text-sm">Day Streak</div>
             </div>
-            <div className="bg-genie-yellow-500/20 rounded-lg p-3 text-center border border-genie-yellow-500/30">
-              <div className="text-genie-yellow-500 font-bold text-lg mb-1">
+            <div className="bg-genie-yellow-500/20 rounded-lg p-4 text-center border border-genie-yellow-500/30">
+              <div className="text-genie-yellow-500 font-bold text-2xl mb-2">
                 {statValues[1]}
               </div>
-              <div className="text-genie-text-tertiary text-xs">Tasks Done</div>
+              <div className="text-genie-text-tertiary text-sm">Tasks Done</div>
             </div>
-            <div className="bg-genie-yellow-500/20 rounded-lg p-3 text-center border border-genie-yellow-500/30">
-              <div className="text-genie-yellow-500 font-bold text-lg mb-1">
+            <div className="bg-genie-yellow-500/20 rounded-lg p-4 text-center border border-genie-yellow-500/30">
+              <div className="text-genie-yellow-500 font-bold text-2xl mb-2">
                 {statValues[2]}%
               </div>
-              <div className="text-genie-text-tertiary text-xs">Completion</div>
+              <div className="text-genie-text-tertiary text-sm">Completion</div>
             </div>
           </div>
         </div>
@@ -634,59 +607,30 @@ const OnboardingPreview: React.FC = () => {
     if (index === 5) {
       // Earn Rewards demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-4 border border-genie-border-primary max-w-sm w-full mt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <svg
-              className="w-5 h-5 text-genie-yellow-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 2L3 7v11a1 1 0 001 1h12a1 1 0 001-1V7l-7-5zM8 15a1 1 0 11-2 0 1 1 0 012 0zm4 0a1 1 0 11-2 0 1 1 0 012 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-white font-semibold text-sm">
+        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
+          <div className="flex items-center gap-3 mb-4">
+            <Trophy size={24} color="#FCD34D" weight="fill" />
+            <span className="text-white font-semibold text-base">
               Achievements
             </span>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {[
-              { title: "First Steps", points: "+50", icon: "star" },
-              { title: "Week Warrior", points: "+100", icon: "fire" },
-              { title: "Task Master", points: "+200", icon: "crown" },
+              { title: "First Steps", points: "+50" },
+              { title: "Week Warrior", points: "+100" },
+              { title: "Task Master", points: "+200" },
             ].map((reward, idx) => (
               <div
                 key={idx}
-                className={`flex items-center gap-2 p-2 rounded-lg border transition-all duration-500 ${
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${
                   unlockedRewards[idx]
                     ? "bg-genie-yellow-500/20 border-genie-yellow-500/30"
                     : "bg-genie-background-primary/30 border-genie-border-primary opacity-50"
                 }`}
               >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-500 ${
-                    unlockedRewards[idx]
-                      ? "bg-genie-yellow-500"
-                      : "bg-genie-background-primary/50"
-                  }`}
-                >
-                  <svg
-                    className={`w-3 h-3 transition-all duration-500 ${
-                      unlockedRewards[idx]
-                        ? "text-black"
-                        : "text-genie-text-tertiary"
-                    }`}
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                </div>
                 <div className="flex-1">
                   <div
-                    className={`text-sm font-semibold transition-all duration-500 ${
+                    className={`text-base font-semibold transition-all duration-500 ${
                       unlockedRewards[idx]
                         ? "text-white"
                         : "text-genie-text-tertiary"
@@ -695,7 +639,7 @@ const OnboardingPreview: React.FC = () => {
                     {reward.title}
                   </div>
                   <div
-                    className={`text-xs transition-all duration-500 ${
+                    className={`text-sm transition-all duration-500 ${
                       unlockedRewards[idx]
                         ? "text-genie-yellow-500"
                         : "text-genie-text-tertiary opacity-50"
@@ -715,9 +659,9 @@ const OnboardingPreview: React.FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden w-full max-w-2xl mx-auto">
-      {/* Slides Container - exact height from app */}
-      <div className="relative h-[400px] overflow-hidden">
+    <div className="relative overflow-hidden w-full max-w-5xl mx-auto scale-125 origin-top">
+      {/* Slides Container - increased size */}
+      <div className="relative h-[500px] overflow-hidden">
         {slides.map((slide, index) => {
           // First, second to last, and last slides stay centered
           const isCenteredSlide =
@@ -743,18 +687,18 @@ const OnboardingPreview: React.FC = () => {
                     // Logo slide
                     <div className="flex items-center justify-center h-full">
                       <div
-                        className={`transition-all duration-1000 ease-in-out ${
+                        className={`transition-all duration-500 ease-in-out ${
                           titleVisible
                             ? "opacity-100 transform scale-100"
-                            : "opacity-0 transform scale-0"
+                            : "opacity-0 transform scale-95"
                         }`}
                       >
                         <Image
                           src="/LogoSymbol.webp"
                           alt="Genie Logo"
-                          width={80}
-                          height={80}
-                          className="w-20 h-20"
+                          width={90}
+                          height={90}
+                          className="w-22 h-22"
                           style={{
                             objectFit: "contain",
                             width: "auto",
@@ -769,23 +713,23 @@ const OnboardingPreview: React.FC = () => {
                     <>
                       {/* Title with yellow background - exact styling from app */}
                       <div
-                        className={`mb-4 transition-all duration-500 ease-out ${
+                        className={`${index === 0 || index === slides.length - 2 ? 'mb-3' : 'mb-6'} transition-all duration-500 ease-out ${
                           titleVisible
                             ? "opacity-100 transform translate-y-0"
                             : "opacity-0 transform translate-y-8"
                         }`}
                       >
-                        <span className="bg-genie-yellow-500 text-black px-3 py-1 rounded-none inline-block text-xl font-black tracking-tight">
+                        <span className="bg-genie-yellow-500 text-black px-4 py-2 rounded-none inline-block text-3xl font-black tracking-tight">
                           {slide.title}
                         </span>
                       </div>
 
                       {/* Demo content - positioned exactly like app */}
-                      <div className="mb-4">{renderDemo(index)}</div>
+                      <div className="mb-6">{renderDemo(index)}</div>
 
                       {/* Description - exact styling from app */}
                       <p
-                        className={`text-genie-text-secondary text-lg leading-relaxed max-w-lg whitespace-pre-line px-4 transition-all duration-500 ease-out ${
+                        className={`text-genie-text-secondary text-xl leading-relaxed max-w-2xl whitespace-pre-line px-4 transition-all duration-500 ease-out ${
                           descriptionVisible
                             ? "opacity-100 transform translate-y-0"
                             : "opacity-0 transform translate-y-8"
@@ -814,14 +758,14 @@ const OnboardingPreview: React.FC = () => {
                           : "opacity-0 transform translate-y-8"
                       }`}
                     >
-                      <span className="bg-genie-yellow-500 text-black px-3 py-1 rounded-none inline-block text-xl font-black tracking-tight">
+                      <span className="bg-genie-yellow-500 text-black px-4 py-2 rounded-none inline-block text-3xl font-black tracking-tight">
                         {slide.title}
                       </span>
                     </div>
 
                     {/* Description */}
                     <p
-                      className={`text-genie-text-secondary text-lg leading-relaxed whitespace-pre-line transition-all duration-500 ease-out ${
+                      className={`text-genie-text-secondary text-xl leading-relaxed whitespace-pre-line transition-all duration-500 ease-out ${
                         descriptionVisible
                           ? "opacity-100 transform translate-y-0"
                           : "opacity-0 transform translate-y-8"
@@ -838,13 +782,13 @@ const OnboardingPreview: React.FC = () => {
       </div>
 
       {/* Progress Dots - exact positioning from app */}
-      <div className="flex justify-center space-x-3 mt-12">
+      <div className="flex justify-center space-x-4 mt-12 mb-0 px-4">
         {slides.map((_, index) => (
           <span
             key={index}
-            className={`block w-3 h-3 rounded-full transition-all duration-300
+            className={`block w-2 h-2 rounded-full transition-all duration-300
             ${
-              index === currentIndex ? "bg-genie-yellow-500 w-8" : "bg-white/30"
+              index === currentIndex ? "bg-genie-yellow-500 w-6" : "bg-white/30"
             }`}
           ></span>
         ))}
