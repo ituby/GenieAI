@@ -1,0 +1,427 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #0A0C10;
+  --foreground: #FFFFFF;
+  --genie-yellow: #FFFF68;
+  --genie-dark: #0A0C10;
+  --genie-background-primary: #0A0C10;
+  --genie-background-secondary: #101215;
+  --genie-background-tertiary: #181A1F;
+  --genie-background-card: #1F2126;
+  --genie-text-primary: #FFFFFF;
+  --genie-text-secondary: #CCCCCC;
+  --genie-text-tertiary: #999999;
+  --genie-border-primary: #404040;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Force Genie colors to work */
+.text-genie-text-primary {
+  color: #FFFFFF !important;
+}
+
+.text-genie-text-secondary {
+  color: #CCCCCC !important;
+}
+
+.text-genie-text-tertiary {
+  color: #999999 !important;
+}
+
+.bg-genie-background-primary {
+  background-color: #0A0C10 !important;
+}
+
+.bg-genie-background-secondary {
+  background-color: #101215 !important;
+}
+
+.bg-genie-background-card {
+  background-color: #1F2126 !important;
+}
+
+.bg-genie-yellow-500 {
+  background-color: #FFFF68 !important;
+}
+
+.bg-genie-yellow-400 {
+  background-color: #FFFF80 !important;
+}
+
+.bg-genie-yellow-300 {
+  background-color: #FFFFA0 !important;
+}
+
+.text-genie-yellow-500 {
+  color: #FFFF68 !important;
+}
+
+.border-genie-border-primary {
+  border-color: #404040 !important;
+}
+
+.hover\:text-genie-yellow-500:hover {
+  color: #FFFF68 !important;
+}
+
+.hover\:border-genie-yellow-500:hover {
+  border-color: #FFFF68 !important;
+}
+
+.hover\:shadow-genie-yellow-500\/25:hover {
+  box-shadow: 0 10px 15px -3px rgba(255, 255, 104, 0.25), 0 4px 6px -2px rgba(255, 255, 104, 0.1) !important;
+}
+
+/* Gradients */
+.bg-linear-to-r {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops)) !important;
+}
+
+.bg-linear-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)) !important;
+}
+
+.from-genie-yellow-500 {
+  --tw-gradient-from: #FFFF68 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(255 255 104 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.to-genie-yellow-400 {
+  --tw-gradient-to: #FFFF80 var(--tw-gradient-to-position) !important;
+}
+
+.to-white {
+  --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position) !important;
+}
+
+.hover\:from-genie-yellow-400:hover {
+  --tw-gradient-from: #FFFF80 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(255 255 128 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.hover\:to-genie-yellow-300:hover {
+  --tw-gradient-to: #FFFFA0 var(--tw-gradient-to-position) !important;
+}
+
+/* Button specific fixes */
+.bg-linear-to-r.from-genie-yellow-500.to-genie-yellow-400 {
+  background: linear-gradient(to right, #FFFF68, #FFFF80) !important;
+  color: #000000 !important;
+}
+
+.bg-linear-to-r.from-genie-yellow-500.to-genie-yellow-400:hover {
+  background: linear-gradient(to right, #FFFF80, #FFFFA0) !important;
+}
+
+/* All yellow buttons */
+a[class*="from-genie-yellow-500"] {
+  background: linear-gradient(to right, #FFFF68, #FFFF80) !important;
+  color: #000000 !important;
+}
+
+a[class*="from-genie-yellow-500"]:hover {
+  background: linear-gradient(to right, #FFFF80, #FFFFA0) !important;
+}
+
+/* Onboarding Animation Keyframes */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDelay1 {
+
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  15%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDelay2 {
+
+  0%,
+  28% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  29%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDelay3 {
+
+  0%,
+  42% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  43%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDelay4 {
+
+  0%,
+  56% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  57%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDelay5 {
+
+  0%,
+  70% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  71%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDelay6 {
+
+  0%,
+  84% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  85%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 3s ease-in-out infinite;
+}
+
+.animate-fade-in-delay-1 {
+  animation: fadeInDelay1 21s ease-in-out infinite;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeInDelay2 21s ease-in-out infinite;
+}
+
+.animate-fade-in-delay-3 {
+  animation: fadeInDelay3 21s ease-in-out infinite;
+}
+
+.animate-fade-in-delay-4 {
+  animation: fadeInDelay4 21s ease-in-out infinite;
+}
+
+.animate-fade-in-delay-5 {
+  animation: fadeInDelay5 21s ease-in-out infinite;
+}
+
+.animate-fade-in-delay-6 {
+  animation: fadeInDelay6 21s ease-in-out infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1F2126;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #FFFF68;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #FFFF80;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom animations */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 20px rgba(255, 255, 104, 0.3);
+  }
+
+  100% {
+    box-shadow: 0 0 40px rgba(255, 255, 104, 0.6);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(255, 255, 104, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(255, 255, 104, 0.4);
+  }
+}
+
+/* Logo fixes */
+img[alt*="Genie Logo"] {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: auto;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Specific logo container fixes */
+.logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.logo-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+}
+
+/* Prevent logo distortion */
+.w-30 {
+  width: 7.5rem;
+  /* 120px */
+}
+
+.h-30 {
+  height: 7.5rem;
+  /* 120px */
+}
+
+/* Genie-specific utility classes */
+.genie-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.genie-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.genie-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Text gradient utilities */
+.text-gradient-genie {
+  background: linear-gradient(135deg, #FFFF68 0%, #FFFFFF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Button hover effects */
+.btn-genie {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-genie::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-genie:hover::before {
+  left: 100%;
+}
+
+/* Card hover effects */
+.card-genie {
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.card-genie:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(255, 255, 104, 0.1);
+}
