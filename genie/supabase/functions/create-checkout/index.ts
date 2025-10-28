@@ -28,8 +28,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
 
+    console.log(`🔍 [${requestId}] Config check:`, {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      hasStripeKey: !!stripeSecretKey,
+      stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 10) : 'MISSING'
+    });
+
     if (!supabaseUrl || !supabaseServiceKey || !stripeSecretKey) {
-      throw new Error('Missing configuration');
+      const missing = [];
+      if (!supabaseUrl) missing.push('SUPABASE_URL');
+      if (!supabaseServiceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+      if (!stripeSecretKey) missing.push('STRIPE_SECRET_KEY');
+      
+      console.error(`❌ [${requestId}] Missing configuration:`, missing.join(', '));
+      throw new Error(`Missing configuration: ${missing.join(', ')}`);
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

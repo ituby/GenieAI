@@ -37,6 +37,8 @@ export default function App() {
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [showPostAuthSplash, setShowPostAuthSplash] = useState(false);
+  const prevIsAuthenticatedRef = useRef(isAuthenticated);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -177,6 +179,17 @@ export default function App() {
     checkOtpStatus();
   }, [isAuthenticated, user?.email, checkPendingOtp]);
 
+  // Detect authentication completion and show post-auth splash
+  useEffect(() => {
+    // Detect when user transitions from not authenticated to authenticated (after OTP verification)
+    // Only after initial loading is complete (hasShownInitialSplash = true)
+    if (prevIsAuthenticatedRef.current === false && isAuthenticated === true && !loading && hasShownInitialSplash.current) {
+      console.log('✅ User authenticated - showing post-auth splash screen for data loading');
+      setShowPostAuthSplash(true);
+    }
+    prevIsAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated, loading]);
+
   // Hide splash ONLY after initial loading is complete (once!)
   useEffect(() => {
     // Only hide splash once after initial load
@@ -196,6 +209,7 @@ export default function App() {
       console.log('🚪 User signed out, resetting onboarding and splash');
       setDismissOnboarding(false);
       setShowSplash(true);
+      setShowPostAuthSplash(false);
       hasShownInitialSplash.current = false;
     }
     prevAuthRef.current = isAuthenticated;
@@ -208,6 +222,11 @@ export default function App() {
 
   const handleSplashFinish = () => {
     setShowSplash(false);
+  };
+
+  const handlePostAuthSplashFinish = () => {
+    console.log('✅ Post-auth splash finished - showing dashboard');
+    setShowPostAuthSplash(false);
   };
 
   const handleTermsAccept = async () => {
@@ -360,6 +379,27 @@ export default function App() {
               onAccept={handleTermsAccept}
               onDecline={handleTermsDecline}
             />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
+            <StatusBar style="light" />
+          </PopupProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show post-authentication splash screen for data loading
+  if (isAuthenticated && showPostAuthSplash) {
+    console.log('📱 Showing post-auth splash screen - loading user data');
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <PopupProvider>
+            <SplashScreen onAnimationFinish={handlePostAuthSplashFinish} />
             <UpdateAvailableModal
               visible={showUpdateModal}
               onUpdate={handleUpdateApp}
