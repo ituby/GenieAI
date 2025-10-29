@@ -1,0 +1,187 @@
+{
+  "identifier" : "B8F2C3A1",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "6503894261",
+      "localizations" : [
+        {
+          "description" : "Buy 50 tokens to create goals and tasks with Genie AI",
+          "displayName" : "50 Tokens",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "קנה 50 טוקנים כדי ליצור מטרות ומשימות עם Genie AI",
+          "displayName" : "50 טוקנים",
+          "locale" : "he"
+        }
+      ],
+      "productID" : "com.ituby.genie.ai.tokens.50",
+      "referenceName" : "50 Tokens",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "6503894262",
+      "localizations" : [
+        {
+          "description" : "Buy 100 tokens to create goals and tasks with Genie AI",
+          "displayName" : "100 Tokens",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "קנה 100 טוקנים כדי ליצור מטרות ומשימות עם Genie AI",
+          "displayName" : "100 טוקנים",
+          "locale" : "he"
+        }
+      ],
+      "productID" : "com.ituby.genie.ai.tokens.100",
+      "referenceName" : "100 Tokens",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "12.99",
+      "familyShareable" : false,
+      "internalID" : "6503894263",
+      "localizations" : [
+        {
+          "description" : "Buy 250 tokens to create goals and tasks with Genie AI",
+          "displayName" : "250 Tokens",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "קנה 250 טוקנים כדי ליצור מטרות ומשימות עם Genie AI",
+          "displayName" : "250 טוקנים",
+          "locale" : "he"
+        }
+      ],
+      "productID" : "com.ituby.genie.ai.tokens.250",
+      "referenceName" : "250 Tokens",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : false,
+      "internalID" : "6503894264",
+      "localizations" : [
+        {
+          "description" : "Buy 500 tokens to create goals and tasks with Genie AI",
+          "displayName" : "500 Tokens",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "קנה 500 טוקנים כדי ליצור מטרות ומשימות עם Genie AI",
+          "displayName" : "500 טוקנים",
+          "locale" : "he"
+        }
+      ],
+      "productID" : "com.ituby.genie.ai.tokens.500",
+      "referenceName" : "500 Tokens",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "49.99",
+      "familyShareable" : false,
+      "internalID" : "6503894265",
+      "localizations" : [
+        {
+          "description" : "Buy 1000 tokens to create goals and tasks with Genie AI",
+          "displayName" : "1000 Tokens",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "קנה 1000 טוקנים כדי ליצור מטרות ומשימות עם Genie AI",
+          "displayName" : "1000 טוקנים",
+          "locale" : "he"
+        }
+      ],
+      "productID" : "com.ituby.genie.ai.tokens.1000",
+      "referenceName" : "1000 Tokens",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "99.99",
+      "familyShareable" : false,
+      "internalID" : "6503894266",
+      "localizations" : [
+        {
+          "description" : "Buy 2000 tokens to create goals and tasks with Genie AI",
+          "displayName" : "2000 Tokens",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "קנה 2000 טוקנים כדי ליצור מטרות ומשימות עם Genie AI",
+          "displayName" : "2000 טוקנים",
+          "locale" : "he"
+        }
+      ],
+      "productID" : "com.ituby.genie.ai.tokens.2000",
+      "referenceName" : "2000 Tokens",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6740050769",
+    "_developerTeamID" : "NBCWD9X4G4",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 748287600.22139704,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
+

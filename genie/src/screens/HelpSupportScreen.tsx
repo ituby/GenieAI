@@ -159,7 +159,7 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
   };
 
   const openEmail = () => {
-    const email = 'support@genieapp.com';
+    const email = 'support@askgenie.info';
     const subject = 'Genie App Support';
     const body = 'Hi,\n\nI need help with:\n\n';
     
@@ -281,7 +281,7 @@ export const HelpSupportScreen: React.FC<{ onBack: () => void }> = ({ onBack }) 
                   <TouchableOpacity style={styles.contactOption} onPress={openEmail}>
                     <Icon name="envelope" size={24} color={theme.colors.yellow[500]} />
                     <Text variant="body" color="primary-color">Email Support</Text>
-                    <Text variant="caption" color="secondary">support@genieapp.com</Text>
+                    <Text variant="caption" color="secondary">support@askgenie.info</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.contactOption} 

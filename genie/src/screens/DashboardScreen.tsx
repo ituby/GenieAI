@@ -109,8 +109,14 @@ export const DashboardScreen: React.FC = () => {
   const [showSubscription, setShowSubscription] = React.useState(false);
   const [showMyPlans, setShowMyPlans] = React.useState(false);
   const [showDailyGoals, setShowDailyGoals] = React.useState(false);
-  const [recentRewards, setRecentRewards] = React.useState<Reward[]>([]);
-  const [totalPoints, setTotalPoints] = React.useState(0);
+  const [recentRewards, setRecentRewards] = React.useState<Reward[]>(() => {
+    const cachedData = dataLoadingService.getCachedData();
+    return cachedData?.recentRewards || [];
+  });
+  const [totalPoints, setTotalPoints] = React.useState(() => {
+    const cachedData = dataLoadingService.getCachedData();
+    return cachedData?.totalPoints || 0;
+  });
   const [showSideMenu, setShowSideMenu] = React.useState(false);
   const sideMenuAnimation = useRef(new Animated.Value(0)).current;
   const overlayAnimation = useRef(new Animated.Value(0)).current;
@@ -164,12 +170,20 @@ export const DashboardScreen: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = React.useState<number | null>(
     null
   );
-  const [userTokens, setUserTokens] = React.useState({
-    used: 0,
-    remaining: 0,
-    total: 0,
-    isSubscribed: false,
-    monthlyTokens: 100,
+  const [userTokens, setUserTokens] = React.useState(() => {
+    // Try to get cached data on initial render to avoid showing red button
+    const cachedData = dataLoadingService.getCachedData();
+    if (cachedData?.userTokens) {
+      console.log('📊 Initializing Dashboard with cached tokens data');
+      return cachedData.userTokens;
+    }
+    return {
+      used: 0,
+      remaining: 0,
+      total: 0,
+      isSubscribed: false,
+      monthlyTokens: 100,
+    };
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
   const [refreshBreathingAnimation] = useState(new Animated.Value(1));
@@ -1893,21 +1907,6 @@ export const DashboardScreen: React.FC = () => {
                       color="secondary"
                       style={styles.modalFeatureText}
                     >
-                      Discounted token purchases
-                    </Text>
-                    <Icon
-                      name="percent"
-                      size={14}
-                      color="#FFFF68"
-                      weight="fill"
-                    />
-                  </View>
-                  <View style={styles.modalFeature}>
-                    <Text
-                      variant="body"
-                      color="secondary"
-                      style={styles.modalFeatureText}
-                    >
                       Advanced user preferences
                     </Text>
                     <Icon
@@ -1983,11 +1982,21 @@ export const DashboardScreen: React.FC = () => {
                   try {
                   setShowSubscriptionModal(false);
                     
-                    // Create subscription checkout with Standard plan ($15)
-                    const response = await paymentService.createSubscription('price_1SLUWE9mCMmqa2BSeNa94ig7');
+                    // Use IAP on mobile, Stripe on web
+                    const subscriptionProductId = Platform.OS === 'ios' || Platform.OS === 'android'
+                      ? 'com.ituby.genie.ai.premium.monthly'  // IAP Product ID
+                      : 'price_1SLUWE9mCMmqa2BSeNa94ig7';     // Stripe Price ID
                     
-                    if (response.success && response.url) {
-                      await paymentService.openCheckout(response.url);
+                    const response = await paymentService.createSubscription(subscriptionProductId);
+                    
+                    if (response.success) {
+                      if (response.url) {
+                        // Web: open Stripe checkout
+                        await paymentService.openCheckout(response.url);
+                      } else {
+                        // Mobile: IAP handled by listener
+                        alert('✅ Subscription request sent! Please confirm the purchase.');
+                      }
                     } else {
                       alert('Error creating subscription: ' + (response.error || 'Unknown error'));
                     }
@@ -1998,7 +2007,7 @@ export const DashboardScreen: React.FC = () => {
                 }}
               >
                 <Text style={styles.modalSubscribeButtonText}>
-                  Subscribe Now - $15/month
+                  Subscribe Now - $14.99/month
                 </Text>
               </TouchableOpacity>
             </View>

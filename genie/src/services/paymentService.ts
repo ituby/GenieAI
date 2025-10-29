@@ -1,12 +1,15 @@
 /**
  * Payment Service
  * 
- * Service for handling Stripe payments via Supabase Edge Functions
+ * Service for handling payments via IAP (mobile) or Stripe (web)
  */
 
+import { Platform } from 'react-native';
 import { supabase } from './supabase/client';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { iapService } from './iapService';
+import { TOKEN_PACKAGES } from '../config/iapConfig';
 
 export interface CheckoutResponse {
   success: boolean;
@@ -31,9 +34,35 @@ export type SubscriptionAction = 'upgrade' | 'downgrade' | 'reinstate' | 'cancel
 class PaymentService {
   /**
    * Create a checkout session for token purchase
+   * Uses IAP on mobile, Stripe on web
    */
-  async purchaseTokens(amount: number): Promise<CheckoutResponse> {
+  async purchaseTokens(amount: number, productId?: string): Promise<CheckoutResponse> {
     try {
+      // Use IAP on mobile platforms
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        if (!productId) {
+          return {
+            success: false,
+            error: 'Product ID is required for mobile purchases',
+          };
+        }
+
+        const result = await iapService.purchaseTokens(productId);
+        
+        if (result.success) {
+          return {
+            success: true,
+            sessionId: result.purchase?.transactionId,
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Purchase failed',
+          };
+        }
+      }
+
+      // Use Stripe on web
       // Validate amount
       if (amount < 50) {
         return {
@@ -81,9 +110,28 @@ class PaymentService {
 
   /**
    * Create a checkout session for subscription
+   * Uses IAP on mobile, Stripe on web
    */
   async createSubscription(priceId: string): Promise<CheckoutResponse> {
     try {
+      // Use IAP on mobile platforms
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        const result = await iapService.subscribeToPremium(priceId);
+        
+        if (result.success) {
+          return {
+            success: true,
+            sessionId: result.purchase?.transactionId,
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || 'Subscription failed',
+          };
+        }
+      }
+
+      // Use Stripe on web
       if (!priceId) {
         return {
           success: false,
@@ -129,24 +177,59 @@ class PaymentService {
   }
 
   /**
-   * Open Stripe checkout in browser
+   * Open Stripe checkout in browser (web only)
    */
   async openCheckout(checkoutUrl: string): Promise<void> {
     try {
-      // Open browser with checkout URL and enable dismiss on redirect
-      const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
-        dismissButtonStyle: 'close',
-        showTitle: false,
-        enableBarCollapsing: false,
-        // This will make the browser close automatically when redirecting to app
-        createTask: false,
-      });
-      
-      console.log('Checkout browser result:', result);
+      // Only for web platform
+      if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+        // Open browser with checkout URL and enable dismiss on redirect
+        const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
+          dismissButtonStyle: 'close',
+          showTitle: false,
+          enableBarCollapsing: false,
+          // This will make the browser close automatically when redirecting to app
+          createTask: false,
+        });
+        
+        console.log('Checkout browser result:', result);
+      } else {
+        console.warn('⚠️ openCheckout should not be called on mobile platforms');
+      }
     } catch (error) {
       console.error('Error opening checkout:', error);
       throw error;
     }
+  }
+
+  /**
+   * Initialize IAP (mobile only)
+   */
+  async initializeIAP(): Promise<boolean> {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      return await iapService.initialize();
+    }
+    return false;
+  }
+
+  /**
+   * Get IAP products
+   */
+  getIAPProducts() {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      return iapService.getAvailableProducts();
+    }
+    return [];
+  }
+
+  /**
+   * Get IAP subscriptions
+   */
+  getIAPSubscriptions() {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      return iapService.getAvailableSubscriptions();
+    }
+    return [];
   }
 
   /**
@@ -316,14 +399,19 @@ class PaymentService {
    * Calculate token purchase price
    */
   calculateTokenPrice(amount: number, isSubscribed: boolean = false): number {
-    const pricePerToken = 0.05; // $0.05 per token
-    const basePrice = amount * pricePerToken;
+    // Price mapping based on actual IAP prices
+    const priceMap: Record<number, number> = {
+      50: 2.99,
+      100: 4.99,
+      250: 12.99,
+      500: 24.99,
+      1000: 49.99,
+      2000: 99.99,
+    };
     
-    // 15% discount for subscribers
-    if (isSubscribed) {
-      return basePrice * 0.85; // 15% discount
-    }
+    const basePrice = priceMap[amount] || (amount * 0.05);
     
+    // No subscriber discount - same price for everyone
     return basePrice;
   }
 
@@ -335,8 +423,8 @@ class PaymentService {
       {
         id: 'premium',
         name: 'Premium',
-        priceId: 'price_1SNHrn9mCMmqa2BSvCym8Pq7', // Live Stripe price ID ($15)
-        price: 15.00,
+        priceId: 'price_1SNHrn9mCMmqa2BSvCym8Pq7', // Live Stripe price ID ($14.99)
+        price: 14.99,
         tokens: 1000,
         features: [
           '1,000 tokens per month',

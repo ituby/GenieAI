@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Goal, GoalWithProgress } from '../types/goal';
 import { supabase } from '../services/supabase/client';
+import { dataLoadingService } from '../services/dataLoadingService';
 
 interface GoalState {
   goals: GoalWithProgress[];
@@ -20,9 +21,14 @@ interface GoalState {
   setError: (error: string | null) => void;
 }
 
+// Try to initialize with cached data
+const cachedData = dataLoadingService.getCachedData();
+const initialGoals = cachedData?.goals || [];
+const initialActiveGoals = cachedData?.activeGoals || [];
+
 export const useGoalStore = create<GoalState>((set, get) => ({
-  goals: [],
-  activeGoals: [],
+  goals: initialGoals,
+  activeGoals: initialActiveGoals,
   loading: false,
   error: null,
 

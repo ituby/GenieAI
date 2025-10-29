@@ -105,7 +105,7 @@ export default function TermsOfService() {
               If you have any questions about these terms, please contact us at:
             </p>
             <p className="text-genie-yellow-500 font-semibold">
-              support@genie.app
+              support@askgenie.info
             </p>
           </section>
 

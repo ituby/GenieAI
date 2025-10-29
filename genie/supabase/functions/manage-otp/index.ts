@@ -16,7 +16,13 @@ interface OtpRequest {
 }
 
 // Generate secure 6-digit OTP
-function generateOTP(): string {
+function generateOTP(email?: string): string {
+  // Special test account for Apple Review - always return 123456
+  if (email === 'applereview@askgenie.info' || email === 'review@askgenie.info') {
+    console.log('🍎 Apple Review test account - using fixed OTP: 123456');
+    return '123456';
+  }
+  
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
@@ -325,8 +331,8 @@ serve(async (req) => {
         }
       }
 
-      // Generate new OTP
-      const otpCode = generateOTP();
+      // Generate new OTP (pass email for test account detection)
+      const otpCode = generateOTP(email);
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       // Update user's record with new OTP

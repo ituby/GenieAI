@@ -629,6 +629,16 @@ export const useAuthStore = create<AuthState>()(
 
           // Clear all local state
           dataLoadingService.clearCache();
+          
+          // Clear goal store
+          const { useGoalStore } = await import('./useGoalStore');
+          useGoalStore.setState({
+            goals: [],
+            activeGoals: [],
+            loading: false,
+            error: null,
+          });
+          
           await AsyncStorage.removeItem('genie-auth-store');
 
           set({
@@ -677,6 +687,15 @@ export const useAuthStore = create<AuthState>()(
           
           // Clear pre-loaded data cache
           dataLoadingService.clearCache();
+          
+          // Clear goal store
+          const { useGoalStore } = await import('./useGoalStore');
+          useGoalStore.setState({
+            goals: [],
+            activeGoals: [],
+            loading: false,
+            error: null,
+          });
 
           // Force clear persisted store
           try {

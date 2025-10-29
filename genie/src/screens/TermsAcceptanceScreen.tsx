@@ -145,7 +145,7 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
                 </Text>
                 {'\n\n'}
                 If you have any questions about these terms, please contact us at
-                support@genie.app
+                support@askgenie.info
               </Text>
             </ScrollView>
           </View>

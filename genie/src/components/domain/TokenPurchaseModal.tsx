@@ -1,30 +1,23 @@
 /**
  * Token Purchase Modal
  * 
- * Modal for purchasing tokens with Stripe
+ * Modal for purchasing tokens with IAP (mobile) or Stripe (web)
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Platform } from 'react-native';
 import { Button } from '../primitives/Button/Button';
 import { paymentService } from '../../services/paymentService';
 import { useTheme } from '../../theme';
 import { useTokens } from '../../hooks/useTokens';
+import { TOKEN_PACKAGES } from '../../config/iapConfig';
+import type { Product } from 'react-native-iap';
 
 interface TokenPurchaseModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
-
-const TOKEN_PACKAGES = [
-  { amount: 50, price: 2.5 },
-  { amount: 100, price: 5 },
-  { amount: 250, price: 12.5 },
-  { amount: 500, price: 25 },
-  { amount: 1000, price: 50 },
-  { amount: 2000, price: 100 },
-];
 
 export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
   visible,
@@ -36,49 +29,145 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [iapProducts, setIapProducts] = useState<Product[]>([]);
 
-  // Calculate prices with subscriber discount
-  const getDisplayPrice = (originalPrice: number) => {
-    console.log('🔍 TokenPurchaseModal - isSubscribed:', isSubscribed);
-    if (isSubscribed) {
-      const discountedPrice = originalPrice * 0.85; // 15% discount
-      console.log(`💰 Discount applied: $${originalPrice} → $${discountedPrice.toFixed(2)}`);
-      return discountedPrice;
+  // Initialize IAP when modal opens
+  useEffect(() => {
+    if (visible && (Platform.OS === 'ios' || Platform.OS === 'android')) {
+      initializeIAP();
     }
-    console.log(`💰 No discount: $${originalPrice}`);
+  }, [visible]);
+
+  const initializeIAP = async () => {
+    try {
+      console.log('🔄 Initializing IAP in modal...');
+      const initialized = await paymentService.initializeIAP();
+      console.log('🔄 IAP initialized result:', initialized);
+      
+      if (initialized) {
+        const products = paymentService.getIAPProducts();
+        setIapProducts(products);
+        console.log('📱 IAP Products loaded:', products.length);
+        console.log('📱 Products details:', JSON.stringify(products, null, 2));
+        
+        if (products.length === 0) {
+          console.warn('⚠️ No products found! Check App Store Connect:');
+          console.warn('1. Products are "Ready to Submit"');
+          console.warn('2. Wait 2-3 hours after creating products');
+          console.warn('3. Product IDs match exactly');
+          
+          const errorMsg = '⚠️ No products found!\n\nPossible reasons:\n1. Products not yet synced from App Store Connect (wait 2-3 hours)\n2. Products need App Review approval\n3. Product IDs mismatch';
+          setError(errorMsg);
+          alert(errorMsg); // Show visible alert
+        }
+      } else {
+        console.error('❌ IAP initialization failed');
+        const errorMsg = 'Failed to initialize payment system. Please try again.';
+        setError(errorMsg);
+        alert(errorMsg);
+      }
+    } catch (error) {
+      console.error('❌ Error initializing IAP:', error);
+      const errorMsg = 'Error loading products: ' + (error instanceof Error ? error.message : 'Unknown error');
+      setError(errorMsg);
+      alert(errorMsg);
+    }
+  };
+
+  // Get price for product
+  const getProductPrice = (productId: string, fallbackPrice: number): string => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      const product = iapProducts.find((p) => p.productId === productId);
+      if (product) {
+        return product.localizedPrice;
+      }
+    }
+    // Fallback to USD price
+    return `$${fallbackPrice.toFixed(2)}`;
+  };
+
+  // No subscriber discount - same price for everyone
+  const getDisplayPrice = (originalPrice: number) => {
     return originalPrice;
   };
 
   const handlePurchase = async () => {
+    console.log('🎯 handlePurchase called!');
+    console.log('🎯 selectedPackage:', selectedPackage);
+    console.log('🎯 Platform:', Platform.OS);
+    console.log('🎯 iapProducts loaded:', iapProducts.length);
+    
     if (selectedPackage === null) {
+      console.error('❌ No package selected!');
       setError('Please select a token package');
       return;
     }
 
     const pkg = TOKEN_PACKAGES[selectedPackage];
+    console.log('🎯 Selected package:', pkg);
     
     try {
       setLoading(true);
       setError(null);
 
-      // Create checkout session
-      const response = await paymentService.purchaseTokens(pkg.amount);
+      // Use IAP on mobile, Stripe on web
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        console.log('📱 Starting mobile IAP purchase...');
+        console.log('📱 Product ID:', pkg.productId);
+        console.log('📱 Amount:', pkg.amount);
+        console.log('📱 Available products:', iapProducts.length);
+        
+        // Check if products are loaded
+        if (iapProducts.length === 0) {
+          const errorMsg = '⚠️ No products loaded! Please wait a moment and try again.';
+          setError(errorMsg);
+          alert(errorMsg);
+          setLoading(false);
+          return;
+        }
+        
+        // Mobile: Use IAP
+        const response = await paymentService.purchaseTokens(pkg.amount, pkg.productId);
+        console.log('📱 Purchase response:', response);
 
-      if (!response.success || !response.url) {
-        setError(response.error || 'Failed to create checkout session');
-        setLoading(false);
-        return;
-      }
+        if (!response.success) {
+          console.error('❌ Purchase failed:', response.error);
+          const errorMsg = response.error || 'Purchase failed';
+          setError(errorMsg);
+          alert('❌ Purchase failed: ' + errorMsg);
+          setLoading(false);
+          return;
+        }
 
-      // Open Stripe checkout
-      await paymentService.openCheckout(response.url);
-      
-      // Close modal after opening checkout
-      onClose();
-      
-      // Success callback will be handled by deep link listener
-      if (onSuccess) {
-        onSuccess();
+        console.log('✅ Purchase initiated successfully!');
+        alert('✅ Purchase request sent! Waiting for confirmation...');
+        
+        // Close modal - purchase will be handled by IAP listener
+        onClose();
+        
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        // Web: Use Stripe
+        const response = await paymentService.purchaseTokens(pkg.amount);
+
+        if (!response.success || !response.url) {
+          setError(response.error || 'Failed to create checkout session');
+          setLoading(false);
+          return;
+        }
+
+        // Open Stripe checkout
+        await paymentService.openCheckout(response.url);
+        
+        // Close modal after opening checkout
+        onClose();
+        
+        // Success callback will be handled by deep link listener
+        if (onSuccess) {
+          onSuccess();
+        }
       }
 
     } catch (err) {
@@ -110,14 +199,6 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
               Select a token package to continue creating goals and tasks
             </Text>
 
-            {isSubscribed && (
-              <View style={styles.discountBanner}>
-                <Text style={styles.discountText}>
-                  🎉 Subscriber Discount: 15% OFF all token purchases!
-                </Text>
-              </View>
-            )}
-
             <View style={styles.tokenOptions}>
               <View style={styles.tokenRow}>
                 <TouchableOpacity
@@ -137,13 +218,8 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                       tokens
                     </Text>
                     <Text style={styles.tokenPrice}>
-                      ${getDisplayPrice(2.50).toFixed(2)}
+                      {getProductPrice(TOKEN_PACKAGES[0].productId, getDisplayPrice(2.99))}
                     </Text>
-                    {isSubscribed && (
-                      <Text style={styles.originalPrice}>
-                        $2.50
-                      </Text>
-                    )}
                   </View>
                 </TouchableOpacity>
 
@@ -164,13 +240,8 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                       tokens
                     </Text>
                     <Text style={styles.tokenPrice}>
-                      ${getDisplayPrice(5.00).toFixed(2)}
+                      {getProductPrice(TOKEN_PACKAGES[1].productId, getDisplayPrice(4.99))}
                     </Text>
-                    {isSubscribed && (
-                      <Text style={styles.originalPrice}>
-                        $5.00
-                      </Text>
-                    )}
                   </View>
                 </TouchableOpacity>
               </View>
@@ -193,13 +264,8 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                       tokens
                     </Text>
                     <Text style={styles.tokenPrice}>
-                      ${getDisplayPrice(12.50).toFixed(2)}
+                      {getProductPrice(TOKEN_PACKAGES[2].productId, getDisplayPrice(12.99))}
                     </Text>
-                    {isSubscribed && (
-                      <Text style={styles.originalPrice}>
-                        $12.50
-                      </Text>
-                    )}
                   </View>
                 </TouchableOpacity>
 
@@ -220,13 +286,8 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                       tokens
                     </Text>
                     <Text style={styles.tokenPrice}>
-                      ${getDisplayPrice(25.00).toFixed(2)}
+                      {getProductPrice(TOKEN_PACKAGES[3].productId, getDisplayPrice(24.99))}
                     </Text>
-                    {isSubscribed && (
-                      <Text style={styles.originalPrice}>
-                        $25.00
-                      </Text>
-                    )}
                   </View>
                 </TouchableOpacity>
               </View>
@@ -249,13 +310,8 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                       tokens
                     </Text>
                     <Text style={styles.tokenPrice}>
-                      ${getDisplayPrice(50.00).toFixed(2)}
+                      {getProductPrice(TOKEN_PACKAGES[4].productId, getDisplayPrice(49.99))}
                     </Text>
-                    {isSubscribed && (
-                      <Text style={styles.originalPrice}>
-                        $50.00
-                      </Text>
-                    )}
                   </View>
                 </TouchableOpacity>
 
@@ -276,13 +332,8 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                       tokens
                     </Text>
                     <Text style={styles.tokenPrice}>
-                      ${getDisplayPrice(100.00).toFixed(2)}
+                      {getProductPrice(TOKEN_PACKAGES[5].productId, getDisplayPrice(99.99))}
                     </Text>
-                    {isSubscribed && (
-                      <Text style={styles.originalPrice}>
-                        $100.00
-                      </Text>
-                    )}
                   </View>
                 </TouchableOpacity>
               </View>
@@ -297,7 +348,9 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
           
           <View style={styles.floatingFooter}>
             <Text style={[styles.footerText, { color: colors.text.tertiary }]}>
-              Secure payment powered by Stripe
+              {Platform.OS === 'ios' || Platform.OS === 'android'
+                ? 'Secure payment via App Store/Google Play'
+                : 'Secure payment powered by Stripe'}
             </Text>
             
             <View style={styles.buttonRow}>

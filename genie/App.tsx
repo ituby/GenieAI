@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { ThemeProvider } from './src/theme/index';
@@ -43,6 +43,21 @@ export default function App() {
   useEffect(() => {
     const initializeApp = async () => {
       console.log('🚀 Initializing app...');
+
+      // Initialize IAP on mobile platforms
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
+        console.log('📱 Initializing IAP...');
+        try {
+          const initialized = await paymentService.initializeIAP();
+          if (initialized) {
+            console.log('✅ IAP initialized successfully');
+          } else {
+            console.warn('⚠️ IAP initialization failed');
+          }
+        } catch (error) {
+          console.error('❌ Error initializing IAP:', error);
+        }
+      }
 
       // Check for OTA updates (only in production)
       if (!__DEV__) {
@@ -190,16 +205,18 @@ export default function App() {
     prevIsAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated, loading]);
 
-  // Hide splash ONLY after initial loading is complete (once!)
+  // Hide splash after initial loading is complete
   useEffect(() => {
-    // Only hide splash once after initial load
-    if (!loading && showSplash && !hasShownInitialSplash.current) {
+    // Hide splash when loading is done AND (user is not authenticated)
+    // If user IS authenticated, let SplashScreen component handle hiding after data loads
+    if (!loading && showSplash && !hasShownInitialSplash.current && !isAuthenticated) {
       hasShownInitialSplash.current = true;
+      console.log('📱 No authenticated user - hiding splash to show login');
       setTimeout(() => {
         setShowSplash(false);
       }, 500);
     }
-  }, [loading]);
+  }, [loading, isAuthenticated]);
 
   // Reset onboarding and splash when user becomes unauthenticated (sign out)
   const prevAuthRef = useRef(isAuthenticated);
@@ -221,6 +238,8 @@ export default function App() {
   };
 
   const handleSplashFinish = () => {
+    console.log('✅ Initial splash finished - data loaded, showing app');
+    hasShownInitialSplash.current = true;
     setShowSplash(false);
   };
 
@@ -261,8 +280,9 @@ export default function App() {
     setUpdateInfo(null);
   };
 
-  // Show splash screen ONLY during initialization (not during login flow!)
-  if (showSplash && loading) {
+  // Show splash screen during initialization
+  // Keep showing until loading is done AND (user is not authenticated OR data is loaded)
+  if (showSplash) {
     return (
       <SafeAreaProvider>
         <ThemeProvider>

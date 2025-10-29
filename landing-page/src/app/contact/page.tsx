@@ -55,7 +55,7 @@ export default function Contact() {
             </p>
             <div className="bg-zinc-900/50 rounded-lg p-6 border border-zinc-800">
               <p className="text-genie-yellow-500 font-semibold text-lg mb-2">
-                support@genie.app
+                support@askgenie.info
               </p>
               <p className="text-genie-text-tertiary text-sm">
                 We typically respond within 24 hours

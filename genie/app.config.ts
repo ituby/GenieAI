@@ -21,17 +21,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: 'Genie',
     slug: 'genie-ai-app',
-    version: '1.0.3',
+    version: '1.0.4',
     orientation: 'portrait',
     icon: './assets/AppIcon.png',
     userInterfaceStyle: 'dark',
     assetBundlePatterns: ['**/*'],
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: 'com.ituby.genie.ai',
       // buildNumber will be auto-incremented by EAS
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        UIRequiresFullScreen: true,
       },
     },
     android: {
@@ -41,6 +42,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       package: 'com.ituby.genie.ai',
       // versionCode will be auto-incremented by EAS
+      permissions: [
+        'com.android.vending.BILLING', // Google Play Billing
+      ],
     },
     web: {
       favicon: './assets/favicon.png',
