@@ -102,7 +102,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
                 setIsUpdatingPassword(false);
                 hidePopup(); // Close any open popups
                 setTimeout(() => {
-                  setStep('password');
+                setStep('password');
                 }, 100);
               } else {
                 console.log('❌ Token is invalid, staying on email step');
@@ -195,7 +195,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
         // Use setTimeout to ensure state is fully reset before switching steps
         // DON'T show alert here - it blocks the screen!
         setTimeout(() => {
-          setStep('password');
+        setStep('password');
         }, 100);
       } else {
         throw new Error(result.error || 'Invalid verification code');
