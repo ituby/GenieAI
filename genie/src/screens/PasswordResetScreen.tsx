@@ -18,7 +18,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
   onSuccess,
 }) => {
   const theme = useTheme();
-  const { showAlert } = usePopupContext();
+  const { showAlert, hidePopup } = usePopupContext();
   const { 
     resetPassword, 
     updatePassword, 
@@ -44,13 +44,27 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
   useEffect(() => {
     if (step === 'password') {
       console.log('🔄 Resetting loading state for password step');
-      console.log('🔍 Current loading state:', loading);
-      console.log('🔍 Current isUpdatingPassword:', isUpdatingPassword);
       // Force reset loading state immediately when entering password step
       setLoading(false);
-      console.log('✅ Loading state reset to false');
+      setIsUpdatingPassword(false);
+      // Close any open popups that might be blocking - use timeout to ensure it happens
+      setTimeout(() => {
+        hidePopup();
+        console.log('✅ Loading state reset to false, popups closed');
+      }, 50);
     }
-  }, [step, loading, isUpdatingPassword, setLoading]);
+  }, [step, setLoading, hidePopup]);
+
+  // Force close any popups when component mounts with password step
+  useEffect(() => {
+    if (step === 'password') {
+      // Extra safety - close popups after a short delay
+      const timer = setTimeout(() => {
+        hidePopup();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [step, hidePopup]);
 
   // Check for access token in URL when component mounts
   useEffect(() => {
@@ -84,9 +98,15 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
               
               if (isValidToken) {
                 console.log('✅ Token is valid, switching to password step');
-                setStep('password');
+                setLoading(false);
+                setIsUpdatingPassword(false);
+                hidePopup(); // Close any open popups
+                setTimeout(() => {
+                  setStep('password');
+                }, 100);
               } else {
                 console.log('❌ Token is invalid, staying on email step');
+                setLoading(false);
                 showAlert(
                   'Invalid or expired reset link. Please request a new password reset.',
                   'Invalid Link'
@@ -124,8 +144,8 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
 
     if (!newPassword) {
       newErrors.newPassword = 'Password is required';
-    } else if (newPassword.length < 6) {
-      newErrors.newPassword = 'Password must be at least 6 characters';
+    } else if (newPassword.length < 8) {
+      newErrors.newPassword = 'Password must be at least 8 characters long';
     }
 
     if (!confirmPassword) {
@@ -168,14 +188,21 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
       
       if (result.success && result.resetToken) {
         setResetToken(result.resetToken);
-        // Force reset loading state before switching to password step
+        // Force reset loading state and close any popups before switching to password step
         setLoading(false);
-        setStep('password');
-        showAlert('Code verified! Please enter your new password.', 'Success');
+        setIsUpdatingPassword(false);
+        hidePopup(); // Close any open popups
+        // Use setTimeout to ensure state is fully reset before switching steps
+        // DON'T show alert here - it blocks the screen!
+        setTimeout(() => {
+          setStep('password');
+        }, 100);
       } else {
         throw new Error(result.error || 'Invalid verification code');
       }
     } catch (error: any) {
+      setLoading(false);
+      setIsUpdatingPassword(false);
       showAlert(error.message || 'Verification failed', 'Error');
       throw error; // Re-throw so PhoneOtpVerification can handle it
     }
@@ -217,10 +244,17 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
           onSuccess
         );
       } else {
-        showAlert(result.error || 'Failed to update password', 'Error');
+        // Show specific error message from server
+        const errorMessage = result.error || 'Failed to update password. Please check that your password is at least 8 characters long and try again.';
+        console.error('❌ Password update failed:', errorMessage);
+        showAlert(errorMessage, 'Error');
       }
     } catch (error: any) {
-      showAlert(error.message || 'Failed to update password', 'Error');
+      console.error('❌ Password update error:', error);
+      showAlert(
+        error.message || 'Failed to update password. Please check your internet connection and try again.',
+        'Error'
+      );
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -251,7 +285,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
 
   return (
     <Card variant="elevated" padding="lg" style={styles.container} pointerEvents="auto">
-      <View style={styles.header}>
+      <View style={styles.header} pointerEvents="auto">
         <Text variant="h2" style={styles.title}>
           {step === 'phone' ? 'Reset Password' : 'Set New Password'}
         </Text>
@@ -268,7 +302,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
         )}
       </View>
 
-      <View style={styles.form}>
+      <View style={styles.form} pointerEvents="auto">
         {step === 'phone' ? (
           <TextField
             placeholder="Phone Number (e.g., +972501234567)"
@@ -278,15 +312,17 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
             keyboardType="phone-pad"
             autoCapitalize="none"
             textContentType="telephoneNumber"
+            editable={!loading}
           />
         ) : (
-          <View style={styles.passwordFields}>
+          <View style={styles.passwordFields} pointerEvents="auto">
             <TextField
               placeholder="New Password"
               value={newPassword}
               onChangeText={(value) => updateField('newPassword', value)}
               error={errors.newPassword}
               secureTextEntry
+              editable={!isUpdatingPassword && !loading}
             />
             <TextField
               placeholder="Confirm New Password"
@@ -294,17 +330,18 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
               onChangeText={(value) => updateField('confirmPassword', value)}
               error={errors.confirmPassword}
               secureTextEntry
+              editable={!isUpdatingPassword && !loading}
             />
           </View>
         )}
       </View>
 
-      <View style={styles.actions}>
+      <View style={styles.actions} pointerEvents="auto">
         <Button
           variant="primary"
           fullWidth
-          loading={step === 'password' ? isUpdatingPassword : false}
-          disabled={step === 'password' ? isUpdatingPassword : false}
+          loading={step === 'password' ? isUpdatingPassword : (loading && step === 'phone')}
+          disabled={step === 'password' ? (isUpdatingPassword || loading) : loading}
           onPress={step === 'phone' ? handleSendResetSMS : handleUpdatePassword}
         >
           {step === 'phone' ? 'Send Verification Code' : 'Update Password'}
@@ -312,8 +349,14 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
 
         <Button
           variant="ghost"
-          onPress={step === 'phone' ? onBack : () => setStep('phone')}
+          onPress={step === 'phone' ? onBack : () => {
+            setLoading(false);
+            setIsUpdatingPassword(false);
+            hidePopup(); // Close any open popups
+            setStep('phone');
+          }}
           style={styles.backButton}
+          disabled={loading && step === 'password'}
         >
           <Text style={styles.backButtonText}>
             {step === 'phone' ? 'Back to Login' : 'Start Over'}

@@ -137,16 +137,20 @@ export const LoginScreen: React.FC = () => {
           styles.container,
           { backgroundColor: theme.colors.background.primary },
         ]}
+        pointerEvents="box-none"
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
+          pointerEvents="box-none"
         >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            pointerEvents="box-none"
+            keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.formContainer}>
+            <View style={styles.formContainer} pointerEvents="box-none">
               <PasswordResetScreen
                 onBack={handlePasswordResetBack}
                 onSuccess={handlePasswordResetSuccess}

@@ -770,7 +770,7 @@ export const useAuthStore = create<AuthState>()(
           if (response.error) {
             console.error('❌ Reset password error:', response.error);
             set({ loading: false });
-            return { success: false, error: 'Failed to reset password. Please try again.' };
+            return { success: false, error: response.error.message || 'Failed to reset password. Please try again.' };
           }
 
           const data = response.data;
@@ -778,7 +778,8 @@ export const useAuthStore = create<AuthState>()(
           if (!data?.success) {
             console.error('❌ Reset password failed:', data?.error);
             set({ loading: false });
-            return { success: false, error: data?.error || 'Failed to reset password.' };
+            // Return the specific error message from the server
+            return { success: false, error: data?.error || 'Failed to reset password. Please try again.' };
           }
 
           console.log('✅ Password reset successfully');
