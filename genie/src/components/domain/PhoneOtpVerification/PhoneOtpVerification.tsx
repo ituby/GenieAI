@@ -103,7 +103,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
     }
 
     try {
-      onVerified(code);
+      await onVerified(code);
     } catch (error: any) {
       Alert.alert(
         'Verification Error',
@@ -143,7 +143,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
                   Verify Your Account
                 </Text>
                 <Text variant="caption" color="secondary" style={styles.subtitle}>
-                  Check your email for a verification code
+                  A verification code was sent via SMS
                 </Text>
                 <Text variant="body" style={styles.phoneNumber}>
                   {phone}
@@ -203,7 +203,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
 
                 <View style={styles.resendContainer}>
                   <Text variant="body" color="secondary" style={styles.resendText}>
-                    Didn't receive the email?
+                    Didn't receive the code?
                   </Text>
                   <Button
                     variant="outline"
@@ -215,7 +215,7 @@ export const PhoneOtpVerification: React.FC<PhoneOtpVerificationProps> = ({
                     ]}
                   >
                     <Text style={styles.resendButtonText}>
-                      {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+                      {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend SMS'}
                     </Text>
                   </Button>
                 </View>

@@ -6,6 +6,7 @@ import {
   Modal,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Text, Button, Icon } from '../components';
@@ -15,16 +16,28 @@ import { colors } from '../theme/colors';
 interface TermsAcceptanceScreenProps {
   onAccept: () => void;
   onDecline: () => void;
+  isProcessing?: boolean;
 }
 
 export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
   onAccept,
   onDecline,
+  isProcessing = false,
 }) => {
   const theme = useTheme();
   const [accepted, setAccepted] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  
+  // Combined loading state from parent and local
+  const isLoading = isProcessing || isAccepting;
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
+    // Prevent double-click
+    if (isLoading) {
+      console.log('⏸️ Already processing - ignoring duplicate click');
+      return;
+    }
+    
     if (!accepted) {
       Alert.alert(
         'Required',
@@ -32,7 +45,17 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
       );
       return;
     }
-    onAccept();
+    
+    console.log('📋 Terms accept button clicked - setting isAccepting=true');
+    setIsAccepting(true);
+    
+    try {
+      await onAccept();
+    } catch (error) {
+      console.error('❌ Terms accept failed:', error);
+      // If error occurs, reset the loading state
+      setIsAccepting(false);
+    }
   };
 
   const handleDecline = () => {
@@ -182,21 +205,31 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
             <TouchableOpacity
               style={[
                 styles.continueButton,
-                !accepted && styles.continueButtonDisabled,
+                (!accepted || isLoading) && styles.continueButtonDisabled,
               ]}
               onPress={handleAccept}
-              disabled={!accepted}
+              disabled={!accepted || isLoading}
               activeOpacity={0.8}
             >
-              <Text style={styles.continueButtonText}>Continue to App</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <Text style={styles.continueButtonText}>Continue to App</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.declineButton}
               onPress={handleDecline}
               activeOpacity={0.8}
+              disabled={isLoading}
             >
-              <Text style={styles.declineButtonText}>Decline & Exit</Text>
+              <Text style={[
+                styles.declineButtonText,
+                isLoading && styles.declineButtonTextDisabled,
+              ]}>
+                Decline & Exit
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -353,5 +386,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
     fontWeight: '600',
+  },
+  declineButtonTextDisabled: {
+    opacity: 0.3,
+  },
+  subtitleContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
 });

@@ -5,6 +5,7 @@ import { useTheme } from '../theme/index';
 import { useAuthStore } from '../store/useAuthStore';
 import { colors } from '../theme/colors';
 import { usePopupContext } from '../contexts/PopupContext';
+import { PhoneOtpVerification } from '../components/domain/PhoneOtpVerification/PhoneOtpVerification';
 import * as Linking from 'expo-linking';
 
 interface PasswordResetScreenProps {
@@ -18,13 +19,38 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
 }) => {
   const theme = useTheme();
   const { showAlert } = usePopupContext();
-  const { resetPassword, updatePassword, verifyPasswordResetToken, loading } = useAuthStore();
+  const { 
+    resetPassword, 
+    updatePassword, 
+    verifyPasswordResetToken, 
+    sendPasswordResetOtp,
+    verifyPasswordResetOtp,
+    resetPasswordWithToken,
+    setLoading,
+    loading 
+  } = useAuthStore();
 
-  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState(''); // Will be filled after phone verification
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [step, setStep] = useState<'email' | 'password'>('email');
+  const [step, setStep] = useState<'phone' | 'sms-verify' | 'password'>('phone');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [maskedPhone, setMaskedPhone] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  // Reset loading state when entering password step to prevent frozen UI
+  useEffect(() => {
+    if (step === 'password') {
+      console.log('🔄 Resetting loading state for password step');
+      console.log('🔍 Current loading state:', loading);
+      console.log('🔍 Current isUpdatingPassword:', isUpdatingPassword);
+      // Force reset loading state immediately when entering password step
+      setLoading(false);
+      console.log('✅ Loading state reset to false');
+    }
+  }, [step, loading, isUpdatingPassword, setLoading]);
 
   // Check for access token in URL when component mounts
   useEffect(() => {
@@ -80,13 +106,13 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     checkForAccessToken();
   }, [verifyPasswordResetToken, showAlert]);
 
-  const validateEmail = () => {
+  const validatePhone = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Please enter a valid email address';
+    if (!phoneNumber) {
+      newErrors.phoneNumber = 'Phone number is required';
+    } else if (!/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
+      newErrors.phoneNumber = 'Please enter a valid phone number (e.g., +972501234567)';
     }
 
     setErrors(newErrors);
@@ -112,44 +138,96 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSendResetEmail = async () => {
-    if (!validateEmail()) return;
+  const handleSendResetSMS = async () => {
+    if (!validatePhone()) return;
 
     try {
-      await resetPassword(email);
-      showAlert(
-        'Please check your email and click the link to reset your password.',
-        'Reset Email Sent',
-        () => {
-          // Only in development/simulator, skip to password step
-          if (__DEV__) {
-            console.log('🔧 Development mode: Skipping email verification');
-            setStep('password');
-          }
-        }
-      );
+      console.log('📱 Sending password reset SMS for phone:', phoneNumber);
+      const result = await sendPasswordResetOtp(phoneNumber);
+      
+      if (result.success) {
+        setMaskedPhone(result.phone || '****');
+        setEmail(result.email || ''); // Save email for later use
+        setStep('sms-verify');
+        showAlert(
+          `A verification code has been sent to ${result.phone}`,
+          'Code Sent'
+        );
+      } else {
+        showAlert(result.error || 'Failed to send verification code', 'Error');
+      }
     } catch (error: any) {
-      showAlert(error.message || 'Failed to send reset email', 'Error');
+      showAlert(error.message || 'Failed to send verification code', 'Error');
+    }
+  };
+
+  const handleVerifySMS = async (otp: string) => {
+    try {
+      console.log('🔐 Verifying password reset SMS code');
+      const result = await verifyPasswordResetOtp(email, otp);
+      
+      if (result.success && result.resetToken) {
+        setResetToken(result.resetToken);
+        // Force reset loading state before switching to password step
+        setLoading(false);
+        setStep('password');
+        showAlert('Code verified! Please enter your new password.', 'Success');
+      } else {
+        throw new Error(result.error || 'Invalid verification code');
+      }
+    } catch (error: any) {
+      showAlert(error.message || 'Verification failed', 'Error');
+      throw error; // Re-throw so PhoneOtpVerification can handle it
+    }
+  };
+
+  const handleResendSMS = async () => {
+    try {
+      console.log('🔄 Resending password reset SMS');
+      const result = await sendPasswordResetOtp(phoneNumber);
+      
+      if (result.success) {
+        showAlert('A new verification code has been sent', 'Code Sent');
+      } else {
+        showAlert(result.error || 'Failed to resend code', 'Error');
+      }
+    } catch (error: any) {
+      showAlert(error.message || 'Failed to resend code', 'Error');
     }
   };
 
   const handleUpdatePassword = async () => {
     if (!validatePassword()) return;
 
+    if (!resetToken) {
+      showAlert('Invalid reset session. Please start over.', 'Error');
+      setStep('phone');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
     try {
-      await updatePassword(newPassword);
-      showAlert(
-        'Your password has been successfully updated.',
-        'Password Updated',
-        onSuccess
-      );
+      console.log('🔐 Updating password with reset token');
+      const result = await resetPasswordWithToken(resetToken, newPassword);
+      
+      if (result.success) {
+        showAlert(
+          'Your password has been successfully updated. You can now log in with your new password.',
+          'Password Updated',
+          onSuccess
+        );
+      } else {
+        showAlert(result.error || 'Failed to update password', 'Error');
+      }
     } catch (error: any) {
       showAlert(error.message || 'Failed to update password', 'Error');
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
   const updateField = (field: string, value: string) => {
-    if (field === 'email') setEmail(value);
+    if (field === 'phoneNumber') setPhoneNumber(value);
     if (field === 'newPassword') setNewPassword(value);
     if (field === 'confirmPassword') setConfirmPassword(value);
 
@@ -158,16 +236,29 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     }
   };
 
+  // Show SMS verification screen
+  if (step === 'sms-verify') {
+    return (
+      <PhoneOtpVerification
+        phone={maskedPhone}
+        onVerified={handleVerifySMS}
+        onResend={handleResendSMS}
+        loading={loading}
+        onBackToPhone={() => setStep('phone')}
+      />
+    );
+  }
+
   return (
-    <Card variant="elevated" padding="lg" style={styles.container}>
+    <Card variant="elevated" padding="lg" style={styles.container} pointerEvents="auto">
       <View style={styles.header}>
         <Text variant="h2" style={styles.title}>
-          {step === 'email' ? 'Reset Password' : 'Set New Password'}
+          {step === 'phone' ? 'Reset Password' : 'Set New Password'}
         </Text>
         <Text variant="body" color="secondary" style={styles.subtitle}>
-          {step === 'email'
-            ? 'Enter your email address and we\'ll send you a link to reset your password.'
-            : 'You\'ve successfully verified your email. Please enter your new password below.'}
+          {step === 'phone'
+            ? 'Enter your phone number to receive a verification code via SMS.'
+            : 'You\'ve successfully verified the code. Please enter your new password below.'}
         </Text>
         
         {step === 'password' && email && (
@@ -178,15 +269,15 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
       </View>
 
       <View style={styles.form}>
-        {step === 'email' ? (
+        {step === 'phone' ? (
           <TextField
-            placeholder="Email"
-            value={email}
-            onChangeText={(value) => updateField('email', value)}
-            error={errors.email}
-            keyboardType="email-address"
+            placeholder="Phone Number (e.g., +972501234567)"
+            value={phoneNumber}
+            onChangeText={(value) => updateField('phoneNumber', value)}
+            error={errors.phoneNumber}
+            keyboardType="phone-pad"
             autoCapitalize="none"
-            textContentType="emailAddress"
+            textContentType="telephoneNumber"
           />
         ) : (
           <View style={styles.passwordFields}>
@@ -212,19 +303,20 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
         <Button
           variant="primary"
           fullWidth
-          loading={loading}
-          onPress={step === 'email' ? handleSendResetEmail : handleUpdatePassword}
+          loading={step === 'password' ? isUpdatingPassword : false}
+          disabled={step === 'password' ? isUpdatingPassword : false}
+          onPress={step === 'phone' ? handleSendResetSMS : handleUpdatePassword}
         >
-          {step === 'email' ? 'Reset Password' : 'Update Password'}
+          {step === 'phone' ? 'Send Verification Code' : 'Update Password'}
         </Button>
 
         <Button
           variant="ghost"
-          onPress={step === 'email' ? onBack : () => setStep('email')}
+          onPress={step === 'phone' ? onBack : () => setStep('phone')}
           style={styles.backButton}
         >
           <Text style={styles.backButtonText}>
-            {step === 'email' ? 'Back to Login' : 'Back to Email'}
+            {step === 'phone' ? 'Back to Login' : 'Start Over'}
           </Text>
         </Button>
       </View>

@@ -26,6 +26,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
   const [showTermsScreen, setShowTermsScreen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isProcessingOtp, setIsProcessingOtp] = useState(false); // Lock to prevent duplicate OTP requests
+  const [isProcessingRegistration, setIsProcessingRegistration] = useState(false); // Lock to prevent duplicate registration
+  const [isSubmitting, setIsSubmitting] = useState(false); // Local loading for form submission
   const [pendingAuth, setPendingAuth] = useState<{
     email: string;
     password: string;
@@ -130,7 +132,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
+    
+    setIsSubmitting(true);
     try {
       if (mode === 'login') {
         // For login, first try regular login to check if phone verification is needed
@@ -229,17 +232,30 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
           isNewUser: true,
         });
 
-        setPhoneNumber(formData.phone);
+        setPhoneNumber(formData.email); // OTP is sent to email, not phone
         setShowTermsScreen(true);
       }
     } catch (error: any) {
       showAlert(error.message || 'An error occurred', 'Error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleTermsAccepted = async () => {
-    if (!pendingAuth) return;
+    // Prevent double-click on terms accept button
+    if (isProcessingRegistration) {
+      console.log('⏸️ Already processing registration - ignoring duplicate');
+      return;
+    }
+    
+    if (!pendingAuth) {
+      console.error('❌ No pending auth found');
+      return;
+    }
 
+    setIsProcessingRegistration(true);
+    
     try {
       console.log('📋 Terms accepted, creating user account...');
       // אחרי אישור תקנון - יצור משתמש ושלח OTP
@@ -252,6 +268,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       console.log('✅ User created and OTP sent to:', phone);
 
       setPhoneNumber(phone);
+      setIsProcessingRegistration(false);
       
       // First close terms screen, then open OTP screen in next tick
       setShowTermsScreen(false);
@@ -263,6 +280,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       }, 50);
     } catch (error: any) {
       console.error('❌ Registration failed:', error);
+      setIsProcessingRegistration(false);
       
       // Clear form and return to login screen
       setShowTermsScreen(false);
@@ -288,31 +306,38 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
 
   const handleOtpVerified = async (otpToken: string) => {
     // אחרי אימות OTP מוצלח
-    if (pendingAuth) {
-      try {
-        console.log('🔐 OTP verified successfully, proceeding...');
-        
-        if (pendingAuth.isNewUser) {
-          // For new users, just verify OTP (they're already signed in from registration)
-          console.log('👤 New user - verifying REGISTRATION OTP...');
-          await verifyOtpForNewUser(otpToken, pendingAuth.email);
-          console.log('✅ REGISTRATION OTP verified - user is now authenticated');
-        } else {
-          // For existing users, verify LOGIN OTP
-          console.log('👤 Existing user - verifying LOGIN OTP...');
-          await verifyOtp(otpToken, pendingAuth.email);
-          console.log('✅ LOGIN OTP verified - user is now authenticated');
-        }
-        
-        console.log('✅ Verification completed, user should be redirected to dashboard');
-        setShowOtpScreen(false);
-        setPendingAuth(null);
-      } catch (error: any) {
-        console.error('❌ OTP verification failed:', error);
-        // Don't exit OTP screen - let user try again
-        showAlert(error.message, 'Verification Error');
-        // Keep showOtpScreen = true and pendingAuth so user can retry
+    console.log('🎯 handleOtpVerified called with token:', otpToken);
+    console.log('🎯 pendingAuth:', pendingAuth);
+    
+    if (!pendingAuth) {
+      console.error('❌ No pending auth found!');
+      showAlert('Authentication state lost. Please try logging in again.', 'Error');
+      return;
+    }
+    
+    try {
+      console.log('🔐 OTP verification starting...');
+      
+      if (pendingAuth.isNewUser) {
+        // For new users, just verify OTP (they're already signed in from registration)
+        console.log('👤 New user - verifying REGISTRATION OTP...');
+        await verifyOtpForNewUser(otpToken, pendingAuth.email);
+        console.log('✅ REGISTRATION OTP verified - user is now authenticated');
+      } else {
+        // For existing users, verify LOGIN OTP
+        console.log('👤 Existing user - verifying LOGIN OTP...');
+        await verifyOtp(otpToken, pendingAuth.email);
+        console.log('✅ LOGIN OTP verified - user is now authenticated');
       }
+      
+      console.log('✅ Verification completed, user should be redirected to dashboard');
+      setShowOtpScreen(false);
+      setPendingAuth(null);
+    } catch (error: any) {
+      console.error('❌ OTP verification failed:', error);
+      // Don't exit OTP screen - let user try again
+      showAlert(error.message || 'Verification failed. Please try again.', 'Verification Error');
+      // Keep showOtpScreen = true and pendingAuth so user can retry
     }
   };
 
@@ -355,6 +380,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       <TermsAcceptanceScreen
         onAccept={handleTermsAccepted}
         onDecline={handleTermsDeclined}
+        isProcessing={isProcessingRegistration || loading}
       />
     );
   }
@@ -456,7 +482,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
         <Button
           variant={mode === 'login' ? 'primary' : 'outline'}
           fullWidth
-          loading={loading}
+          loading={isSubmitting}
           onPress={handleSubmit}
           style={mode === 'register' ? styles.registerButton : undefined}
         >

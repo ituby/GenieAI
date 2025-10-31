@@ -29,6 +29,7 @@ export default function App() {
     acceptTerms,
     checkPendingOtp,
     user,
+    setLoading,
   } = useAuthStore();
   const [showSplash, setShowSplash] = useState(true);
   const hasShownInitialSplash = useRef(false);
@@ -178,6 +179,8 @@ export default function App() {
     const checkOtpStatus = async () => {
       if (isAuthenticated && user?.email) {
         console.log('🔍 Checking for pending OTP for user:', user.email);
+        // Add small delay to ensure server has updated after OTP verification
+        await new Promise(resolve => setTimeout(resolve, 500));
         try {
           const pendingOtp = await checkPendingOtp(user.email);
           setHasPendingOtp(pendingOtp);
@@ -188,6 +191,9 @@ export default function App() {
           console.error('❌ Error checking pending OTP:', error);
           setHasPendingOtp(false);
         }
+      } else if (!isAuthenticated) {
+        // Reset pending OTP status when user is not authenticated
+        setHasPendingOtp(null);
       }
     };
 
@@ -221,13 +227,21 @@ export default function App() {
   // Reset onboarding and splash when user becomes unauthenticated (sign out)
   const prevAuthRef = useRef(isAuthenticated);
   useEffect(() => {
+    console.log('🔍 Auth state changed - isAuthenticated:', isAuthenticated, 'previous:', prevAuthRef.current);
+    
     // Detect when user transitions from authenticated to not authenticated (sign out)
     if (prevAuthRef.current === true && isAuthenticated === false) {
-      console.log('🚪 User signed out, resetting onboarding and splash');
-      setDismissOnboarding(false);
-      setShowSplash(true);
+      console.log('🚪 User signed out detected - resetting UI state');
+      setDismissOnboarding(true); // Skip onboarding, go straight to login
+      setShowSplash(false); // Don't show splash, go to login immediately
       setShowPostAuthSplash(false);
-      hasShownInitialSplash.current = false;
+      setHasPendingOtp(null);
+      hasShownInitialSplash.current = true; // Mark as shown so we go to login
+      
+      // Force clear loading state
+      setLoading(false);
+      
+      console.log('🔄 UI state reset - should show login screen immediately');
     }
     prevAuthRef.current = isAuthenticated;
   }, [isAuthenticated]);
@@ -398,6 +412,7 @@ export default function App() {
             <TermsAcceptanceScreen
               onAccept={handleTermsAccept}
               onDecline={handleTermsDecline}
+              isProcessing={loading}
             />
             <UpdateAvailableModal
               visible={showUpdateModal}

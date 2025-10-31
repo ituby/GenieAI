@@ -105,7 +105,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
     }
 
     try {
-      await verifyOtp(phone, code);
+      await verifyOtp(code, phone);
       onVerified();
     } catch (error: any) {
       Alert.alert(

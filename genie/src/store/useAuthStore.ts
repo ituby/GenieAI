@@ -78,6 +78,10 @@ interface AuthState {
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   verifyPasswordResetToken: (token: string) => Promise<boolean>;
+  // New password reset with SMS
+  sendPasswordResetOtp: (phoneNumber: string) => Promise<{ success: boolean; phone?: string; email?: string; error?: string }>;
+  verifyPasswordResetOtp: (email: string, otp: string) => Promise<{ success: boolean; resetToken?: string; error?: string }>;
+  resetPasswordWithToken: (resetToken: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -208,6 +212,10 @@ export const useAuthStore = create<AuthState>()(
         
         try {
           console.log('📧 Creating new user account:', email);
+          
+          // Clear any existing session/cache before signup
+          console.log('🧹 Clearing any existing session before signup...');
+          await supabase.auth.signOut();
 
           // Create user account with email confirmation disabled
           const { data: authData, error: authError } =
@@ -217,6 +225,7 @@ export const useAuthStore = create<AuthState>()(
               options: {
                 data: {
                   full_name: fullName,
+                  phone: phone, // Save phone in metadata for trigger
                   terms_accepted: true,
                   terms_accepted_at: new Date().toISOString(),
                 },
@@ -314,6 +323,9 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           console.log('📧 Sending OTP to user:', email, forceResend ? '(Force Resend)' : '');
+          
+          // Note: User should already be signed in (session created by signIn function)
+          // This function just sends the OTP
 
           // Use unified OTP function
           const response = await supabase.functions.invoke('manage-otp', {
@@ -338,11 +350,9 @@ export const useAuthStore = create<AuthState>()(
 
           console.log(`✅ OTP sent successfully - Type: ${data.type}`);
           
-          // Don't mark as authenticated - user must verify OTP first
-          // Keep user and session for Edge Function use
+          // Loading is done - user/session already set by signIn
           set({ 
             loading: false,
-            isAuthenticated: false
           });
 
           return data.email;
@@ -358,11 +368,15 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔐 Verifying OTP code');
           
+          // Get current state
+          const currentState = get();
+          
           // Get email from parameter or current user
-          const userEmail = email || get().user?.email;
+          const userEmail = email || currentState.user?.email;
           if (!userEmail) {
             throw new Error('Email is required for OTP verification');
           }
+          
           // Use unified OTP function
           const response = await supabase.functions.invoke('manage-otp', {
             body: { 
@@ -386,22 +400,48 @@ export const useAuthStore = create<AuthState>()(
 
           console.log('✅ OTP verified successfully');
           
-          // After successful OTP verification, sign in the user
-          // Re-authenticate with password (we should have it in context)
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            // Update timezone on successful login
-            await updateUserTimezone(session.user.id);
+          // Use existing session from store (set by signIn)
+          const existingSession = currentState.session;
+          const existingUser = currentState.user;
+          
+          if (existingSession?.user || existingUser) {
+            const user = existingSession?.user || existingUser;
             
-            set({ 
-              loading: false,
-              user: session.user,
-              session: session,
-              isAuthenticated: true 
-            });
-            console.log('✅ User marked as authenticated after OTP verification');
+            if (user) {
+              // Update timezone on successful login
+              await updateUserTimezone(user.id);
+              
+              set({ 
+                loading: false,
+                user: user,
+                session: existingSession,
+                isAuthenticated: true 
+              });
+              console.log('✅ User marked as authenticated after OTP verification');
+            } else {
+              console.error('❌ No user found in session');
+              set({ loading: false });
+              throw new Error('User not found. Please try logging in again.');
+            }
           } else {
-            set({ loading: false });
+            // Fallback: try to get fresh session
+            console.log('⚠️ No existing session in store, fetching fresh session...');
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              await updateUserTimezone(session.user.id);
+              
+              set({ 
+                loading: false,
+                user: session.user,
+                session: session,
+                isAuthenticated: true 
+              });
+              console.log('✅ User marked as authenticated after OTP verification (fresh session)');
+            } else {
+              console.error('❌ No session found after OTP verification');
+              set({ loading: false });
+              throw new Error('Session not found. Please try logging in again.');
+            }
           }
         } catch (error: any) {
           console.error('❌ Verify OTP caught error:', error);
@@ -415,8 +455,11 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔐 Verifying REGISTRATION OTP code');
           
+          // Get current state
+          const currentState = get();
+          
           // Get email from parameter or current user
-          const userEmail = email || get().user?.email;
+          const userEmail = email || currentState.user?.email;
           if (!userEmail) {
             throw new Error('Email is required for OTP verification');
           }
@@ -444,18 +487,48 @@ export const useAuthStore = create<AuthState>()(
 
           console.log('✅ REGISTRATION OTP verified successfully');
           
-          // After successful registration OTP, get current session
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            set({ 
-              loading: false,
-              user: session.user,
-              session: session,
-              isAuthenticated: true 
-            });
-            console.log('✅ New user authenticated after phone verification');
+          // Use existing session from store (set by signUpWithPhone)
+          const existingSession = currentState.session;
+          const existingUser = currentState.user;
+          
+          if (existingSession?.user || existingUser) {
+            const user = existingSession?.user || existingUser;
+            
+            if (user) {
+              // Update timezone on successful registration
+              await updateUserTimezone(user.id);
+              
+              set({ 
+                loading: false,
+                user: user,
+                session: existingSession,
+                isAuthenticated: true 
+              });
+              console.log('✅ New user authenticated after phone verification');
+            } else {
+              console.error('❌ No user found in session');
+              set({ loading: false });
+              throw new Error('User not found. Please try registering again.');
+            }
           } else {
-            set({ loading: false });
+            // Fallback: try to get fresh session
+            console.log('⚠️ No existing session in store, fetching fresh session...');
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              await updateUserTimezone(session.user.id);
+              
+              set({ 
+                loading: false,
+                user: session.user,
+                session: session,
+                isAuthenticated: true 
+              });
+              console.log('✅ New user authenticated after phone verification (fresh session)');
+            } else {
+              console.error('❌ No session found after OTP verification');
+              set({ loading: false });
+              throw new Error('Session not found. Please try logging in again.');
+            }
           }
         } catch (error: any) {
           console.error('❌ Verify registration OTP error:', error);
@@ -492,12 +565,9 @@ export const useAuthStore = create<AuthState>()(
             return false;
           }
 
-          // Has pending OTP if:
-          // 1. Registration not completed, OR
-          // 2. Has active OTP that's not expired
-          const hasPendingOtp = 
-            !authStatus.registration_verified || 
-            (authStatus.current_otp_expires_at && new Date(authStatus.current_otp_expires_at) > new Date());
+          // Has pending OTP if registration not completed (account not verified)
+          // If registration is verified, they can access the app even if there's a login OTP pending
+          const hasPendingOtp = !authStatus.registration_verified;
           
           console.log('🔍 Pending OTP found:', hasPendingOtp);
           console.log(`📊 Status: stage=${authStatus.current_stage}, reg_verified=${authStatus.registration_verified}, login_verified=${authStatus.login_verified}`);
@@ -601,6 +671,126 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // New: Send password reset OTP via SMS (Twilio)
+      sendPasswordResetOtp: async (phoneNumber: string) => {
+        set({ loading: true });
+        try {
+          console.log('📱 Sending password reset OTP via SMS for phone:', phoneNumber);
+
+          const response = await supabase.functions.invoke('manage-password-reset', {
+            body: {
+              action: 'send-otp',
+              phone: phoneNumber,
+            },
+          });
+
+          if (response.error) {
+            console.error('❌ Send reset OTP error:', response.error);
+            set({ loading: false });
+            return { success: false, error: 'Failed to send verification code. Please try again.' };
+          }
+
+          const data = response.data;
+
+          if (!data?.success) {
+            console.error('❌ Send reset OTP failed:', data?.error);
+            set({ loading: false });
+            return { success: false, error: data?.error || 'Failed to send verification code.' };
+          }
+
+          console.log('✅ Password reset OTP sent via SMS');
+          set({ loading: false });
+          return {
+            success: true,
+            phone: data.phone, // Masked phone number
+            email: data.email, // Email associated with this phone
+          };
+        } catch (error: any) {
+          console.error('❌ Send password reset OTP error:', error);
+          set({ loading: false });
+          return { success: false, error: error.message || 'An error occurred' };
+        }
+      },
+
+      // New: Verify password reset OTP
+      verifyPasswordResetOtp: async (email: string, otp: string) => {
+        set({ loading: true });
+        try {
+          console.log('🔐 Verifying password reset OTP');
+
+          const response = await supabase.functions.invoke('manage-password-reset', {
+            body: {
+              action: 'verify-otp',
+              email,
+              otp,
+            },
+          });
+
+          if (response.error) {
+            console.error('❌ Verify reset OTP error:', response.error);
+            set({ loading: false });
+            return { success: false, error: 'Verification failed. Please try again.' };
+          }
+
+          const data = response.data;
+
+          if (!data?.success) {
+            console.error('❌ Verify reset OTP failed:', data?.error);
+            set({ loading: false });
+            return { success: false, error: data?.error || 'Invalid verification code.' };
+          }
+
+          console.log('✅ Password reset OTP verified');
+          set({ loading: false });
+          return {
+            success: true,
+            resetToken: data.resetToken,
+          };
+        } catch (error: any) {
+          console.error('❌ Verify password reset OTP error:', error);
+          set({ loading: false });
+          return { success: false, error: error.message || 'An error occurred' };
+        }
+      },
+
+      // New: Reset password with verified token
+      resetPasswordWithToken: async (resetToken: string, newPassword: string) => {
+        set({ loading: true });
+        try {
+          console.log('🔐 Resetting password with token');
+
+          const response = await supabase.functions.invoke('manage-password-reset', {
+            body: {
+              action: 'reset-password',
+              resetToken,
+              newPassword,
+            },
+          });
+
+          if (response.error) {
+            console.error('❌ Reset password error:', response.error);
+            set({ loading: false });
+            return { success: false, error: 'Failed to reset password. Please try again.' };
+          }
+
+          const data = response.data;
+
+          if (!data?.success) {
+            console.error('❌ Reset password failed:', data?.error);
+            set({ loading: false });
+            return { success: false, error: data?.error || 'Failed to reset password.' };
+          }
+
+          console.log('✅ Password reset successfully');
+          set({ loading: false });
+          return { success: true };
+        } catch (error: any) {
+          console.error('❌ Reset password error:', error);
+          set({ loading: false });
+          return { success: false, error: error.message || 'An error occurred' };
+        }
+      },
+
       deleteAccount: async () => {
         set({ loading: true });
         try {
@@ -657,24 +847,55 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
-        set({ loading: true });
+        console.log('🔐 Starting signOut process...');
+        
+        // IMMEDIATELY clear isAuthenticated AND loading to trigger UI change
+        set({ 
+          isAuthenticated: false,
+          loading: false // Don't show loading on login screen
+        });
+        
         try {
-          console.log('🔐 Signing out...');
+          console.log('🔐 Continuing signout process...');
 
-          // Reset login_verified before signing out
+          // Get user BEFORE clearing state
           const currentUser = get().user;
+          
+          // Reset login_verified before signing out
           if (currentUser?.id) {
             console.log('🔄 Resetting login verification for next login...');
-            await supabase
-              .from('otp_verifications')
-              .update({
-                login_verified: false,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('user_id', currentUser.id);
+            try {
+              await supabase
+                .from('otp_verifications')
+                .update({
+                  login_verified: false,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', currentUser.id);
+              console.log('✅ Login verification reset successfully');
+            } catch (dbError) {
+              console.error('❌ Failed to reset login verification:', dbError);
+              // Continue with signout anyway
+            }
           }
 
-          // Clear all auth state BEFORE calling signOut
+          // Sign out from Supabase Auth FIRST (this clears sessions)
+          console.log('🔐 Calling Supabase signOut...');
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error('⚠️ SignOut error (continuing anyway):', error);
+          }
+
+          // Force clear persisted store FIRST
+          try {
+            console.log('🧹 Clearing persisted auth store...');
+            await AsyncStorage.removeItem('genie-auth-store');
+            console.log('✅ Cleared persisted auth store');
+          } catch (err) {
+            console.log('⚠️ Failed to clear persisted auth store:', err);
+          }
+
+          // Clear all auth state AFTER clearing AsyncStorage
           console.log('🧹 Clearing auth state...');
           set({
             user: null,
@@ -697,20 +918,7 @@ export const useAuthStore = create<AuthState>()(
             error: null,
           });
 
-          // Force clear persisted store
-          try {
-            await AsyncStorage.removeItem('genie-auth-store');
-            console.log('🧹 Cleared persisted auth store');
-          } catch (err) {
-            console.log('⚠️ Failed to clear persisted auth store:', err);
-          }
-
-          const { error } = await supabase.auth.signOut();
-          if (error) {
-            console.error('⚠️ SignOut error (continuing anyway):', error);
-          }
-
-          console.log('✅ Auth state cleared');
+          console.log('✅ Complete signout finished');
 
           // Verify state is cleared
           const currentState = get();
@@ -721,18 +929,33 @@ export const useAuthStore = create<AuthState>()(
             loading: currentState.loading
           });
 
-          console.log('✅ Sign out successful');
+          console.log('✅ Sign out successful - UI should now show login screen');
+          
+          // Make sure loading is false at the end
+          set({ loading: false });
         } catch (error) {
           console.error('❌ Sign out error:', error);
-          set({ loading: false });
+          set({ 
+            loading: false,
+            isAuthenticated: false,
+            user: null,
+            session: null,
+          });
           throw error;
         }
       },
 
       initialize: async () => {
-        set({ loading: true });
-        try {
+        // Don't set loading if user is already not authenticated (e.g., after signout)
+        const currentState = get();
+        if (!currentState.isAuthenticated) {
+          console.log('🔐 Initializing auth (no loading - user not authenticated)...');
+        } else {
           console.log('🔐 Initializing auth...');
+          set({ loading: true });
+        }
+        
+        try {
 
           // Helper to clear any stale Supabase auth tokens from storage
           const clearSupabaseAuthStorage = async () => {
@@ -994,9 +1217,17 @@ export const useAuthStore = create<AuthState>()(
                 user: null,
                 session: null,
                 isAuthenticated: false,
+                loading: false, // Make sure loading is false
               });
             }
           });
+          
+          // Always ensure loading is false at the end of initialize
+          const finalState = get();
+          if (finalState.loading) {
+            set({ loading: false });
+            console.log('✅ Auth initialization complete - loading cleared');
+          }
         } catch (error) {
           console.error('❌ Auth initialization error:', error);
           set({ loading: false });
