@@ -373,21 +373,6 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
                 </TouchableOpacity>
               </View>
             </View>
-
-            {error && (
-              <View style={[styles.errorContainer, { backgroundColor: colors.error + '20' }]}>
-                <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-                <TouchableOpacity
-                  onPress={initializeIAP}
-                  style={[styles.retryButton, { borderColor: colors.error }]}
-                  disabled={loading}
-                >
-                  <Text style={[styles.retryButtonText, { color: colors.error }]}>
-                    {loading ? 'Loading...' : 'Retry'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </ScrollView>
           
           <View style={styles.floatingFooter}>
@@ -512,7 +497,7 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'column',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   tokenRow: {
     flexDirection: 'row',
