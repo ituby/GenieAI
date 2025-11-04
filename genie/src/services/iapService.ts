@@ -283,9 +283,26 @@ class IAPService {
         await this.initialize();
       }
 
+      // Check if product exists
+      const product = this.products.find((p) => p.productId === productId);
+      if (!product) {
+        console.error('❌ Product not found:', productId);
+        console.error('❌ Available products:', this.products.map((p) => p.productId));
+        return {
+          success: false,
+          error: `Product not found: ${productId}. Please make sure the product is available in App Store Connect.`,
+        };
+      }
+
       console.log('📱 Requesting purchase:', productId);
+      console.log('📱 Product details:', {
+        productId: product.productId,
+        title: product.title,
+        price: product.localizedPrice,
+      });
 
       // v14 requires platform-specific request object
+      // This will open the native purchase dialog automatically
       await requestPurchase({
         request: {
           ios: { sku: productId },
@@ -296,11 +313,15 @@ class IAPService {
 
       // requestPurchase is event-based, not promise-based
       // The result will come through purchaseUpdatedListener
+      // If we get here without error, the purchase dialog should be opening
+      console.log('✅ Purchase request sent - native dialog should open');
+      
       return {
         success: true,
       };
     } catch (error) {
       console.error('❌ Error purchasing tokens:', error);
+      console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -317,9 +338,26 @@ class IAPService {
         await this.initialize();
       }
 
+      // Check if subscription product exists
+      const subscription = this.subscriptions.find((s) => s.productId === productId);
+      if (!subscription) {
+        console.error('❌ Subscription product not found:', productId);
+        console.error('❌ Available subscriptions:', this.subscriptions.map((s) => s.productId));
+        return {
+          success: false,
+          error: `Subscription product not found: ${productId}. Please make sure the subscription is available in App Store Connect.`,
+        };
+      }
+
       console.log('📱 Requesting subscription:', productId);
+      console.log('📱 Subscription details:', {
+        productId: subscription.productId,
+        title: subscription.title,
+        price: subscription.localizedPrice,
+      });
 
       // v14 requires platform-specific request object
+      // This will open the native purchase dialog automatically
       await requestPurchase({
         request: {
           ios: { sku: productId },
@@ -330,11 +368,15 @@ class IAPService {
 
       // requestPurchase is event-based, not promise-based
       // The result will come through purchaseUpdatedListener
+      // If we get here without error, the purchase dialog should be opening
+      console.log('✅ Subscription request sent - native dialog should open');
+      
       return {
         success: true,
       };
     } catch (error) {
       console.error('❌ Error subscribing:', error);
+      console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

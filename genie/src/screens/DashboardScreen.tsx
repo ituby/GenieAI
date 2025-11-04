@@ -1995,10 +1995,12 @@ export const DashboardScreen: React.FC = () => {
                         await paymentService.openCheckout(response.url);
                       } else {
                         // Mobile: IAP handled by listener
-                        alert('✅ Subscription request sent! Please confirm the purchase.');
+                        // requestPurchase should have opened the native purchase dialog
+                        // Don't show alert - the native dialog will appear
+                        console.log('✅ Subscription request sent - native dialog should be opening');
                       }
                     } else {
-                      alert('Error creating subscription: ' + (response.error || 'Unknown error'));
+                      Alert.alert('Error', 'Error creating subscription: ' + (response.error || 'Unknown error'));
                     }
                   } catch (error) {
                     console.error('Error starting subscription:', error);

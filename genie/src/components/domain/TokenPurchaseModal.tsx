@@ -150,28 +150,39 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
           return;
         }
         
+        // Check if product is available
+        const product = iapProducts.find((p) => p.productId === pkg.productId);
+        if (!product) {
+          const errorMsg = `Product "${pkg.productId}" not available. Please make sure the product is configured in App Store Connect.`;
+          console.error('❌ Product not available:', pkg.productId);
+          console.error('❌ Available products:', iapProducts.map((p) => p.productId));
+          setError(errorMsg);
+          setLoading(false);
+          return;
+        }
+
         // Mobile: Use IAP
+        // requestPurchase will open the native Apple/Google purchase dialog
+        // We don't show alerts here - the native dialog will handle everything
         const response = await paymentService.purchaseTokens(pkg.amount, pkg.productId);
         console.log('📱 Purchase response:', response);
 
         if (!response.success) {
           console.error('❌ Purchase failed:', response.error);
-          const errorMsg = response.error || 'Purchase failed';
+          const errorMsg = response.error || 'Purchase failed. Please try again.';
           setError(errorMsg);
-          alert('❌ Purchase failed: ' + errorMsg);
           setLoading(false);
           return;
         }
 
-        console.log('✅ Purchase initiated successfully!');
-        alert('✅ Purchase request sent! Waiting for confirmation...');
-        
-        // Close modal - purchase will be handled by IAP listener
+        // If successful, requestPurchase should have opened the native dialog
+        // Close modal and let the native purchase flow handle the rest
+        // The purchase will be handled by purchaseUpdatedListener in iapService
+        console.log('✅ Purchase request sent - native dialog should be opening');
         onClose();
         
-        if (onSuccess) {
-          onSuccess();
-        }
+        // Don't show alert - the native dialog will appear
+        // The result will come through the purchase listener
       } else {
         // Web: Use Stripe
         const response = await paymentService.purchaseTokens(pkg.amount);
