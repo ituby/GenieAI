@@ -132,10 +132,33 @@ class IAPService {
         });
         console.log('✅ Transaction finished');
       } else {
-        console.error('❌ Purchase validation failed');
+        console.error('❌ Purchase validation failed - finishing transaction anyway to prevent hanging');
+        // Even if validation fails, we should finish the transaction
+        // to prevent the transaction from hanging in the queue
+        // The user will not receive tokens, but the transaction won't block future purchases
+        try {
+          await finishTransaction({ 
+            purchase, 
+            isConsumable: this.isConsumableProduct(productId) 
+          });
+          console.log('⚠️ Transaction finished despite validation failure');
+        } catch (finishError) {
+          console.error('❌ Error finishing transaction:', finishError);
+        }
       }
     } catch (error) {
       console.error('❌ Error handling purchase update:', error);
+      // Try to finish the transaction even if there's an error
+      // to prevent it from blocking future purchases
+      try {
+        await finishTransaction({ 
+          purchase, 
+          isConsumable: this.isConsumableProduct(purchase.productId) 
+        });
+        console.log('⚠️ Transaction finished after error');
+      } catch (finishError) {
+        console.error('❌ Error finishing transaction after error:', finishError);
+      }
     }
   }
 
@@ -158,6 +181,12 @@ class IAPService {
         return false;
       }
 
+      console.log('📱 Validating receipt with backend...', {
+        platform: Platform.OS,
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+      });
+
       const { data, error } = await supabase.functions.invoke('validate-iap-receipt', {
         body: {
           platform: Platform.OS,
@@ -173,12 +202,20 @@ class IAPService {
 
       if (error) {
         console.error('❌ Receipt validation error:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         return false;
       }
 
-      return data?.success === true;
+      if (!data?.success) {
+        console.error('❌ Receipt validation failed:', data?.error || 'Unknown error');
+        return false;
+      }
+
+      console.log('✅ Receipt validated successfully');
+      return true;
     } catch (error) {
       console.error('❌ Error validating receipt:', error);
+      console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
       return false;
     }
   }

@@ -74,6 +74,11 @@ serve(async (req) => {
       const validation = await validateAppleReceipt(transactionReceipt);
       isValid = validation.isValid;
       receiptData = validation.data;
+      
+      // Log validation errors for debugging
+      if (!isValid && validation.error) {
+        console.error('❌ Apple receipt validation error:', validation.error);
+      }
     } else if (platform === 'android') {
       if (!purchaseToken) {
         throw new Error('Purchase token required for Android');
@@ -144,8 +149,13 @@ serve(async (req) => {
 
 /**
  * Validate Apple receipt with App Store
+ * 
+ * According to Apple's guidelines:
+ * - Always validate against production first
+ * - If status 21007 (sandbox receipt used in production), validate against sandbox
+ * - This handles production-signed apps getting receipts from test environment
  */
-async function validateAppleReceipt(receiptData: string): Promise<{ isValid: boolean; data?: any }> {
+async function validateAppleReceipt(receiptData: string): Promise<{ isValid: boolean; data?: any; error?: string }> {
   const applePassword = Deno.env.get('APPLE_SHARED_SECRET');
   
   if (!applePassword) {
@@ -155,22 +165,10 @@ async function validateAppleReceipt(receiptData: string): Promise<{ isValid: boo
     return { isValid: true };
   }
 
-  // Try production endpoint first
-  let response = await fetch('https://buy.itunes.apple.com/verifyReceipt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      'receipt-data': receiptData,
-      password: applePassword,
-      'exclude-old-transactions': true,
-    }),
-  });
-
-  let result: AppleReceiptResponse = await response.json();
-
-  // If status is 21007, receipt is from sandbox
-  if (result.status === 21007) {
-    response = await fetch('https://sandbox.itunes.apple.com/verifyReceipt', {
+  try {
+    // Step 1: Always validate against production endpoint first
+    console.log('📱 Validating receipt against production endpoint...');
+    let response = await fetch('https://buy.itunes.apple.com/verifyReceipt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -180,13 +178,85 @@ async function validateAppleReceipt(receiptData: string): Promise<{ isValid: boo
       }),
     });
 
-    result = await response.json();
+    if (!response.ok) {
+      console.error('❌ Production endpoint HTTP error:', response.status, response.statusText);
+      throw new Error(`Production validation HTTP error: ${response.status}`);
+    }
+
+    let result: AppleReceiptResponse = await response.json();
+    console.log('📱 Production validation status:', result.status);
+
+    // Step 2: If status is 21007, receipt is from sandbox (test environment)
+    // This happens when a production-signed app gets receipts from Apple's test environment
+    // During App Review, Apple uses test accounts which generate sandbox receipts
+    if (result.status === 21007) {
+      console.log('📱 Receipt is from sandbox (status 21007), validating against sandbox endpoint...');
+      
+      try {
+        response = await fetch('https://sandbox.itunes.apple.com/verifyReceipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            'receipt-data': receiptData,
+            password: applePassword,
+            'exclude-old-transactions': true,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('❌ Sandbox endpoint HTTP error:', response.status, response.statusText);
+          throw new Error(`Sandbox validation HTTP error: ${response.status}`);
+        }
+
+        result = await response.json();
+        console.log('📱 Sandbox validation status:', result.status);
+      } catch (sandboxError) {
+        console.error('❌ Error validating against sandbox:', sandboxError);
+        // If sandbox validation fails, return the production result
+        // This allows the app to handle the error appropriately
+        return {
+          isValid: false,
+          data: result,
+          error: `Sandbox validation failed: ${sandboxError instanceof Error ? sandboxError.message : 'Unknown error'}`,
+        };
+      }
+    }
+
+    // Step 3: Check if receipt is valid
+    // Status 0 means valid receipt
+    // Other status codes indicate various errors (see Apple documentation)
+    const isValid = result.status === 0;
+
+    if (!isValid) {
+      // Log the status code for debugging
+      const statusMessages: Record<number, string> = {
+        21000: 'The App Store could not read the JSON object you provided.',
+        21002: 'The data in the receipt-data property was malformed or missing.',
+        21003: 'The receipt could not be authenticated.',
+        21004: 'The shared secret you provided does not match the shared secret on file for your account.',
+        21005: 'The receipt server is not currently available.',
+        21006: 'This receipt is valid but the subscription has expired.',
+        21007: 'This receipt is from the test environment, but it was sent to the production environment for verification.',
+        21008: 'This receipt is from the production environment, but it was sent to the test environment for verification.',
+        21010: 'This receipt could not be authorized. Treat this the same as if a purchase was never made.',
+      };
+
+      const errorMessage = statusMessages[result.status] || `Unknown status code: ${result.status}`;
+      console.warn(`⚠️ Receipt validation failed with status ${result.status}: ${errorMessage}`);
+    }
+
+    return {
+      isValid,
+      data: result,
+      error: isValid ? undefined : `Receipt validation failed with status ${result.status}`,
+    };
+  } catch (error) {
+    console.error('❌ Error during receipt validation:', error);
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Unknown error during receipt validation',
+    };
   }
-
-  // Status 0 means valid receipt
-  const isValid = result.status === 0;
-
-  return { isValid, data: result };
 }
 
 /**
