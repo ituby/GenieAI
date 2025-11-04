@@ -40,37 +40,61 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
 
   const initializeIAP = async () => {
     try {
+      setError(null);
       console.log('🔄 Initializing IAP in modal...');
-      const initialized = await paymentService.initializeIAP();
+      
+      // Try to initialize with retry
+      let initialized = false;
+      let retries = 2;
+      
+      while (retries > 0 && !initialized) {
+        initialized = await paymentService.initializeIAP();
+        if (!initialized && retries > 1) {
+          console.log(`🔄 Retrying IAP initialization... (${retries - 1} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        }
+        retries--;
+      }
+      
       console.log('🔄 IAP initialized result:', initialized);
       
       if (initialized) {
+        // Wait a bit for products to load
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const products = paymentService.getIAPProducts();
         setIapProducts(products);
         console.log('📱 IAP Products loaded:', products.length);
         console.log('📱 Products details:', JSON.stringify(products, null, 2));
         
         if (products.length === 0) {
-          console.warn('⚠️ No products found! Check App Store Connect:');
-          console.warn('1. Products are "Ready to Submit"');
-          console.warn('2. Wait 2-3 hours after creating products');
-          console.warn('3. Product IDs match exactly');
+          console.warn('⚠️ No products found! Checking possible reasons...');
+          console.warn('Product IDs expected:', [
+            'com.ituby.genie.ai.tokens.50',
+            'com.ituby.genie.ai.tokens.100',
+            'com.ituby.genie.ai.tokens.250',
+            'com.ituby.genie.ai.tokens.500',
+            'com.ituby.genie.ai.tokens.1000',
+            'com.ituby.genie.ai.tokens.2000',
+          ]);
           
-          const errorMsg = '⚠️ No products found!\n\nPossible reasons:\n1. Products not yet synced from App Store Connect (wait 2-3 hours)\n2. Products need App Review approval\n3. Product IDs mismatch';
+          // Don't show alert immediately - maybe products are still loading
+          // Show a warning but allow the user to see the modal
+          const errorMsg = 'Products are loading...\n\nIf this persists, check:\n1. Products are "Ready to Submit" in App Store Connect\n2. Wait 2-3 hours after creating products\n3. Product IDs match exactly\n4. You are signed in with a sandbox tester account (for testing)';
           setError(errorMsg);
-          alert(errorMsg); // Show visible alert
+        } else {
+          // Clear any previous errors
+          setError(null);
         }
       } else {
-        console.error('❌ IAP initialization failed');
-        const errorMsg = 'Failed to initialize payment system. Please try again.';
+        console.error('❌ IAP initialization failed after retries');
+        const errorMsg = 'Failed to initialize payment system.\n\nPlease check:\n1. Your device is connected to the internet\n2. App Store/Google Play is accessible\n3. Try again in a moment';
         setError(errorMsg);
-        alert(errorMsg);
       }
     } catch (error) {
       console.error('❌ Error initializing IAP:', error);
-      const errorMsg = 'Error loading products: ' + (error instanceof Error ? error.message : 'Unknown error');
+      const errorMsg = 'Error loading products.\n\n' + (error instanceof Error ? error.message : 'Unknown error') + '\n\nPlease try again or check your internet connection.';
       setError(errorMsg);
-      alert(errorMsg);
     }
   };
 
@@ -342,6 +366,15 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
             {error && (
               <View style={[styles.errorContainer, { backgroundColor: colors.error + '20' }]}>
                 <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                <TouchableOpacity
+                  onPress={initializeIAP}
+                  style={[styles.retryButton, { borderColor: colors.error }]}
+                  disabled={loading}
+                >
+                  <Text style={[styles.retryButtonText, { color: colors.error }]}>
+                    {loading ? 'Loading...' : 'Retry'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </ScrollView>
@@ -576,6 +609,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   footer: {
     marginTop: 20,

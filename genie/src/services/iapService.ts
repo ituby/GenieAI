@@ -69,23 +69,53 @@ class IAPService {
       const subscriptionIds = Object.values(SUBSCRIPTION_PRODUCTS);
 
       console.log('📱 Loading products...', { tokenProductIds, subscriptionIds });
+      console.log('📱 Platform:', Platform.OS);
 
       // Load consumable products (tokens) - using fetchProducts for v14
       if (tokenProductIds.length > 0) {
-        const products = await fetchProducts({ skus: tokenProductIds, type: 'inapp' });
-        this.products = products;
-        console.log('✅ Loaded products:', products.length, products);
+        try {
+          const products = await fetchProducts({ skus: tokenProductIds, type: 'inapp' });
+          this.products = products;
+          console.log('✅ Loaded products:', products.length, products);
+          
+          if (products.length === 0) {
+            console.warn('⚠️ No token products found!');
+            console.warn('⚠️ Product IDs requested:', tokenProductIds);
+            console.warn('⚠️ Possible reasons:');
+            console.warn('  1. Products not created in App Store Connect/Google Play Console');
+            console.warn('  2. Products not in "Ready to Submit" status');
+            console.warn('  3. Products not synced yet (wait 2-3 hours)');
+            console.warn('  4. Product IDs mismatch');
+            console.warn('  5. Not signed in with sandbox tester (for testing)');
+          }
+        } catch (productError) {
+          console.error('❌ Error loading token products:', productError);
+          console.error('❌ Error details:', productError instanceof Error ? productError.message : String(productError));
+          // Don't throw - continue to try subscriptions
+          this.products = [];
+        }
       }
 
       // Load subscriptions - using fetchProducts with type: 'subs' for v14
       if (subscriptionIds.length > 0) {
-        const subscriptions = await fetchProducts({ skus: subscriptionIds, type: 'subs' });
-        this.subscriptions = subscriptions;
-        console.log('✅ Loaded subscriptions:', subscriptions.length, subscriptions);
+        try {
+          const subscriptions = await fetchProducts({ skus: subscriptionIds, type: 'subs' });
+          this.subscriptions = subscriptions;
+          console.log('✅ Loaded subscriptions:', subscriptions.length, subscriptions);
+        } catch (subscriptionError) {
+          console.error('❌ Error loading subscriptions:', subscriptionError);
+          console.error('❌ Error details:', subscriptionError instanceof Error ? subscriptionError.message : String(subscriptionError));
+          // Don't throw - subscriptions are optional
+          this.subscriptions = [];
+        }
       }
     } catch (error) {
-      console.error('❌ Error loading products:', error);
-      throw error;
+      console.error('❌ Error in loadProducts:', error);
+      console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
+      // Don't throw - allow initialization to complete even if products fail to load
+      // This way the app can still function and show fallback prices
+      this.products = [];
+      this.subscriptions = [];
     }
   }
 

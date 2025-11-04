@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: 'Genie',
     slug: 'genie-ai-app',
-    version: '1.0.4',
+    version: '1.0.5',
     orientation: 'portrait',
     icon: './assets/AppIcon.png',
     userInterfaceStyle: 'dark',
