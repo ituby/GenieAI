@@ -10,6 +10,7 @@ import { Modal } from 'react-native';
 import { Button } from '../primitives/Button/Button';
 import { paymentService } from '../../services/paymentService';
 import { useTheme } from '../../theme';
+import * as Linking from 'expo-linking';
 
 interface SubscriptionManagementModalProps {
   visible: boolean;
@@ -263,6 +264,28 @@ export const SubscriptionManagementModal: React.FC<SubscriptionManagementModalPr
           <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       )}
+
+      {/* Legal Links - Required by Apple for Subscriptions */}
+      <View style={styles.legalLinksContainer}>
+        <Text style={[styles.legalLinksTitle, { color: colors.text.tertiary }]}>
+          By subscribing, you agree to our:
+        </Text>
+        <View style={styles.legalLinks}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/terms')}
+            style={styles.legalLinkButton}
+          >
+            <Text style={[styles.legalLinkText, { color: colors.primary }]}>Terms of Use</Text>
+          </TouchableOpacity>
+          <Text style={[styles.legalLinkSeparator, { color: colors.text.tertiary }]}>•</Text>
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/privacy')}
+            style={styles.legalLinkButton}
+          >
+            <Text style={[styles.legalLinkText, { color: colors.primary }]}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View style={styles.buttonRow}>
         <Button
@@ -664,6 +687,37 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+  },
+  legalLinksContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    alignItems: 'center',
+  },
+  legalLinksTitle: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  legalLinkButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  legalLinkText: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+  legalLinkSeparator: {
+    fontSize: 12,
   },
 });
 

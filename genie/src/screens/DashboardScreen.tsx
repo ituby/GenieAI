@@ -51,6 +51,7 @@ import {
   createSampleGoals,
 } from '../utils/testConnection';
 import { supabase } from '../services/supabase/client';
+import * as Linking from 'expo-linking';
 import { PushTokenService } from '../services/notifications/pushToken.service';
 import { NewGoalScreen } from './NewGoalScreen';
 import { GoalDetailsScreen } from './GoalDetailsScreen';
@@ -1972,6 +1973,32 @@ export const DashboardScreen: React.FC = () => {
                     Cancel anytime - billing stops immediately for the next month when you cancel your subscription
                   </Text>
                 </View>
+
+                {/* Legal Links - Required by Apple for Subscriptions */}
+                <View style={styles.legalLinksContainer}>
+                  <Text
+                    variant="caption"
+                    color="tertiary"
+                    style={styles.legalLinksTitle}
+                  >
+                    By subscribing, you agree to our:
+                  </Text>
+                  <View style={styles.legalLinks}>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/terms')}
+                      style={styles.legalLinkButton}
+                    >
+                      <Text style={styles.legalLinkText}>Terms of Use</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.legalLinkSeparator}>•</Text>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/privacy')}
+                      style={styles.legalLinkButton}
+                    >
+                      <Text style={styles.legalLinkText}>Privacy Policy</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
             </ScrollView>
 
@@ -2932,6 +2959,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     color: 'rgba(255, 255, 255, 0.8)',
+  },
+  legalLinksContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  legalLinksTitle: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 8,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  legalLinkButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  legalLinkText: {
+    fontSize: 12,
+    color: '#FFFF68',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+  legalLinkSeparator: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.4)',
   },
   // Token Purchase Modal Styles
   tokenPackagesSection: {

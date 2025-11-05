@@ -12,6 +12,7 @@ import { useTheme } from '../../theme';
 import { useTokens } from '../../hooks/useTokens';
 import { TOKEN_PACKAGES } from '../../config/iapConfig';
 import type { Product } from 'react-native-iap';
+import * as Linking from 'expo-linking';
 
 interface TokenPurchaseModalProps {
   visible: boolean;
@@ -376,6 +377,25 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
           </ScrollView>
           
           <View style={styles.floatingFooter}>
+            {/* Legal Links - Required by Apple for IAP */}
+            <View style={styles.legalLinksContainer}>
+              <View style={styles.legalLinks}>
+                <TouchableOpacity
+                  onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/terms')}
+                  style={styles.legalLinkButton}
+                >
+                  <Text style={styles.legalLinkText}>Terms</Text>
+                </TouchableOpacity>
+                <Text style={styles.legalLinkSeparator}>•</Text>
+                <TouchableOpacity
+                  onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/privacy')}
+                  style={styles.legalLinkButton}
+                >
+                  <Text style={styles.legalLinkText}>Privacy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <Text style={[styles.footerText, { color: colors.text.tertiary }]}>
               {Platform.OS === 'ios' || Platform.OS === 'android'
                 ? 'Secure payment via App Store/Google Play'
@@ -632,5 +652,32 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  legalLinksContainer: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  legalLinkButton: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  legalLinkText: {
+    fontSize: 11,
+    color: '#FFFF68',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+  legalLinkSeparator: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.4)',
   },
 });
