@@ -272,14 +272,14 @@ export const SubscriptionManagementModal: React.FC<SubscriptionManagementModalPr
         </Text>
         <View style={styles.legalLinks}>
           <TouchableOpacity
-            onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/terms')}
+            onPress={() => Linking.openURL('https://askgenie.info/terms')}
             style={styles.legalLinkButton}
           >
             <Text style={[styles.legalLinkText, { color: colors.primary }]}>Terms of Use</Text>
           </TouchableOpacity>
           <Text style={[styles.legalLinkSeparator, { color: colors.text.tertiary }]}>•</Text>
           <TouchableOpacity
-            onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/privacy')}
+            onPress={() => Linking.openURL('https://askgenie.info/privacy')}
             style={styles.legalLinkButton}
           >
             <Text style={[styles.legalLinkText, { color: colors.primary }]}>Privacy Policy</Text>

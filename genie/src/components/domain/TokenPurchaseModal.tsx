@@ -381,14 +381,14 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
             <View style={styles.legalLinksContainer}>
               <View style={styles.legalLinks}>
                 <TouchableOpacity
-                  onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/terms')}
+                  onPress={() => Linking.openURL('https://askgenie.info/terms')}
                   style={styles.legalLinkButton}
                 >
                   <Text style={styles.legalLinkText}>Terms</Text>
                 </TouchableOpacity>
                 <Text style={styles.legalLinkSeparator}>•</Text>
                 <TouchableOpacity
-                  onPress={() => Linking.openURL('https://genieapp-landing.vercel.app/privacy')}
+                  onPress={() => Linking.openURL('https://askgenie.info/privacy')}
                   style={styles.legalLinkButton}
                 >
                   <Text style={styles.legalLinkText}>Privacy</Text>
