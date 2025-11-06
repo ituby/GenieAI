@@ -82,7 +82,7 @@ class IAPService {
             console.warn('⚠️ No token products found!');
             console.warn('⚠️ Product IDs requested:', tokenProductIds);
             console.warn('⚠️ Possible reasons:');
-            console.warn('  1. Products not created in App Store Connect/Google Play Console');
+            console.warn('  1. Products not created in App Store Connect (iOS) or Google Play Console (Android)');
             console.warn('  2. Products not in "Ready to Submit" status');
             console.warn('  3. Products not synced yet (wait 2-3 hours)');
             console.warn('  4. Product IDs mismatch');

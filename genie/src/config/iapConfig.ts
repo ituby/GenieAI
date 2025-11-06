@@ -2,7 +2,7 @@
  * In-App Purchase Configuration
  * 
  * Product IDs for iOS and Android
- * Make sure these match exactly with what you create in App Store Connect and Google Play Console
+ * Make sure these match exactly with what you create in App Store Connect (iOS) or Google Play Console (Android)
  */
 
 import { Platform } from 'react-native';

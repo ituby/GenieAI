@@ -89,7 +89,7 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
         }
       } else {
         console.error('❌ IAP initialization failed after retries');
-        const errorMsg = 'Failed to initialize payment system.\n\nPlease check:\n1. Your device is connected to the internet\n2. App Store/Google Play is accessible\n3. Try again in a moment';
+        const errorMsg = 'Failed to initialize payment system.\n\nPlease check:\n1. Your device is connected to the internet\n2. App Store is accessible\n3. Try again in a moment';
         setError(errorMsg);
       }
     } catch (error) {
@@ -397,8 +397,10 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
             </View>
 
             <Text style={[styles.footerText, { color: colors.text.tertiary }]}>
-              {Platform.OS === 'ios' || Platform.OS === 'android'
-                ? 'Secure payment via App Store/Google Play'
+              {Platform.OS === 'ios'
+                ? 'Secure payment via App Store'
+                : Platform.OS === 'android'
+                ? 'Secure payment via Google Play'
                 : 'Secure payment powered by Stripe'}
             </Text>
             

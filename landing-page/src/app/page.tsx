@@ -260,7 +260,7 @@ export default function Home() {
               
               {/* Copyright - Center */}
               <div className="text-center text-genie-text-tertiary text-sm">
-                <p>© 2025-2026 GenieApp • Version 1.0.6</p>
+                <p>© 2025-2026 GenieApp • Version 1.0.8</p>
               </div>
               
             {/* Links - Right */}
