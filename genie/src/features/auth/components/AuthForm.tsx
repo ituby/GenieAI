@@ -49,7 +49,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
   useEffect(() => {
     const checkForPendingOtp = async () => {
       // Only check if we're not already showing OTP screen or processing
-      if (showOtpScreen || pendingAuth || isProcessingOtp) return;
+      // Remove pendingAuth from check to allow re-checking after state updates
+      if (showOtpScreen || isProcessingOtp) return;
 
       const currentUser = user;
       if (currentUser?.email && !isAuthenticated) {
@@ -90,7 +91,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     };
     
     checkForPendingOtp();
-  }, [user, isAuthenticated, showOtpScreen, pendingAuth, isProcessingOtp]);
+  }, [user, isAuthenticated, showOtpScreen, isProcessingOtp]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -150,6 +151,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
             // Prevent duplicate OTP requests
             if (isProcessingOtp) {
               console.log('⏸️ Already processing OTP request - ignoring duplicate');
+              setIsSubmitting(false); // Make sure to reset submitting state
               return;
             }
             
@@ -199,6 +201,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
                 setPhoneNumber(formData.email);
               }
               
+              // Update all states together
+              console.log('🔄 About to update states: pendingAuth, isProcessingOtp=false, showOtpScreen=true');
+              
               setPendingAuth({
                 email: formData.email,
                 password: formData.password,
@@ -206,12 +211,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
               });
               
               setIsProcessingOtp(false);
+              setShowOtpScreen(true);
               
-              // Use setTimeout to ensure state is updated properly
-              setTimeout(() => {
-                setShowOtpScreen(true);
-                console.log('✅ OTP screen shown');
-              }, 50);
+              console.log('✅ State updates called - showOtpScreen should be true now');
+              console.log('Current showOtpScreen state:', showOtpScreen); // This will show old value due to closure
             } catch (otpError: any) {
               console.error('❌ Failed to handle OTP:', otpError);
               setIsProcessingOtp(false);
@@ -387,6 +390,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
 
   // Show OTP verification screen if needed
   if (showOtpScreen) {
+    console.log('📱 Rendering OTP screen - showOtpScreen is true');
     return (
       <PhoneOtpVerification
         phone={phoneNumber}

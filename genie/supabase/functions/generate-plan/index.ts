@@ -1034,6 +1034,21 @@ async function savePlanOutline(
   const latency = Date.now() - startTime;
   const tokenUsage = result.tokenUsage;
 
+  // First verify the goal still exists (prevent race condition with deletion)
+  const { data: goalExists, error: goalCheckError } = await supabase
+    .from('goals')
+    .select('id, status')
+    .eq('id', goalId)
+    .eq('user_id', userId)
+    .single();
+
+  if (goalCheckError || !goalExists) {
+    console.error('❌ Goal no longer exists or was deleted:', goalId);
+    throw new Error(`Goal ${goalId} not found - may have been deleted during generation`);
+  }
+
+  console.log(`✅ Goal ${goalId} verified, status: ${goalExists.status}`);
+
   const planOutlineData: Record<string, any> = {
     goal_id: goalId,
     milestones: result.milestones,
@@ -1476,16 +1491,24 @@ serve(async (req) => {
 
     await savePlanOutline(supabase, goal_id, user_id, result, startTime);
 
-    // Update goal metadata
-    await supabase
+    // Update goal metadata and change status to 'paused' (waiting for user approval)
+    const { error: goalUpdateError } = await supabase
       .from('goals')
       .update({
         icon_name: result.iconName,
         color: result.color,
         category: result.category,
         device_timezone: finalTimezone,
+        status: 'paused', // Change from 'generating' to 'paused' - outline ready for approval
       })
       .eq('id', goal_id);
+
+    if (goalUpdateError) {
+      console.error(`[${requestId}] Failed to update goal status:`, goalUpdateError);
+      throw new Error('Failed to update goal status after outline generation');
+    }
+    
+    console.log(`[${requestId}] Goal status updated to 'paused' - ready for user approval`);
 
     // Send push notification for plan approval
     // Use AI-generated notification if available, otherwise fallback
