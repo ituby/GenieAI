@@ -32,7 +32,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     email: string;
     password: string;
     fullName?: string;
-    phone?: string;
     isNewUser?: boolean;
   } | null>(null);
 
@@ -41,7 +40,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     password: '',
     confirmPassword: '',
     fullName: '',
-    phone: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -111,13 +109,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
     if (mode === 'register') {
       if (!formData.fullName) {
         newErrors.fullName = 'Full name is required';
-      }
-
-      if (!formData.phone) {
-        newErrors.phone = 'Phone number is required';
-      } else if (!/^\+?[1-9]\d{1,14}$/.test(formData.phone)) {
-        newErrors.phone =
-          'Please enter a valid phone number (e.g., +1234567890)';
       }
 
       if (!formData.confirmPassword) {
@@ -231,7 +222,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName,
-          phone: formData.phone,
           isNewUser: true,
         });
 
@@ -265,8 +255,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       const phone = await signUpWithPhone(
         pendingAuth.email,
         pendingAuth.password,
-        pendingAuth.fullName!,
-        pendingAuth.phone!
+        pendingAuth.fullName!
       );
       console.log('✅ User created and OTP sent to:', phone);
 
@@ -422,16 +411,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
           />
         )}
 
-        {mode === 'register' && (
-          <TextField
-            placeholder={'Phone Number (e.g., +1234567890)'}
-            value={formData.phone}
-            onChangeText={(value) => updateField('phone', value)}
-            error={errors.phone}
-            keyboardType="phone-pad"
-            textContentType="telephoneNumber"
-          />
-        )}
 
         <TextField
           placeholder={'Email'}

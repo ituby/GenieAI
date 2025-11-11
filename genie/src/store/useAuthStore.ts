@@ -204,8 +204,7 @@ export const useAuthStore = create<AuthState>()(
       signUpWithPhone: async (
         email: string,
         password: string,
-        fullName: string,
-        phone: string
+        fullName: string
       ) => {
         set({ loading: true });
         let userId: string | null = null;
@@ -225,7 +224,6 @@ export const useAuthStore = create<AuthState>()(
               options: {
                 data: {
                   full_name: fullName,
-                  phone: phone, // Save phone in metadata for trigger
                   terms_accepted: true,
                   terms_accepted_at: new Date().toISOString(),
                 },
@@ -671,16 +669,16 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // New: Send password reset OTP via SMS (Twilio)
-      sendPasswordResetOtp: async (phoneNumber: string) => {
+      // Send password reset OTP via Email
+      sendPasswordResetOtp: async (email: string) => {
         set({ loading: true });
         try {
-          console.log('📱 Sending password reset OTP via SMS for phone:', phoneNumber);
+          console.log('📧 Sending password reset OTP via email for:', email);
 
           const response = await supabase.functions.invoke('manage-password-reset', {
             body: {
               action: 'send-otp',
-              phone: phoneNumber,
+              email: email,
             },
           });
 
@@ -698,12 +696,11 @@ export const useAuthStore = create<AuthState>()(
             return { success: false, error: data?.error || 'Failed to send verification code.' };
           }
 
-          console.log('✅ Password reset OTP sent via SMS');
+          console.log('✅ Password reset OTP sent via email');
           set({ loading: false });
           return {
             success: true,
-            phone: data.phone, // Masked phone number
-            email: data.email, // Email associated with this phone
+            email: data.email, // Email where OTP was sent
           };
         } catch (error: any) {
           console.error('❌ Send password reset OTP error:', error);

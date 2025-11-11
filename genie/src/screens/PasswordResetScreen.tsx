@@ -30,13 +30,12 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     loading 
   } = useAuthStore();
 
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [email, setEmail] = useState(''); // Will be filled after phone verification
+  const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [step, setStep] = useState<'phone' | 'sms-verify' | 'password'>('phone');
+  const [step, setStep] = useState<'email' | 'otp-verify' | 'password'>('email');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [maskedPhone, setMaskedPhone] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
@@ -126,13 +125,13 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     checkForAccessToken();
   }, [verifyPasswordResetToken, showAlert]);
 
-  const validatePhone = () => {
+  const validateEmail = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!phoneNumber) {
-      newErrors.phoneNumber = 'Phone number is required';
-    } else if (!/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
-      newErrors.phoneNumber = 'Please enter a valid phone number (e.g., +972501234567)';
+    if (!email) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
 
     setErrors(newErrors);
@@ -158,19 +157,21 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSendResetSMS = async () => {
-    if (!validatePhone()) return;
+  const handleSendResetOtp = async () => {
+    if (!validateEmail()) return;
 
     try {
-      console.log('📱 Sending password reset SMS for phone:', phoneNumber);
-      const result = await sendPasswordResetOtp(phoneNumber);
+      console.log('📧 Sending password reset OTP for email:', email);
+      const result = await sendPasswordResetOtp(email);
       
       if (result.success) {
-        setMaskedPhone(result.phone || '****');
-        setEmail(result.email || ''); // Save email for later use
-        setStep('sms-verify');
+        // Mask email for display (e.g., u***@example.com)
+        const emailParts = email.split('@');
+        const maskedLocal = emailParts[0].charAt(0) + '***';
+        setMaskedEmail(maskedLocal + '@' + emailParts[1]);
+        setStep('otp-verify');
         showAlert(
-          `A verification code has been sent to ${result.phone}`,
+          `A verification code has been sent to ${email}`,
           'Code Sent'
         );
       } else {
@@ -181,9 +182,9 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     }
   };
 
-  const handleVerifySMS = async (otp: string) => {
+  const handleVerifyOtp = async (otp: string) => {
     try {
-      console.log('🔐 Verifying password reset SMS code');
+      console.log('🔐 Verifying password reset OTP code');
       const result = await verifyPasswordResetOtp(email, otp);
       
       if (result.success && result.resetToken) {
@@ -208,13 +209,13 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     }
   };
 
-  const handleResendSMS = async () => {
+  const handleResendOtp = async () => {
     try {
-      console.log('🔄 Resending password reset SMS');
-      const result = await sendPasswordResetOtp(phoneNumber);
+      console.log('🔄 Resending password reset OTP');
+      const result = await sendPasswordResetOtp(email);
       
       if (result.success) {
-        showAlert('A new verification code has been sent', 'Code Sent');
+        showAlert('A new verification code has been sent to your email', 'Code Sent');
       } else {
         showAlert(result.error || 'Failed to resend code', 'Error');
       }
@@ -228,7 +229,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
 
     if (!resetToken) {
       showAlert('Invalid reset session. Please start over.', 'Error');
-      setStep('phone');
+      setStep('email');
       return;
     }
 
@@ -261,7 +262,7 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
   };
 
   const updateField = (field: string, value: string) => {
-    if (field === 'phoneNumber') setPhoneNumber(value);
+    if (field === 'email') setEmail(value);
     if (field === 'newPassword') setNewPassword(value);
     if (field === 'confirmPassword') setConfirmPassword(value);
 
@@ -270,15 +271,15 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     }
   };
 
-  // Show SMS verification screen
-  if (step === 'sms-verify') {
+  // Show OTP verification screen
+  if (step === 'otp-verify') {
     return (
       <PhoneOtpVerification
-        phone={maskedPhone}
-        onVerified={handleVerifySMS}
-        onResend={handleResendSMS}
+        phone={maskedEmail}
+        onVerified={handleVerifyOtp}
+        onResend={handleResendOtp}
         loading={loading}
-        onBackToPhone={() => setStep('phone')}
+        onBackToPhone={() => setStep('email')}
       />
     );
   }
@@ -287,11 +288,11 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
     <Card variant="elevated" padding="lg" style={styles.container} pointerEvents="auto">
       <View style={styles.header} pointerEvents="auto">
         <Text variant="h2" style={styles.title}>
-          {step === 'phone' ? 'Reset Password' : 'Set New Password'}
+          {step === 'email' ? 'Reset Password' : 'Set New Password'}
         </Text>
         <Text variant="body" color="secondary" style={styles.subtitle}>
-          {step === 'phone'
-            ? 'Enter your phone number to receive a verification code via SMS.'
+          {step === 'email'
+            ? 'Enter your email address to receive a verification code.'
             : 'You\'ve successfully verified the code. Please enter your new password below.'}
         </Text>
         
@@ -303,15 +304,15 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
       </View>
 
       <View style={styles.form} pointerEvents="auto">
-        {step === 'phone' ? (
+        {step === 'email' ? (
           <TextField
-            placeholder="Phone Number (e.g., +972501234567)"
-            value={phoneNumber}
-            onChangeText={(value) => updateField('phoneNumber', value)}
-            error={errors.phoneNumber}
-            keyboardType="phone-pad"
+            placeholder="Email Address"
+            value={email}
+            onChangeText={(value) => updateField('email', value)}
+            error={errors.email}
+            keyboardType="email-address"
             autoCapitalize="none"
-            textContentType="telephoneNumber"
+            textContentType="emailAddress"
             editable={!loading}
           />
         ) : (
@@ -340,26 +341,26 @@ export const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({
         <Button
           variant="primary"
           fullWidth
-          loading={step === 'password' ? isUpdatingPassword : (loading && step === 'phone')}
+          loading={step === 'password' ? isUpdatingPassword : (loading && step === 'email')}
           disabled={step === 'password' ? (isUpdatingPassword || loading) : loading}
-          onPress={step === 'phone' ? handleSendResetSMS : handleUpdatePassword}
+          onPress={step === 'email' ? handleSendResetOtp : handleUpdatePassword}
         >
-          {step === 'phone' ? 'Send Verification Code' : 'Update Password'}
+          {step === 'email' ? 'Send Verification Code' : 'Update Password'}
         </Button>
 
         <Button
           variant="ghost"
-          onPress={step === 'phone' ? onBack : () => {
+          onPress={step === 'email' ? onBack : () => {
             setLoading(false);
             setIsUpdatingPassword(false);
             hidePopup(); // Close any open popups
-            setStep('phone');
+            setStep('email');
           }}
           style={styles.backButton}
           disabled={loading && step === 'password'}
         >
           <Text style={styles.backButtonText}>
-            {step === 'phone' ? 'Back to Login' : 'Start Over'}
+            {step === 'email' ? 'Back to Login' : 'Start Over'}
           </Text>
         </Button>
       </View>

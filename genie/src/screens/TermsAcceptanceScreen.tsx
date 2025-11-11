@@ -96,12 +96,15 @@ export const TermsAcceptanceScreen: React.FC<TermsAcceptanceScreenProps> = ({
           {/* Subtitle */}
           <View style={styles.subtitleContainer}>
             <Text variant="body" color="secondary" style={styles.subtitle}>
-              Please read and accept our terms to continue
+              Please scroll down to read all terms and accept to continue
             </Text>
           </View>
 
           {/* Terms Content - Scrollable */}
           <View style={styles.termsContainer}>
+            <Text variant="caption" color="tertiary" style={styles.scrollHint}>
+              👆 Scroll down to read all terms
+            </Text>
             <ScrollView
               style={styles.termsContent}
               showsVerticalScrollIndicator={true}
@@ -393,5 +396,12 @@ const styles = StyleSheet.create({
   subtitleContainer: {
     paddingHorizontal: 20,
     paddingBottom: 12,
+  },
+  scrollHint: {
+    textAlign: 'center',
+    marginBottom: 8,
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingHorizontal: 20,
   },
 });
