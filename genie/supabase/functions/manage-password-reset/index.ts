@@ -9,7 +9,6 @@ const corsHeaders = {
 interface PasswordResetRequest {
   action: 'send-otp' | 'verify-otp' | 'reset-password';
   email?: string;
-  phone?: string;
   otp?: string;
   newPassword?: string;
   resetToken?: string;
@@ -20,55 +19,94 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Send SMS via Twilio
-async function sendTwilioSMS(to: string, message: string): Promise<{ success: boolean; error?: string }> {
-  const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-  const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-  const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+// Send OTP via Resend Email
+async function sendResendEmail(email: string, otp: string): Promise<{ success: boolean; error?: string }> {
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-    console.error('❌ Twilio credentials not configured');
-    console.error('Missing credentials:', {
-      hasSid: !!twilioAccountSid,
-      hasToken: !!twilioAuthToken,
-      hasPhone: !!twilioPhoneNumber
-    });
-    return { success: false, error: 'SMS service not configured. Please contact support.' };
+  if (!resendApiKey) {
+    return { success: false, error: 'Email service not configured' };
   }
 
   try {
-    console.log(`📱 Sending SMS to: ${to}`);
+    console.log(`📧 Preparing to send password reset email to: ${email}`);
     
-    const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-    
-    const body = new URLSearchParams({
-      To: to,
-      From: twilioPhoneNumber,
-      Body: message,
-    });
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .logo { font-size: 32px; font-weight: bold; color: #FFFF68; }
+            .otp-box { background: #f5f5f5; border: 2px solid #FFFF68; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
+            .otp-code { font-size: 48px; font-weight: bold; letter-spacing: 8px; color: #000; margin: 20px 0; }
+            .message { color: #666; line-height: 1.6; margin: 20px 0; }
+            .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; }
+            .warning { color: #ff6b6b; font-weight: 500; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🧞 Genie AI</div>
+            </div>
+            
+            <h2>Password Reset Verification Code</h2>
+            <p class="message">
+              You requested to reset your password. Enter this verification code to continue:
+            </p>
+            
+            <div class="otp-box">
+              <div style="color: #666; font-size: 14px; margin-bottom: 10px;">Verification Code</div>
+              <div class="otp-code">${otp}</div>
+              <div style="color: #666; font-size: 14px; margin-top: 10px;">This code expires in 10 minutes</div>
+            </div>
+            
+            <p class="message warning">
+              ⚠️ Never share this code with anyone. Genie will never ask for your verification code.
+            </p>
+            
+            <p class="message">
+              If you didn't request a password reset, please ignore this email and your password will remain unchanged.
+            </p>
+            
+            <div class="footer">
+              <p>© 2024 Genie AI - Your AI-powered goal companion</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
 
-    const response = await fetch(url, {
+    const emailPayload = {
+      from: 'Genie AI <auth@askgenie.info>',
+      to: email,
+      subject: `Your Genie Password Reset Code: ${otp}`,
+      html: emailHtml,
+    };
+    
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: body.toString(),
+      body: JSON.stringify(emailPayload)
     });
 
     const responseData = await response.json();
-    
+
     if (!response.ok) {
-      console.error(`❌ Twilio API error:`, responseData);
-      return { success: false, error: `SMS delivery failed: ${responseData.message || response.statusText}` };
+      console.error(`❌ Resend API error: ${response.status}`, responseData);
+      return { success: false, error: `Email delivery failed: ${responseData.message || response.statusText}` };
     }
 
-    console.log(`✅ SMS sent successfully! SID: ${responseData.sid}`);
+    console.log(`✅ Email sent successfully via Resend! ID: ${responseData.id}`);
     return { success: true };
   } catch (error) {
-    console.error('❌ Twilio request failed:', error);
-    return { success: false, error: 'SMS service temporarily unavailable' };
+    console.error('❌ Resend request failed:', error);
+    return { success: false, error: 'Email service temporarily unavailable' };
   }
 }
 
@@ -91,7 +129,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const { action, email, phone, otp, newPassword, resetToken }: PasswordResetRequest = await req.json();
+    const { action, email, otp, newPassword, resetToken }: PasswordResetRequest = await req.json();
 
     if (!action) {
       return new Response(
@@ -101,32 +139,32 @@ serve(async (req) => {
     }
 
     // ============================================
-    // ACTION: SEND OTP (via SMS)
+    // ACTION: SEND OTP (via Email)
     // ============================================
     if (action === 'send-otp') {
-      console.log(`📱 [${requestId}] Sending password reset OTP for phone: ${phone}`);
+      console.log(`📧 [${requestId}] Sending password reset OTP for email: ${email}`);
 
-      if (!phone) {
+      if (!email) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Phone number is required', requestId }),
+          JSON.stringify({ success: false, error: 'Email is required', requestId }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Find user by phone number
+      // Find user by email
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, email, phone_number')
-        .eq('phone_number', phone)
+        .select('id, email')
+        .eq('email', email)
         .single();
 
       if (userError || !userData) {
-        console.error(`❌ [${requestId}] User not found for phone: ${phone}`);
-        // Don't reveal if phone exists or not - security
+        console.error(`❌ [${requestId}] User not found for email: ${email}`);
+        // Don't reveal if email exists or not - security
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: 'If this phone number is registered, an SMS will be sent.',
+            message: 'If this email is registered, a verification code will be sent.',
             requestId 
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -135,7 +173,6 @@ serve(async (req) => {
 
       const userId = userData.id;
       const userEmail = userData.email;
-      const phoneNumber = userData.phone_number;
 
       // Check for cooldown (60 seconds)
       const { data: existingReset } = await supabase
@@ -173,7 +210,6 @@ serve(async (req) => {
         .from('password_reset_verifications')
         .upsert({
           user_id: userId,
-          phone_number: phoneNumber,
           otp_code: otpCode,
           otp_expires_at: expiresAt.toISOString(),
           otp_attempts: 0,
@@ -191,16 +227,13 @@ serve(async (req) => {
         );
       }
 
-      // Send SMS via Twilio
-      const maskedPhone = phoneNumber.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2');
-      const smsMessage = `Your Genie password reset code is: ${otpCode}\n\nThis code expires in 10 minutes.\n\nDon't share this code with anyone.`;
-      
-      console.log(`📤 [${requestId}] Sending SMS to ${phoneNumber}`);
-      const smsResult = await sendTwilioSMS(phoneNumber, smsMessage);
+      // Send Email via Resend
+      console.log(`📤 [${requestId}] Sending password reset email to ${userEmail}`);
+      const emailResult = await sendResendEmail(userEmail, otpCode);
 
-      if (!smsResult.success) {
-        console.error(`❌ [${requestId}] SMS failed:`, smsResult.error);
-        // Clear the OTP if SMS failed
+      if (!emailResult.success) {
+        console.error(`❌ [${requestId}] Email failed:`, emailResult.error);
+        // Clear the OTP if email failed
         await supabase
           .from('password_reset_verifications')
           .update({
@@ -211,19 +244,18 @@ serve(async (req) => {
           .eq('user_id', userId);
 
         return new Response(
-          JSON.stringify({ success: false, error: smsResult.error, requestId }),
+          JSON.stringify({ success: false, error: emailResult.error, requestId }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`✅ [${requestId}] OTP SMS sent successfully`);
+      console.log(`✅ [${requestId}] OTP email sent successfully`);
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Verification code sent to your phone',
-          phone: maskedPhone,
-          email: userEmail, // Return email so client knows which account
+          message: 'Verification code sent to your email',
+          email: userEmail,
           expiresIn: 600,
           requestId
         }),
