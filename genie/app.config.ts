@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: 'Genie',
     slug: 'genie-ai-app',
-    version: '1.0.9',
+    version: '1.0.8',
     orientation: 'portrait',
     icon: './assets/AppIcon.png',
     userInterfaceStyle: 'dark',
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.ituby.genie.ai',
-      // buildNumber will be auto-incremented by EAS
+      buildNumber: '23',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         UIRequiresFullScreen: true,

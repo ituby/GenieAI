@@ -1,7 +1,6 @@
 {
   "cli": {
-    "version": ">= 12.0.0",
-    "appVersionSource": "remote"
+    "version": ">= 12.0.0"
   },
   "build": {
     "development": {
@@ -25,7 +24,7 @@
         "resourceClass": "medium",
         "simulator": false,
         "distribution": "store",
-        "autoIncrement": true
+        "autoIncrement": false
       },
       "android": {
         "resourceClass": "medium",
