@@ -12,6 +12,7 @@ import {
   finishTransaction,
   purchaseUpdatedListener,
   purchaseErrorListener,
+  getAvailablePurchases,
 } from 'react-native-iap';
 import type { Product, Purchase, PurchaseError } from 'react-native-iap';
 import { Platform } from 'react-native';
@@ -30,6 +31,7 @@ class IAPService {
   private subscriptions: Product[] = [];
   private purchaseUpdateSubscription: any = null;
   private purchaseErrorSubscription: any = null;
+  private onPurchaseSuccessCallback: (() => void) | null = null;
 
   /**
    * Initialize IAP connection
@@ -37,6 +39,11 @@ class IAPService {
   async initialize(): Promise<boolean> {
     if (this.isInitialized) {
       console.log('📱 IAP already initialized');
+      // Make sure listeners are still set up
+      if (!this.purchaseUpdateSubscription) {
+        console.log('⚠️ Listeners not set up, setting them up now...');
+        this.setupPurchaseListeners();
+      }
       return true;
     }
 
@@ -44,14 +51,20 @@ class IAPService {
       console.log('📱 Initializing IAP connection...');
       await initConnection();
       
+      // Set up purchase listeners FIRST, before loading products
+      // This ensures listeners are ready for any purchases
+      console.log('📱 Setting up purchase listeners BEFORE loading products...');
+      this.setupPurchaseListeners();
+      
       // Load products
       await this.loadProducts();
       
-      // Set up purchase listeners
-      this.setupPurchaseListeners();
-      
       this.isInitialized = true;
       console.log('✅ IAP initialized successfully');
+      console.log('✅ Purchase listeners are active:', {
+        hasUpdateListener: !!this.purchaseUpdateSubscription,
+        hasErrorListener: !!this.purchaseErrorSubscription,
+      });
       return true;
     } catch (error) {
       console.error('❌ Error initializing IAP:', error);
@@ -77,6 +90,16 @@ class IAPService {
           const products = await fetchProducts({ skus: tokenProductIds, type: 'inapp' });
           this.products = products;
           console.log('✅ Loaded products:', products.length, products);
+          
+          // Debug: Log the structure of the first product to understand the format
+          if (products.length > 0) {
+            console.log('📱 First product structure:', JSON.stringify(products[0], null, 2));
+            console.log('📱 First product keys:', Object.keys(products[0]));
+            console.log('📱 First product productIdentifier:', (products[0] as any).productIdentifier);
+            console.log('📱 First product productId:', (products[0] as any).productId);
+            console.log('📱 First product id:', (products[0] as any).id);
+            console.log('📱 First product sku:', (products[0] as any).sku);
+          }
           
           if (products.length === 0) {
             console.warn('⚠️ No token products found!');
@@ -143,21 +166,57 @@ class IAPService {
    * Set up purchase listeners
    */
   private setupPurchaseListeners(): void {
-    // Listen for purchase updates
-    this.purchaseUpdateSubscription = purchaseUpdatedListener(
-      async (purchase: Purchase) => {
-        console.log('📱 Purchase updated:', purchase);
-        await this.handlePurchaseUpdate(purchase);
+    console.log('🔧 Setting up purchase listeners...');
+    
+    // Remove existing listeners if they exist
+    if (this.purchaseUpdateSubscription) {
+      console.log('🔄 Removing existing purchase update listener...');
+      try {
+        this.purchaseUpdateSubscription.remove();
+      } catch (e) {
+        console.warn('⚠️ Error removing existing listener:', e);
       }
-    );
+      this.purchaseUpdateSubscription = null;
+    }
+    
+    if (this.purchaseErrorSubscription) {
+      console.log('🔄 Removing existing purchase error listener...');
+      try {
+        this.purchaseErrorSubscription.remove();
+      } catch (e) {
+        console.warn('⚠️ Error removing existing error listener:', e);
+      }
+      this.purchaseErrorSubscription = null;
+    }
+    
+    // Listen for purchase updates
+    try {
+      this.purchaseUpdateSubscription = purchaseUpdatedListener(
+        async (purchase: Purchase) => {
+          console.log('📱 ========== Purchase updated listener called! ==========');
+          console.log('📱 Purchase object:', JSON.stringify(purchase, null, 2));
+          console.log('📱 Purchase keys:', Object.keys(purchase));
+          console.log('📱 Purchase type:', typeof purchase);
+          await this.handlePurchaseUpdate(purchase);
+        }
+      );
+      console.log('✅ Purchase update listener set up');
+      console.log('✅ Listener subscription:', this.purchaseUpdateSubscription ? 'exists' : 'null');
+    } catch (listenerError) {
+      console.error('❌ Error setting up purchase update listener:', listenerError);
+    }
 
     // Listen for purchase errors
     this.purchaseErrorSubscription = purchaseErrorListener(
       (error: PurchaseError) => {
-        console.warn('⚠️ Purchase error:', error);
+        console.warn('⚠️ ========== Purchase error listener called! ==========');
+        console.warn('⚠️ Purchase error:', JSON.stringify(error, null, 2));
+        console.warn('⚠️ Error code:', error.code);
+        console.warn('⚠️ Error message:', error.message);
         // Handle purchase errors if needed
       }
     );
+    console.log('✅ Purchase error listener set up');
   }
 
   /**
@@ -165,12 +224,34 @@ class IAPService {
    */
   private async handlePurchaseUpdate(purchase: Purchase): Promise<void> {
     try {
-      const productId = Platform.OS === 'ios' ? (purchase as any).productIdentifier : (purchase as any).productId;
-      const transactionReceipt = (purchase as any).transactionReceipt || (purchase as any).transactionReceiptData;
+      console.log('📱 ========== handlePurchaseUpdate called ==========');
       
-      console.log('📱 Processing purchase:', { productId });
+      // In v14, productId is in 'id' field (same as Product object)
+      const productId = (purchase as any).id || 
+                       (purchase as any).productIdentifier || 
+                       (purchase as any).productId;
+      const transactionReceipt = (purchase as any).transactionReceipt || 
+                                (purchase as any).transactionReceiptData ||
+                                (purchase as any).transactionReceiptString;
+      const transactionId = (purchase as any).transactionId || 
+                           (purchase as any).transactionIdentifier ||
+                           (purchase as any).originalTransactionIdentifierIOS;
+      
+      console.log('📱 Processing purchase:', { 
+        productId,
+        transactionId,
+        hasReceipt: !!transactionReceipt,
+        receiptLength: transactionReceipt?.length || 0,
+        purchaseKeys: Object.keys(purchase),
+      });
 
-      // Validate receipt with backend
+      if (!productId || !transactionId) {
+        console.error('❌ Missing required purchase data:', { productId, transactionId });
+        return;
+      }
+
+      console.log('📱 Calling validateReceipt to send to Edge Function...');
+      // Validate receipt with backend - THIS IS WHERE WE CALL THE EDGE FUNCTION
       const validated = await this.validateReceipt(purchase);
 
       if (validated) {
@@ -182,6 +263,12 @@ class IAPService {
           isConsumable: this.isConsumableProduct(productId) 
         });
         console.log('✅ Transaction finished');
+        
+        // Trigger callback to refresh tokens in UI
+        if (this.onPurchaseSuccessCallback) {
+          console.log('🔄 Calling purchase success callback to refresh tokens...');
+          this.onPurchaseSuccessCallback();
+        }
       } else {
         console.error('❌ Purchase validation failed - finishing transaction anyway to prevent hanging');
         // Even if validation fails, we should finish the transaction
@@ -199,14 +286,16 @@ class IAPService {
       }
     } catch (error) {
       console.error('❌ Error handling purchase update:', error);
-        // Try to finish the transaction even if there's an error
-        // to prevent it from blocking future purchases
-        try {
-          const productId = Platform.OS === 'ios' ? (purchase as any).productIdentifier : (purchase as any).productId;
-          await finishTransaction({ 
-            purchase, 
-            isConsumable: this.isConsumableProduct(productId) 
-          });
+      // Try to finish the transaction even if there's an error
+      // to prevent it from blocking future purchases
+      try {
+        const productId = (purchase as any).id || 
+                         (purchase as any).productIdentifier || 
+                         (purchase as any).productId;
+        await finishTransaction({ 
+          purchase, 
+          isConsumable: this.isConsumableProduct(productId) 
+        });
         console.log('⚠️ Transaction finished after error');
       } catch (finishError) {
         console.error('❌ Error finishing transaction after error:', finishError);
@@ -222,56 +311,83 @@ class IAPService {
   }
 
   /**
-   * Validate receipt with backend
+   * Validate receipt with backend - THIS CALLS THE EDGE FUNCTION
    */
   private async validateReceipt(purchase: Purchase): Promise<boolean> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('📱 ========== validateReceipt called - preparing to call Edge Function ==========');
       
-      if (!session) {
-        console.error('❌ User not authenticated');
+      // Get user session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('❌ User not authenticated:', sessionError?.message);
         return false;
       }
 
-      const productId = Platform.OS === 'ios' ? (purchase as any).productIdentifier : (purchase as any).productId;
-      const transactionReceipt = (purchase as any).transactionReceipt || (purchase as any).transactionReceiptData;
-      const transactionId = (purchase as any).transactionId || (purchase as any).transactionIdentifier;
-      
-      console.log('📱 Validating receipt with backend...', {
+      console.log('✅ User session found');
+
+      // Extract purchase data
+      const productId = (purchase as any).id || 
+                       (purchase as any).productIdentifier || 
+                       (purchase as any).productId;
+      const transactionReceipt = (purchase as any).transactionReceipt || 
+                                (purchase as any).transactionReceiptData ||
+                                (purchase as any).transactionReceiptString;
+      const transactionId = (purchase as any).transactionId || 
+                          (purchase as any).transactionIdentifier ||
+                          (purchase as any).originalTransactionIdentifierIOS;
+
+      if (!productId || !transactionId) {
+        console.error('❌ Missing required purchase data:', { productId, transactionId });
+        return false;
+      }
+
+      console.log('✅ Purchase data extracted:', { productId, transactionId, hasReceipt: !!transactionReceipt });
+
+      // Prepare request body
+      const requestBody = {
         platform: Platform.OS,
         productId: productId,
+        transactionReceipt: transactionReceipt || '',
         transactionId: transactionId,
-      });
+        purchaseToken: (purchase as any).purchaseToken || undefined,
+      };
 
+      console.log('📱 ========== CALLING SUPABASE EDGE FUNCTION validate-iap-receipt ==========');
+      console.log('📱 Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('📱 Function name: validate-iap-receipt');
+
+      // Call Edge Function - THIS IS THE ACTUAL CALL TO SUPABASE
       const { data, error } = await supabase.functions.invoke('validate-iap-receipt', {
-        body: {
-          platform: Platform.OS,
-          productId: productId,
-          transactionReceipt: transactionReceipt,
-          transactionId: transactionId,
-          purchaseToken: (purchase as any).purchaseToken, // Android only
-        },
+        body: requestBody,
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
         },
       });
 
+      console.log('📱 ========== EDGE FUNCTION RESPONSE RECEIVED ==========');
+      console.log('📱 Has error:', !!error);
+      console.log('📱 Has data:', !!data);
+      console.log('📱 Error:', error ? JSON.stringify(error, null, 2) : 'none');
+      console.log('📱 Data:', data ? JSON.stringify(data, null, 2) : 'none');
+
       if (error) {
-        console.error('❌ Receipt validation error:', error);
-        console.error('❌ Error details:', JSON.stringify(error, null, 2));
+        console.error('❌ Edge Function error:', error.message || error);
         return false;
       }
 
-      if (!data?.success) {
-        console.error('❌ Receipt validation failed:', data?.error || 'Unknown error');
+      if (!data || !data.success) {
+        console.error('❌ Validation failed:', data?.error || 'Unknown error');
         return false;
       }
 
-      console.log('✅ Receipt validated successfully');
+      console.log('✅ Receipt validated successfully by Edge Function');
       return true;
     } catch (error) {
-      console.error('❌ Error validating receipt:', error);
-      console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
+      console.error('❌ Error validating receipt:', error instanceof Error ? error.message : String(error));
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'no stack');
       return false;
     }
   }
@@ -296,12 +412,10 @@ class IAPService {
   getProduct(productId: string): Product | undefined {
     return (
       this.products.find((p) => {
-        const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
-        return pId === productId;
+        return (p as any).id === productId;
       }) ||
       this.subscriptions.find((s) => {
-        const sId = Platform.OS === 'ios' ? (s as any).productIdentifier : (s as any).productId;
-        return sId === productId;
+        return (s as any).id === productId;
       })
     );
   }
@@ -315,15 +429,26 @@ class IAPService {
         await this.initialize();
       }
 
-      // Check if product exists
+      // Debug: Log all products structure
+      console.log('📱 All products structure:', this.products.map(p => ({
+        keys: Object.keys(p),
+        productIdentifier: (p as any).productIdentifier,
+        productId: (p as any).productId,
+        id: (p as any).id,
+        sku: (p as any).sku,
+        full: p,
+      })));
+      
+      // Check if product exists - use 'id' field which contains the productId
       const product = this.products.find((p) => {
-        const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+        const pId = (p as any).id; // In v14, the productId is in the 'id' field
+        console.log('📱 Comparing product:', { pId, productId, match: pId === productId });
         return pId === productId;
       });
       if (!product) {
         console.error('❌ Product not found:', productId);
         const availableIds = this.products.map((p) => {
-          return Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+          return (p as any).id || 'unknown';
         });
         console.error('❌ Available products:', availableIds);
         return {
@@ -332,7 +457,8 @@ class IAPService {
         };
       }
 
-      const productIdValue = Platform.OS === 'ios' ? (product as any).productIdentifier : (product as any).productId;
+      // In v14, the productId is in the 'id' field
+      const productIdValue = (product as any).id || productId;
       const price = (product as any).price || (product as any).localizedPrice || 'N/A';
       console.log('📱 Requesting purchase:', productId);
       console.log('📱 Product details:', {
@@ -343,22 +469,139 @@ class IAPService {
 
       // v14 requires platform-specific request object
       // This will open the native purchase dialog automatically
-      await requestPurchase({
-        request: {
-          ios: { sku: productId },
-          android: { skus: [productId] },
-        },
-        type: 'inapp',
-      });
+      try {
+        // For iOS, we need to use the productIdentifier from the product object
+        // For Android, we can use the productId directly
+        const skuToUse = Platform.OS === 'ios' ? productIdValue : productId;
+        
+        console.log('📱 Calling requestPurchase with:', {
+          productId,
+          productIdValue,
+          skuToUse,
+          type: 'inapp',
+          platform: Platform.OS,
+        });
+        console.log('📱 Full product object:', JSON.stringify(product, null, 2));
+        
+        console.log('📱 About to call requestPurchase...');
+        console.log('📱 Checking if listener is set up...', {
+          hasListener: !!this.purchaseUpdateSubscription,
+          isInitialized: this.isInitialized,
+        });
+        
+        // Double-check listener is set up before purchase
+        if (!this.purchaseUpdateSubscription) {
+          console.error('❌ Purchase listener not set up! Setting it up now...');
+          this.setupPurchaseListeners();
+        }
+        
+        console.log('📱 Calling requestPurchase with:', {
+          sku: skuToUse,
+          productId: productId,
+          platform: Platform.OS,
+        });
+        
+        try {
+          // For iOS, use the product object directly if available
+          const purchaseRequest = Platform.OS === 'ios' 
+            ? {
+                request: {
+                  ios: { sku: skuToUse },
+                },
+                type: 'inapp' as const,
+              }
+            : {
+                request: {
+                  android: { skus: [productId] },
+                },
+                type: 'inapp' as const,
+              };
+          
+          console.log('📱 Purchase request object:', JSON.stringify(purchaseRequest, null, 2));
+          
+          await requestPurchase(purchaseRequest);
+          console.log('✅ requestPurchase completed without throwing error');
+        } catch (requestError) {
+          console.error('❌ requestPurchase threw an error:', requestError);
+          throw requestError; // Re-throw to handle properly
+        }
 
-      // requestPurchase is event-based, not promise-based
-      // The result will come through purchaseUpdatedListener
-      // If we get here without error, the purchase dialog should be opening
-      console.log('✅ Purchase request sent - native dialog should open');
-      
-      return {
-        success: true,
-      };
+        // requestPurchase is event-based, not promise-based
+        // The result will come through purchaseUpdatedListener
+        // If we get here without error, the purchase dialog should be opening
+        console.log('✅ Purchase request sent - native dialog should open');
+        console.log('⏳ Waiting for purchaseUpdatedListener to be called...');
+        console.log('📱 Listener status:', {
+          hasSubscription: !!this.purchaseUpdateSubscription,
+          subscriptionType: typeof this.purchaseUpdateSubscription,
+        });
+        
+        // Give a hint about what to expect
+        console.log('💡 If purchase is successful, you should see:');
+        console.log('💡   📱 ========== Purchase updated listener called! ==========');
+        
+        // Fallback: Check for pending purchases after a delay
+        // Sometimes purchaseUpdatedListener doesn't fire immediately
+        // This is a backup mechanism to ensure purchases are processed
+        let checkCount = 0;
+        const maxChecks = 10; // Check for 10 seconds
+        
+        const checkInterval = setInterval(async () => {
+          checkCount++;
+          try {
+            console.log(`🔍 [${checkCount}/${maxChecks}] Checking for pending purchases (fallback mechanism)...`);
+            const availablePurchases = await getAvailablePurchases();
+            console.log('🔍 Available purchases found:', availablePurchases?.length || 0);
+            
+            if (availablePurchases && availablePurchases.length > 0) {
+              console.log('📱 Found pending purchases! Processing...');
+              for (const purchase of availablePurchases) {
+                // Check if this is the purchase we just made
+                const purchaseProductId = (purchase as any).id || 
+                                        (purchase as any).productIdentifier || 
+                                        (purchase as any).productId;
+                
+                console.log('🔍 Checking purchase:', {
+                  purchaseProductId,
+                  targetProductId: productId,
+                  match: purchaseProductId === productId,
+                });
+                
+                if (purchaseProductId === productId) {
+                  console.log('✅ Found matching purchase! Processing and sending to Edge Function...');
+                  clearInterval(checkInterval);
+                  await this.handlePurchaseUpdate(purchase);
+                  return;
+                }
+              }
+            } else {
+              console.log('🔍 No pending purchases found yet...');
+            }
+          } catch (checkError) {
+            console.error('❌ Error checking for pending purchases:', checkError);
+          }
+          
+          // Stop after max checks
+          if (checkCount >= maxChecks) {
+            clearInterval(checkInterval);
+            console.log('⏰ Stopped checking for pending purchases (timeout after 10 seconds)');
+            console.log('⚠️ If purchase was successful but not processed, it may be stuck in the queue');
+          }
+        }, 1000); // Check every 1 second
+        
+        return {
+          success: true,
+        };
+      } catch (purchaseError) {
+        console.error('❌ requestPurchase threw an error:', purchaseError);
+        console.error('❌ Error type:', purchaseError instanceof Error ? purchaseError.constructor.name : typeof purchaseError);
+        console.error('❌ Error message:', purchaseError instanceof Error ? purchaseError.message : String(purchaseError));
+        console.error('❌ Error stack:', purchaseError instanceof Error ? purchaseError.stack : 'No stack');
+        
+        // Even if requestPurchase throws, the purchase might still work
+        // because it's event-based. But we should log the error.
+        throw purchaseError;
+      }
     } catch (error) {
       console.error('❌ Error purchasing tokens:', error);
       console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
@@ -403,15 +646,14 @@ class IAPService {
         }
       }
 
-      // Check if subscription product exists
+      // Check if subscription product exists - use 'id' field
       const subscription = this.subscriptions.find((s) => {
-        const sId = Platform.OS === 'ios' ? (s as any).productIdentifier : (s as any).productId;
-        return sId === productId;
+        return (s as any).id === productId;
       });
       if (!subscription) {
         console.error('❌ Subscription product not found:', productId);
         const availableIds = this.subscriptions.map((s) => {
-          return Platform.OS === 'ios' ? (s as any).productIdentifier : (s as any).productId;
+          return (s as any).id || 'unknown';
         });
         console.error('❌ Available subscriptions:', availableIds);
         console.error('❌ Total subscriptions loaded:', this.subscriptions.length);
@@ -421,7 +663,8 @@ class IAPService {
         };
       }
 
-      const subscriptionId = Platform.OS === 'ios' ? (subscription as any).productIdentifier : (subscription as any).productId;
+      // In v14, the productId is in the 'id' field
+      const subscriptionId = (subscription as any).id || productId;
       const price = (subscription as any).price || (subscription as any).localizedPrice || 'N/A';
       console.log('📱 Requesting subscription:', productId);
       console.log('📱 Subscription details:', {
@@ -429,25 +672,49 @@ class IAPService {
         title: (subscription as any).title || 'N/A',
         price: price,
       });
+      console.log('📱 Full subscription object:', JSON.stringify(subscription, null, 2));
 
       // v14 requires platform-specific request object
       // This will open the native purchase dialog automatically
-      await requestPurchase({
-        request: {
-          ios: { sku: productId },
-          android: { skus: [productId] },
-        },
-        type: 'subs',
-      });
+      try {
+        // For iOS, we need to use the productIdentifier from the subscription object
+        // For Android, we can use the productId directly
+        const skuToUse = Platform.OS === 'ios' ? subscriptionId : productId;
+        
+        console.log('📱 Calling requestPurchase for subscription with:', {
+          productId,
+          subscriptionId,
+          skuToUse,
+          type: 'subs',
+          platform: Platform.OS,
+        });
+        
+        await requestPurchase({
+          request: {
+            ios: { sku: skuToUse },
+            android: { skus: [productId] },
+          },
+          type: 'subs',
+        });
 
-      // requestPurchase is event-based, not promise-based
-      // The result will come through purchaseUpdatedListener
-      // If we get here without error, the purchase dialog should be opening
-      console.log('✅ Subscription request sent - native dialog should open');
-      
-      return {
-        success: true,
-      };
+        // requestPurchase is event-based, not promise-based
+        // The result will come through purchaseUpdatedListener
+        // If we get here without error, the purchase dialog should be opening
+        console.log('✅ Subscription request sent - native dialog should open');
+        
+        return {
+          success: true,
+        };
+      } catch (purchaseError) {
+        console.error('❌ requestPurchase threw an error for subscription:', purchaseError);
+        console.error('❌ Error type:', purchaseError instanceof Error ? purchaseError.constructor.name : typeof purchaseError);
+        console.error('❌ Error message:', purchaseError instanceof Error ? purchaseError.message : String(purchaseError));
+        console.error('❌ Error stack:', purchaseError instanceof Error ? purchaseError.stack : 'No stack');
+        
+        // Even if requestPurchase throws, the purchase might still work
+        // because it's event-based. But we should log the error.
+        throw purchaseError;
+      }
     } catch (error) {
       console.error('❌ Error subscribing:', error);
       console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
@@ -477,6 +744,14 @@ class IAPService {
   private async getUserId(): Promise<string> {
     const { data: { user } } = await supabase.auth.getUser();
     return user?.id || '';
+  }
+
+  /**
+   * Set callback for purchase success (to refresh tokens)
+   */
+  setPurchaseSuccessCallback(callback: () => void): void {
+    this.onPurchaseSuccessCallback = callback;
+    console.log('📱 Purchase success callback set');
   }
 
   /**

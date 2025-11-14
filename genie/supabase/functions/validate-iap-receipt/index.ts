@@ -397,7 +397,7 @@ async function processTokenPurchase(
   }
 
   // Create payment record
-  const { error: paymentError } = await supabaseClient.from('payments').insert({
+  const { data: paymentRecord, error: paymentError } = await supabaseClient.from('payments').insert({
     user_id: userId,
     amount: 0, // IAP doesn't expose the actual amount
     currency: 'USD',
@@ -409,18 +409,20 @@ async function processTokenPurchase(
       platform: receiptData.platform || 'mobile',
       productId,
     },
-  });
+  }).select('id').single();
 
   if (paymentError) {
     console.error('Error creating payment record:', paymentError);
     throw new Error('Failed to create payment record');
   }
 
-  // Add tokens to user balance
-  const { error: tokenError } = await supabaseClient.rpc('add_tokens', {
+  // Add tokens to user balance using the correct function
+  const { error: tokenError } = await supabaseClient.rpc('add_tokens_to_user', {
     p_user_id: userId,
-    p_amount: tokenAmount,
-    p_reason: `IAP Purchase - ${productId}`,
+    p_tokens: tokenAmount,
+    p_change_type: 'purchase',
+    p_reference_id: paymentRecord?.id || null,
+    p_description: `IAP Purchase - ${productId}`,
   });
 
   if (tokenError) {
@@ -484,10 +486,11 @@ async function processSubscriptionPurchase(
     }
 
     // Grant initial tokens
-    await supabaseClient.rpc('add_tokens', {
+    await supabaseClient.rpc('add_tokens_to_user', {
       p_user_id: userId,
-      p_amount: 1000,
-      p_reason: 'Premium subscription - initial grant',
+      p_tokens: 1000,
+      p_change_type: 'subscription_renewal',
+      p_description: 'Premium subscription - initial grant',
     });
   }
 

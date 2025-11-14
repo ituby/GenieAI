@@ -52,6 +52,15 @@ export default function App() {
           const initialized = await paymentService.initializeIAP();
           if (initialized) {
             console.log('✅ IAP initialized successfully');
+            
+            // Set up callback to refresh tokens after successful purchase
+            // This will be called from iapService when purchase is validated
+            const { iapService } = await import('./src/services/iapService');
+            iapService.setPurchaseSuccessCallback(() => {
+              console.log('🔄 Purchase success - tokens should be added by backend');
+              // The tokens will be refreshed automatically via usePaymentNotifications
+              // which listens to token_balance_history changes
+            });
           } else {
             console.warn('⚠️ IAP initialization failed');
           }

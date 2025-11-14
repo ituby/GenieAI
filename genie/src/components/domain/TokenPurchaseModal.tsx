@@ -103,11 +103,20 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
   const getProductPrice = (productId: string, fallbackPrice: number): string => {
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
       const product = iapProducts.find((p) => {
-        const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
-        return pId === productId;
+        return (p as any).id === productId; // In v14, productId is in 'id' field
       });
       if (product) {
-        return (product as any).price || (product as any).localizedPrice || `$${fallbackPrice.toFixed(2)}`;
+        // Use displayPrice which is already formatted (e.g., "$2.99")
+        const displayPrice = (product as any).displayPrice;
+        if (displayPrice && typeof displayPrice === 'string') {
+          return displayPrice;
+        }
+        
+        // Fallback to price number if displayPrice not available
+        const price = (product as any).price;
+        if (typeof price === 'number') {
+          return `$${price.toFixed(2)}`;
+        }
       }
     }
     // Fallback to USD price
@@ -154,16 +163,15 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
           return;
         }
         
-        // Check if product is available
+        // Check if product is available - use 'id' field
         const product = iapProducts.find((p) => {
-          const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
-          return pId === pkg.productId;
+          return (p as any).id === pkg.productId; // In v14, productId is in 'id' field
         });
         if (!product) {
           const errorMsg = `Product "${pkg.productId}" not available. Please make sure the product is configured in App Store Connect.`;
           console.error('❌ Product not available:', pkg.productId);
           const availableIds = iapProducts.map((p) => {
-            return Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+            return (p as any).id || 'unknown';
           });
           console.error('❌ Available products:', availableIds);
           setError(errorMsg);
