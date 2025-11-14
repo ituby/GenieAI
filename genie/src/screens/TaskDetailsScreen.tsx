@@ -619,6 +619,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                           styles.subtaskTime,
                           { color: theme.colors.text.secondary },
                         ]}
+                        numberOfLines={1}
                       >
                         {subtask.estimated_minutes}min
                       </Text>
@@ -858,6 +859,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    minHeight: 44,
   },
   subtaskCompleted: {
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -865,8 +867,9 @@ const styles = StyleSheet.create({
   },
   subtaskContent: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
+    flexWrap: 'wrap',
   },
   checkbox: {
     width: 20,
@@ -876,6 +879,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 2,
+    flexShrink: 0,
   },
   checkboxChecked: {
     borderColor: 'transparent',
@@ -884,6 +889,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
+    flexShrink: 1,
+    minWidth: 0,
   },
   subtaskTitleCompleted: {
     textDecorationLine: 'line-through',
@@ -892,6 +899,8 @@ const styles = StyleSheet.create({
   subtaskTime: {
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 0,
+    marginTop: 2,
   },
   progressContainer: {
     marginTop: 8,

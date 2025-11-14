@@ -146,7 +146,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             .eq('user_id', user.id)
             .single();
 
-          setIsSubscribed(tokenData?.is_subscribed || false);
+          const subscribed = tokenData?.is_subscribed || false;
+          setIsSubscribed(subscribed);
 
           // Load user preferences (includes timezone synced from users table)
           const { data: prefs, error } = await supabase
@@ -160,7 +161,8 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             console.log('📋 User timezone from preferences:', prefs.timezone);
             setFormData((prev) => ({
               ...prev,
-              planDurationDays: prefs.plan_duration_days || 21,
+              // Force 21 days for non-subscribers, allow saved value for subscribers
+              planDurationDays: subscribed ? (prefs.plan_duration_days || 21) : 21,
               tasksPerDayRange: {
                 min: prefs.tasks_per_day_min || 3,
                 max: prefs.tasks_per_day_max || 5,
@@ -174,6 +176,13 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
             }));
           } else {
             console.log('📋 No user preferences found, using defaults');
+            // Ensure non-subscribers get 21 days
+            if (!subscribed) {
+              setFormData((prev) => ({
+                ...prev,
+                planDurationDays: 21,
+              }));
+            }
           }
         } catch (error) {
           console.log('User preferences load failed:', error);
@@ -2306,7 +2315,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                   showsVerticalScrollIndicator={false}
                 >
                   {/* Plan Duration */}
-                  <View style={styles.section}>
+                  <View style={[styles.section, styles.firstSection]}>
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.sectionTitleRow}>
+                        {!isSubscribed && (
+                          <Icon name="crown" size={16} color="#FFFF68" weight="fill" style={styles.subscriptionIcon} />
+                        )}
                     <Text
                       variant="h4"
                       color="primary"
@@ -2314,13 +2328,18 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                     >
                       Plan duration
                     </Text>
+                      </View>
+                    </View>
                     <Text
                       variant="caption"
                       color="secondary"
                       style={styles.sectionSubtitle}
                     >
-                      How long should your plan last?
+                      {isSubscribed 
+                        ? 'How long should your plan last?'
+                        : '3 weeks plan available. Subscribe to customize duration.'}
                     </Text>
+                    {isSubscribed ? (
                     <Dropdown
                       options={[
                         { label: '1 week', value: '7' },
@@ -2341,6 +2360,169 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                       style={styles.durationDropdown}
                       label="Duration"
                     />
+                    ) : (
+                      <View style={[styles.durationDropdown, styles.disabledDropdown]}>
+                        <Text variant="body" style={styles.disabledText}>
+                          3 weeks (21 days)
+                        </Text>
+                        <Icon name="lock" size={16} color="rgba(255, 255, 255, 0.3)" weight="fill" />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Tasks Per Day Range */}
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.sectionTitleRow}>
+                        {!isSubscribed && (
+                          <Icon name="crown" size={16} color="#FFFF68" weight="fill" style={styles.subscriptionIcon} />
+                        )}
+                        <Text
+                          variant="h4"
+                          color="primary"
+                          style={styles.sectionTitle}
+                        >
+                          Tasks per day
+                        </Text>
+                      </View>
+                    </View>
+                    <Text
+                      variant="caption"
+                      color="secondary"
+                      style={styles.sectionSubtitle}
+                    >
+                      {isSubscribed 
+                        ? 'Choose your daily task range'
+                        : 'Default range (3-5 tasks). Subscribe to customize.'}
+                    </Text>
+                    <View style={[styles.tasksRangeCard, !isSubscribed && styles.disabledCard]}>
+                      <View style={styles.tasksRangeContainer}>
+                        <View style={styles.tasksRangeInput}>
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.rangeLabel}
+                          >
+                            From:
+                          </Text>
+                          <View style={styles.numberPickerContainer}>
+                            <TouchableOpacity
+                              style={[styles.numberPickerButton, !isSubscribed && styles.disabledButton]}
+                              onPress={() => {
+                                if (isSubscribed && formData.tasksPerDayRange.min > 1) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    min: formData.tasksPerDayRange.min - 1,
+                                  });
+                                }
+                              }}
+                              disabled={!isSubscribed}
+                            >
+                              <Icon
+                                name="minus"
+                                size={16}
+                                color={isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"}
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                            <View style={styles.numberDisplay}>
+                              <Text
+                                variant="h4"
+                                color="primary"
+                                style={styles.numberText}
+                              >
+                                {formData.tasksPerDayRange.min}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={[styles.numberPickerButton, !isSubscribed && styles.disabledButton]}
+                              onPress={() => {
+                                if (
+                                  isSubscribed &&
+                                  formData.tasksPerDayRange.min <
+                                  formData.tasksPerDayRange.max - 1
+                                ) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    min: formData.tasksPerDayRange.min + 1,
+                                  });
+                                }
+                              }}
+                              disabled={!isSubscribed}
+                            >
+                              <Icon
+                                name="plus"
+                                size={16}
+                                color={isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"}
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                        <View style={styles.tasksRangeInput}>
+                          <Text
+                            variant="caption"
+                            color="secondary"
+                            style={styles.rangeLabel}
+                          >
+                            To:
+                          </Text>
+                          <View style={styles.numberPickerContainer}>
+                            <TouchableOpacity
+                              style={[styles.numberPickerButton, !isSubscribed && styles.disabledButton]}
+                              onPress={() => {
+                                if (
+                                  isSubscribed &&
+                                  formData.tasksPerDayRange.max >
+                                  formData.tasksPerDayRange.min + 1
+                                ) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    max: formData.tasksPerDayRange.max - 1,
+                                  });
+                                }
+                              }}
+                              disabled={!isSubscribed}
+                            >
+                              <Icon
+                                name="minus"
+                                size={16}
+                                color={isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"}
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                            <View style={styles.numberDisplay}>
+                              <Text
+                                variant="h4"
+                                color="primary"
+                                style={styles.numberText}
+                              >
+                                {formData.tasksPerDayRange.max}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={[styles.numberPickerButton, !isSubscribed && styles.disabledButton]}
+                              onPress={() => {
+                                if (isSubscribed && formData.tasksPerDayRange.max < 10) {
+                                  updateField('tasksPerDayRange', {
+                                    ...formData.tasksPerDayRange,
+                                    max: formData.tasksPerDayRange.max + 1,
+                                  });
+                                }
+                              }}
+                              disabled={!isSubscribed}
+                            >
+                              <Icon
+                                name="plus"
+                                size={16}
+                                color={isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"}
+                                weight="bold"
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
                   </View>
 
                   {/* Preferred Days */}
@@ -2595,146 +2777,6 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                         </Text>
                       </TouchableOpacity>
                     )}
-                  </View>
-
-                  {/* Tasks Per Day Range */}
-                  <View style={styles.section}>
-                    <Text
-                      variant="h4"
-                      color="primary"
-                      style={styles.sectionTitle}
-                    >
-                      Tasks per day
-                    </Text>
-                    <Text
-                      variant="caption"
-                      color="secondary"
-                      style={styles.sectionSubtitle}
-                    >
-                      Choose your daily task range
-                    </Text>
-                    <View style={styles.tasksRangeCard}>
-                      <View style={styles.tasksRangeContainer}>
-                        <View style={styles.tasksRangeInput}>
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            style={styles.rangeLabel}
-                          >
-                            From:
-                          </Text>
-                          <View style={styles.numberPickerContainer}>
-                            <TouchableOpacity
-                              style={styles.numberPickerButton}
-                              onPress={() => {
-                                if (formData.tasksPerDayRange.min > 1) {
-                                  updateField('tasksPerDayRange', {
-                                    ...formData.tasksPerDayRange,
-                                    min: formData.tasksPerDayRange.min - 1,
-                                  });
-                                }
-                              }}
-                            >
-                              <Icon
-                                name="minus"
-                                size={16}
-                                color="#FFFF68"
-                                weight="bold"
-                              />
-                            </TouchableOpacity>
-                            <View style={styles.numberDisplay}>
-                              <Text
-                                variant="h4"
-                                color="primary"
-                                style={styles.numberText}
-                              >
-                                {formData.tasksPerDayRange.min}
-                              </Text>
-                            </View>
-                            <TouchableOpacity
-                              style={styles.numberPickerButton}
-                              onPress={() => {
-                                if (
-                                  formData.tasksPerDayRange.min <
-                                  formData.tasksPerDayRange.max - 1
-                                ) {
-                                  updateField('tasksPerDayRange', {
-                                    ...formData.tasksPerDayRange,
-                                    min: formData.tasksPerDayRange.min + 1,
-                                  });
-                                }
-                              }}
-                            >
-                              <Icon
-                                name="plus"
-                                size={16}
-                                color="#FFFF68"
-                                weight="bold"
-                              />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                        <View style={styles.tasksRangeInput}>
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            style={styles.rangeLabel}
-                          >
-                            To:
-                          </Text>
-                          <View style={styles.numberPickerContainer}>
-                            <TouchableOpacity
-                              style={styles.numberPickerButton}
-                              onPress={() => {
-                                if (
-                                  formData.tasksPerDayRange.max >
-                                  formData.tasksPerDayRange.min + 1
-                                ) {
-                                  updateField('tasksPerDayRange', {
-                                    ...formData.tasksPerDayRange,
-                                    max: formData.tasksPerDayRange.max - 1,
-                                  });
-                                }
-                              }}
-                            >
-                              <Icon
-                                name="minus"
-                                size={16}
-                                color="#FFFF68"
-                                weight="bold"
-                              />
-                            </TouchableOpacity>
-                            <View style={styles.numberDisplay}>
-                              <Text
-                                variant="h4"
-                                color="primary"
-                                style={styles.numberText}
-                              >
-                                {formData.tasksPerDayRange.max}
-                              </Text>
-                            </View>
-                            <TouchableOpacity
-                              style={styles.numberPickerButton}
-                              onPress={() => {
-                                if (formData.tasksPerDayRange.max < 10) {
-                                  updateField('tasksPerDayRange', {
-                                    ...formData.tasksPerDayRange,
-                                    max: formData.tasksPerDayRange.max + 1,
-                                  });
-                                }
-                              }}
-                            >
-                              <Icon
-                                name="plus"
-                                size={16}
-                                color="#FFFF68"
-                                weight="bold"
-                              />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
                   </View>
                 </ScrollView>
 
@@ -3097,20 +3139,44 @@ const styles = StyleSheet.create({
   intensityButtonSubtextSelected: {
     color: 'rgba(0, 0, 0, 0.7)',
   },
-  premiumBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 104, 0.2)',
-    borderRadius: 8,
-    padding: 4,
-  },
   // New styles for plan customization
   section: {
     marginBottom: 24,
   },
-  sectionTitle: {
+  firstSection: {
+    paddingTop: 20,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    marginBottom: 0,
+  },
+  subscriptionIcon: {
+    marginRight: 4,
+  },
+  disabledDropdown: {
+    opacity: 0.6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  disabledText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  disabledCard: {
+    opacity: 0.6,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   sectionSubtitle: {
     marginBottom: 12,

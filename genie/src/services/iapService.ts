@@ -99,12 +99,32 @@ class IAPService {
       // Load subscriptions - using fetchProducts with type: 'subs' for v14
       if (subscriptionIds.length > 0) {
         try {
+          console.log('📱 Attempting to load subscriptions...', subscriptionIds);
           const subscriptions = await fetchProducts({ skus: subscriptionIds, type: 'subs' });
           this.subscriptions = subscriptions;
           console.log('✅ Loaded subscriptions:', subscriptions.length, subscriptions);
+          
+          if (subscriptions.length === 0) {
+            console.warn('⚠️ No subscriptions found!');
+            console.warn('⚠️ Subscription IDs requested:', subscriptionIds);
+            console.warn('⚠️ Possible reasons:');
+            console.warn('  1. Subscription not created in App Store Connect → Subscriptions');
+            console.warn('  2. Subscription not in "Ready to Submit" or "In Review" status');
+            console.warn('  3. Subscription not synced yet (wait 2-3 hours after creating)');
+            console.warn('  4. Product ID mismatch (check: com.ituby.genie.ai.premium.monthly)');
+            console.warn('  5. Not signed in with sandbox tester (for testing)');
+            console.warn('  6. Subscription Group not configured correctly');
+          } else {
+            subscriptions.forEach(sub => {
+              const productId = Platform.OS === 'ios' ? (sub as any).productIdentifier : (sub as any).productId;
+              const price = (sub as any).price || (sub as any).localizedPrice || 'N/A';
+              console.log(`✅ Subscription found: ${productId} - ${(sub as any).title || 'N/A'} - ${price}`);
+            });
+          }
         } catch (subscriptionError) {
           console.error('❌ Error loading subscriptions:', subscriptionError);
           console.error('❌ Error details:', subscriptionError instanceof Error ? subscriptionError.message : String(subscriptionError));
+          console.error('❌ Subscription IDs that failed:', subscriptionIds);
           // Don't throw - subscriptions are optional
           this.subscriptions = [];
         }
@@ -145,7 +165,8 @@ class IAPService {
    */
   private async handlePurchaseUpdate(purchase: Purchase): Promise<void> {
     try {
-      const { productId, transactionReceipt } = purchase;
+      const productId = Platform.OS === 'ios' ? (purchase as any).productIdentifier : (purchase as any).productId;
+      const transactionReceipt = (purchase as any).transactionReceipt || (purchase as any).transactionReceiptData;
       
       console.log('📱 Processing purchase:', { productId });
 
@@ -178,13 +199,14 @@ class IAPService {
       }
     } catch (error) {
       console.error('❌ Error handling purchase update:', error);
-      // Try to finish the transaction even if there's an error
-      // to prevent it from blocking future purchases
-      try {
-        await finishTransaction({ 
-          purchase, 
-          isConsumable: this.isConsumableProduct(purchase.productId) 
-        });
+        // Try to finish the transaction even if there's an error
+        // to prevent it from blocking future purchases
+        try {
+          const productId = Platform.OS === 'ios' ? (purchase as any).productIdentifier : (purchase as any).productId;
+          await finishTransaction({ 
+            purchase, 
+            isConsumable: this.isConsumableProduct(productId) 
+          });
         console.log('⚠️ Transaction finished after error');
       } catch (finishError) {
         console.error('❌ Error finishing transaction after error:', finishError);
@@ -211,18 +233,22 @@ class IAPService {
         return false;
       }
 
+      const productId = Platform.OS === 'ios' ? (purchase as any).productIdentifier : (purchase as any).productId;
+      const transactionReceipt = (purchase as any).transactionReceipt || (purchase as any).transactionReceiptData;
+      const transactionId = (purchase as any).transactionId || (purchase as any).transactionIdentifier;
+      
       console.log('📱 Validating receipt with backend...', {
         platform: Platform.OS,
-        productId: purchase.productId,
-        transactionId: purchase.transactionId,
+        productId: productId,
+        transactionId: transactionId,
       });
 
       const { data, error } = await supabase.functions.invoke('validate-iap-receipt', {
         body: {
           platform: Platform.OS,
-          productId: purchase.productId,
-          transactionReceipt: purchase.transactionReceipt,
-          transactionId: purchase.transactionId,
+          productId: productId,
+          transactionReceipt: transactionReceipt,
+          transactionId: transactionId,
           purchaseToken: (purchase as any).purchaseToken, // Android only
         },
         headers: {
@@ -269,8 +295,14 @@ class IAPService {
    */
   getProduct(productId: string): Product | undefined {
     return (
-      this.products.find((p) => p.productId === productId) ||
-      this.subscriptions.find((s) => s.productId === productId)
+      this.products.find((p) => {
+        const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+        return pId === productId;
+      }) ||
+      this.subscriptions.find((s) => {
+        const sId = Platform.OS === 'ios' ? (s as any).productIdentifier : (s as any).productId;
+        return sId === productId;
+      })
     );
   }
 
@@ -284,21 +316,29 @@ class IAPService {
       }
 
       // Check if product exists
-      const product = this.products.find((p) => p.productId === productId);
+      const product = this.products.find((p) => {
+        const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+        return pId === productId;
+      });
       if (!product) {
         console.error('❌ Product not found:', productId);
-        console.error('❌ Available products:', this.products.map((p) => p.productId));
+        const availableIds = this.products.map((p) => {
+          return Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+        });
+        console.error('❌ Available products:', availableIds);
         return {
           success: false,
           error: `Product not found: ${productId}. Please make sure the product is available in App Store Connect.`,
         };
       }
 
+      const productIdValue = Platform.OS === 'ios' ? (product as any).productIdentifier : (product as any).productId;
+      const price = (product as any).price || (product as any).localizedPrice || 'N/A';
       console.log('📱 Requesting purchase:', productId);
       console.log('📱 Product details:', {
-        productId: product.productId,
-        title: product.title,
-        price: product.localizedPrice,
+        productId: productIdValue,
+        title: (product as any).title || 'N/A',
+        price: price,
       });
 
       // v14 requires platform-specific request object
@@ -335,25 +375,59 @@ class IAPService {
   async subscribeToPremium(productId: string): Promise<IAPPurchaseResult> {
     try {
       if (!this.isInitialized) {
+        console.log('📱 IAP not initialized, initializing...');
         await this.initialize();
       }
 
+      // Check if subscriptions are loaded
+      if (this.subscriptions.length === 0) {
+        console.warn('⚠️ No subscriptions loaded, trying to reload...');
+        console.warn('⚠️ Attempting to reload subscriptions from App Store Connect...');
+        await this.loadProducts();
+        
+        if (this.subscriptions.length === 0) {
+          console.error('❌ No subscriptions available after reload');
+          console.error('❌ Subscription ID requested:', productId);
+          console.error('❌ Expected: com.ituby.genie.ai.premium.monthly');
+          console.error('❌ Please check:');
+          console.error('  1. Subscription exists in App Store Connect → Subscriptions → Premium');
+          console.error('  2. Subscription status is "Ready to Submit" or "In Review"');
+          console.error('  3. Product ID matches exactly: com.ituby.genie.ai.premium.monthly');
+          console.error('  4. Wait 2-3 hours if subscription was just created');
+          console.error('  5. You are signed in with Sandbox Tester (for testing)');
+          
+          return {
+            success: false,
+            error: `Subscription product "${productId}" is not available. Please check:\n1. Subscription exists in App Store Connect → Subscriptions\n2. Status is "Ready to Submit" or "In Review"\n3. Product ID matches: com.ituby.genie.ai.premium.monthly\n4. Wait 2-3 hours if just created\n5. You are signed in with Sandbox Tester`,
+          };
+        }
+      }
+
       // Check if subscription product exists
-      const subscription = this.subscriptions.find((s) => s.productId === productId);
+      const subscription = this.subscriptions.find((s) => {
+        const sId = Platform.OS === 'ios' ? (s as any).productIdentifier : (s as any).productId;
+        return sId === productId;
+      });
       if (!subscription) {
         console.error('❌ Subscription product not found:', productId);
-        console.error('❌ Available subscriptions:', this.subscriptions.map((s) => s.productId));
+        const availableIds = this.subscriptions.map((s) => {
+          return Platform.OS === 'ios' ? (s as any).productIdentifier : (s as any).productId;
+        });
+        console.error('❌ Available subscriptions:', availableIds);
+        console.error('❌ Total subscriptions loaded:', this.subscriptions.length);
         return {
           success: false,
-          error: `Subscription product not found: ${productId}. Please make sure the subscription is available in App Store Connect.`,
+          error: `Subscription product "${productId}" not found. Available: ${availableIds.join(', ') || 'none'}. Please make sure the subscription is "Ready to Submit" in App Store Connect.`,
         };
       }
 
+      const subscriptionId = Platform.OS === 'ios' ? (subscription as any).productIdentifier : (subscription as any).productId;
+      const price = (subscription as any).price || (subscription as any).localizedPrice || 'N/A';
       console.log('📱 Requesting subscription:', productId);
       console.log('📱 Subscription details:', {
-        productId: subscription.productId,
-        title: subscription.title,
-        price: subscription.localizedPrice,
+        productId: subscriptionId,
+        title: (subscription as any).title || 'N/A',
+        price: price,
       });
 
       // v14 requires platform-specific request object
@@ -377,9 +451,22 @@ class IAPService {
     } catch (error) {
       console.error('❌ Error subscribing:', error);
       console.error('❌ Error details:', error instanceof Error ? error.stack : String(error));
+      
+      // Provide more detailed error messages
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for common error patterns
+        if (errorMessage.includes('not available') || errorMessage.includes('not found')) {
+          errorMessage = `Subscription product "${productId}" is not available. Please make sure it's "Ready to Submit" in App Store Connect.`;
+        } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        }
+      }
+      
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       };
     }
   }

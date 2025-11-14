@@ -1037,22 +1037,45 @@ export const useAuthStore = create<AuthState>()(
                 return;
               }
 
-              // Check login_verified status in otp_verifications table
+              // Check login_verified status and pending OTP in otp_verifications table
               const { data: authStatus } = await supabase
                 .from('otp_verifications')
-                .select('login_verified')
+                .select('login_verified, current_stage, current_otp_code, current_otp_expires_at, registration_verified')
                 .eq('user_id', session.user.id)
                 .single();
               
               const isLoggedIn = authStatus?.login_verified || false;
               
+              // Check if there's a pending OTP that hasn't expired
+              let hasPendingOtp = false;
+              if (authStatus && !isLoggedIn) {
+                if (authStatus.current_otp_code && authStatus.current_otp_expires_at) {
+                  const expiresAt = new Date(authStatus.current_otp_expires_at);
+                  const isExpired = expiresAt < new Date();
+                  
+                  // Check if user needs to verify (either registration or login)
+                  const needsVerification = authStatus.current_stage === 'registration' 
+                    ? !authStatus.registration_verified 
+                    : !authStatus.login_verified;
+                  
+                  if (!isExpired && needsVerification) {
+                    hasPendingOtp = true;
+                    console.log(`📱 Found pending ${authStatus.current_stage} OTP - user should verify`);
+                  }
+                }
+              }
+              
               console.log('✅ User exists in database, restoring session...');
               console.log(`📱 Account verified: ${userData.account_verified}`);
               console.log(`🔐 Login verified: ${isLoggedIn}`);
+              console.log(`📱 Has pending OTP: ${hasPendingOtp}`);
               
               // Update timezone on every login
               await updateUserTimezone(session.user.id);
               
+              // If user is not logged in but has pending OTP, keep user and session
+              // so AuthForm can detect and show OTP screen
+              // Otherwise, only set authenticated if login_verified = true
               set({
                 user: session.user,
                 session,
@@ -1127,23 +1150,46 @@ export const useAuthStore = create<AuthState>()(
                 return;
               }
 
-              // Check login_verified status in otp_verifications table
+              // Check login_verified status and pending OTP in otp_verifications table
               const { data: authStatus } = await supabase
                 .from('otp_verifications')
-                .select('login_verified')
+                .select('login_verified, current_stage, current_otp_code, current_otp_expires_at, registration_verified')
                 .eq('user_id', session.user.id)
                 .single();
               
               isLoggedIn = authStatus?.login_verified || false;
               
+              // Check if there's a pending OTP that hasn't expired
+              let hasPendingOtp = false;
+              if (authStatus && !isLoggedIn) {
+                if (authStatus.current_otp_code && authStatus.current_otp_expires_at) {
+                  const expiresAt = new Date(authStatus.current_otp_expires_at);
+                  const isExpired = expiresAt < new Date();
+                  
+                  // Check if user needs to verify (either registration or login)
+                  const needsVerification = authStatus.current_stage === 'registration' 
+                    ? !authStatus.registration_verified 
+                    : !authStatus.login_verified;
+                  
+                  if (!isExpired && needsVerification) {
+                    hasPendingOtp = true;
+                    console.log(`📱 Found pending ${authStatus.current_stage} OTP - user should verify`);
+                  }
+                }
+              }
+              
               console.log('✅ User exists in database, setting session...');
               console.log(`📱 Account verified: ${userData.account_verified}`);
               console.log(`🔐 Login verified: ${isLoggedIn}`);
+              console.log(`📱 Has pending OTP: ${hasPendingOtp}`);
               
               // Update timezone on every login
               await updateUserTimezone(session.user.id);
             }
 
+            // If user is not logged in but has pending OTP, keep user and session
+            // so AuthForm can detect and show OTP screen
+            // Otherwise, only set authenticated if login_verified = true
             set({
               user: session?.user || null,
               session,
@@ -1176,11 +1222,25 @@ export const useAuthStore = create<AuthState>()(
                 const isLoggedIn = authStatus?.login_verified || false;
                 console.log(`🔐 User signed in - login_verified: ${isLoggedIn}`);
                 
+                // IMPORTANT: Only set isAuthenticated to true if login_verified is true
+                // If login_verified is false, user needs to verify OTP first
+                // Don't update if we're already in the middle of OTP verification flow
+                const currentState = get();
+                if (!isLoggedIn && currentState.user?.id === session.user.id && !currentState.isAuthenticated) {
+                  // User is signing in but hasn't verified OTP yet - keep isAuthenticated as false
+                  console.log('🔐 User signed in but OTP not verified - keeping isAuthenticated: false');
+                  set({
+                    user: session.user,
+                    session,
+                    isAuthenticated: false, // Keep false until OTP verified
+                  });
+                } else {
                 set({
                   user: session.user,
                   session,
                   isAuthenticated: isLoggedIn, // Only authenticated if login_verified = true
                 });
+                }
               } else if (event === 'TOKEN_REFRESHED') {
                 // Token was refreshed - update session but keep auth state
                 console.log('🔄 Token refreshed - updating session');

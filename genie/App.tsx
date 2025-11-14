@@ -449,6 +449,9 @@ export default function App() {
   }
 
   // User is fully authenticated - show Dashboard
+  // IMPORTANT: Only show dashboard if user is authenticated AND has no pending OTP
+  // If user exists but isAuthenticated is false, they might have pending OTP - show login screen instead
+  if (isAuthenticated && user && (!hasPendingOtp || hasPendingOtp === false)) {
   console.log('🎯 Rendering Dashboard - user is fully authenticated and verified');
   console.log('🔐 Current auth state:', { isAuthenticated, user: !!user });
   return (
@@ -465,6 +468,48 @@ export default function App() {
           />
           <StatusBar style="light" />
           </PaymentHandler>
+          </PopupProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // If we have user but not authenticated, they might have pending OTP - show login screen
+  // This prevents the flash of dashboard before returning to login
+  if (user && !isAuthenticated) {
+    console.log('🔐 User exists but not authenticated - showing login screen (might have pending OTP)');
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <PopupProvider>
+            <LoginScreen />
+            <UpdateAvailableModal
+              visible={showUpdateModal}
+              onUpdate={handleUpdateApp}
+              onDismiss={handleDismissUpdate}
+              updateInfo={updateInfo}
+            />
+            <StatusBar style="light" />
+          </PopupProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Fallback - should not reach here, but just in case
+  console.log('⚠️ Unexpected state - showing login screen');
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <PopupProvider>
+          <LoginScreen />
+          <UpdateAvailableModal
+            visible={showUpdateModal}
+            onUpdate={handleUpdateApp}
+            onDismiss={handleDismissUpdate}
+            updateInfo={updateInfo}
+          />
+          <StatusBar style="light" />
         </PopupProvider>
       </ThemeProvider>
     </SafeAreaProvider>

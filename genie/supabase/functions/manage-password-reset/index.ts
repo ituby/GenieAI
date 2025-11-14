@@ -85,7 +85,7 @@ async function sendResendEmail(email: string, otp: string): Promise<{ success: b
       subject: `Your Genie Password Reset Code: ${otp}`,
       html: emailHtml,
     };
-    
+
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -96,7 +96,7 @@ async function sendResendEmail(email: string, otp: string): Promise<{ success: b
     });
 
     const responseData = await response.json();
-
+    
     if (!response.ok) {
       console.error(`❌ Resend API error: ${response.status}`, responseData);
       return { success: false, error: `Email delivery failed: ${responseData.message || response.statusText}` };

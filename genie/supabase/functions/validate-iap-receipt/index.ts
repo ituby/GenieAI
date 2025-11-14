@@ -159,10 +159,12 @@ async function validateAppleReceipt(receiptData: string): Promise<{ isValid: boo
   const applePassword = Deno.env.get('APPLE_SHARED_SECRET');
   
   if (!applePassword) {
-    console.warn('⚠️ APPLE_SHARED_SECRET not configured, skipping validation');
-    // In development, you might want to skip validation
-    // In production, this should throw an error
-    return { isValid: true };
+    console.error('❌ APPLE_SHARED_SECRET not configured - receipt validation cannot proceed');
+    // In production, this MUST be configured for App Review
+    return { 
+      isValid: false, 
+      error: 'APPLE_SHARED_SECRET is not configured. Receipt validation cannot proceed.' 
+    };
   }
 
   try {

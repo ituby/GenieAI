@@ -54,6 +54,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       if (currentUser?.email && !isAuthenticated) {
         console.log('🔍 Checking if user has any pending OTP');
         
+        // Add small delay to ensure state is stable after login
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Check for any unverified OTP in database
         const { data: otpData } = await supabase
           .from('otp_verifications')
@@ -80,7 +83,10 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
               password: '',
               isNewUser: otpData.current_stage === 'registration',
             });
+            // Use setTimeout to ensure state updates are applied
+            setTimeout(() => {
             setShowOtpScreen(true);
+            }, 50);
           } else if (isExpired) {
             console.log(`⏰ Pending OTP has expired - user will need to request a new one`);
           }
@@ -341,8 +347,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode, onForgot
       let phone: string;
       
       // Send OTP for both registration and login - with force_resend = true
+      // Note: password is not needed if user already has a session (from initialize or previous login)
       console.log(`📧 Resending ${pendingAuth.isNewUser ? 'REGISTRATION' : 'LOGIN'} OTP for:`, pendingAuth.email);
-      phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password, true); // Force resend!
+      phone = await sendOtpToUserPhone(pendingAuth.email, pendingAuth.password || '', true); // Force resend!
       
       setPhoneNumber(phone);
       console.log('✅ OTP resent to:', phone);

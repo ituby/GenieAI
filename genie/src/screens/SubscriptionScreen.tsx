@@ -86,7 +86,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({
           nextBillingDate: tokenData.is_subscribed ? '2024-02-15' : 'N/A',
           lastPaymentDate: tokenData.is_subscribed ? '2024-01-15' : 'N/A',
           lastPaymentStatus: tokenData.is_subscribed ? 'succeeded' : 'none',
-          totalCharges: tokenData.is_subscribed ? 9.99 : 0,
+          totalCharges: tokenData.is_subscribed ? 14.99 : 0,
           currency: 'USD',
         });
       } else {

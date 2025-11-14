@@ -102,9 +102,12 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
   // Get price for product
   const getProductPrice = (productId: string, fallbackPrice: number): string => {
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      const product = iapProducts.find((p) => p.productId === productId);
+      const product = iapProducts.find((p) => {
+        const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+        return pId === productId;
+      });
       if (product) {
-        return product.localizedPrice;
+        return (product as any).price || (product as any).localizedPrice || `$${fallbackPrice.toFixed(2)}`;
       }
     }
     // Fallback to USD price
@@ -152,11 +155,17 @@ export const TokenPurchaseModal: React.FC<TokenPurchaseModalProps> = ({
         }
         
         // Check if product is available
-        const product = iapProducts.find((p) => p.productId === pkg.productId);
+        const product = iapProducts.find((p) => {
+          const pId = Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+          return pId === pkg.productId;
+        });
         if (!product) {
           const errorMsg = `Product "${pkg.productId}" not available. Please make sure the product is configured in App Store Connect.`;
           console.error('❌ Product not available:', pkg.productId);
-          console.error('❌ Available products:', iapProducts.map((p) => p.productId));
+          const availableIds = iapProducts.map((p) => {
+            return Platform.OS === 'ios' ? (p as any).productIdentifier : (p as any).productId;
+          });
+          console.error('❌ Available products:', availableIds);
           setError(errorMsg);
           setLoading(false);
           return;

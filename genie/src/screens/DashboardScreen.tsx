@@ -2016,6 +2016,8 @@ export const DashboardScreen: React.FC = () => {
                     
                     const response = await paymentService.createSubscription(subscriptionProductId);
                     
+                    console.log('📱 Subscription response:', JSON.stringify(response, null, 2));
+                    
                     if (response.success) {
                       if (response.url) {
                         // Web: open Stripe checkout
@@ -2027,7 +2029,9 @@ export const DashboardScreen: React.FC = () => {
                         console.log('✅ Subscription request sent - native dialog should be opening');
                       }
                     } else {
-                      Alert.alert('Error', 'Error creating subscription: ' + (response.error || 'Unknown error'));
+                      const errorMsg = response.error || 'Unknown error';
+                      console.error('❌ Subscription error:', errorMsg);
+                      Alert.alert('Error', `Error creating subscription: ${errorMsg}\n\nPlease check:\n1. Subscription is "Ready to Submit" in App Store Connect\n2. You are signed in with Sandbox Tester\n3. Internet connection is stable`);
                     }
                   } catch (error) {
                     console.error('Error starting subscription:', error);
