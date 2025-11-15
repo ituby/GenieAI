@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.ituby.genie.ai',
-      buildNumber: '29',
+      buildNumber: '25',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         UIRequiresFullScreen: true,

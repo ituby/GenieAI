@@ -16,6 +16,7 @@ import {
 } from 'react-native-iap';
 import type { Product, Purchase, PurchaseError } from 'react-native-iap';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from './supabase/client';
 import { ALL_PRODUCT_IDS, TOKEN_PRODUCTS, SUBSCRIPTION_PRODUCTS } from '../config/iapConfig';
 
@@ -328,9 +329,15 @@ class IAPService {
       console.log('✅ User session found');
 
       // Extract purchase data
-      const productId = (purchase as any).id || 
+      // Log full purchase object for debugging
+      console.log('📱 Full purchase object:', JSON.stringify(purchase, null, 2));
+      console.log('📱 Purchase object keys:', Object.keys(purchase));
+      
+      // Try multiple fields to get product ID - in v14 it might be in different fields
+      const productId = (purchase as any).productId || 
                        (purchase as any).productIdentifier || 
-                       (purchase as any).productId;
+                       (purchase as any).id ||
+                       (purchase as any).sku;
       const transactionReceipt = (purchase as any).transactionReceipt || 
                                 (purchase as any).transactionReceiptData ||
                                 (purchase as any).transactionReceiptString;
@@ -338,9 +345,40 @@ class IAPService {
                           (purchase as any).transactionIdentifier ||
                           (purchase as any).originalTransactionIdentifierIOS;
 
+      console.log('📱 Extracted purchase data:', {
+        productId,
+        transactionId,
+        hasReceipt: !!transactionReceipt,
+        purchaseKeys: Object.keys(purchase),
+        purchaseId: (purchase as any).id,
+        purchaseProductId: (purchase as any).productId,
+        purchaseProductIdentifier: (purchase as any).productIdentifier,
+        purchaseSku: (purchase as any).sku,
+      });
+
       if (!productId || !transactionId) {
         console.error('❌ Missing required purchase data:', { productId, transactionId });
+        console.error('❌ Full purchase object:', JSON.stringify(purchase, null, 2));
         return false;
+      }
+
+      // Validate product ID format - should start with 'com.ituby.genie.ai'
+      if (!productId.startsWith('com.ituby.genie.ai')) {
+        console.error('❌ Invalid product ID format:', productId);
+        console.error('❌ Product ID should start with "com.ituby.genie.ai"');
+        console.error('❌ This might be a transaction ID instead of product ID');
+        // Try to get the actual product ID from the purchase
+        // In some cases, the product ID might be in a different field
+        const actualProductId = (purchase as any).productId || 
+                               (purchase as any).productIdentifier;
+        if (actualProductId && actualProductId.startsWith('com.ituby.genie.ai')) {
+          console.log('✅ Found valid product ID in alternative field:', actualProductId);
+          // Use the valid product ID
+          (purchase as any).productId = actualProductId;
+        } else {
+          console.error('❌ Could not find valid product ID in purchase object');
+          return false;
+        }
       }
 
       console.log('✅ Purchase data extracted:', { productId, transactionId, hasReceipt: !!transactionReceipt });
@@ -357,26 +395,46 @@ class IAPService {
       console.log('📱 ========== CALLING SUPABASE EDGE FUNCTION validate-iap-receipt ==========');
       console.log('📱 Request body:', JSON.stringify(requestBody, null, 2));
       console.log('📱 Function name: validate-iap-receipt');
+      console.log('📱 Request body keys:', Object.keys(requestBody));
+      console.log('📱 Request body size:', JSON.stringify(requestBody).length, 'bytes');
 
-      // Call Edge Function - THIS IS THE ACTUAL CALL TO SUPABASE
-      const { data, error } = await supabase.functions.invoke('validate-iap-receipt', {
-        body: requestBody,
+      // Validate request body before sending
+      if (!requestBody.platform || !requestBody.productId || !requestBody.transactionId) {
+        console.error('❌ Invalid request body - missing required fields');
+        console.error('📱 Request body:', requestBody);
+        return false;
+      }
+
+      // Get Supabase URL and anon key
+      const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL as string;
+      const functionUrl = `${supabaseUrl}/functions/v1/validate-iap-receipt`;
+
+      console.log('📱 Calling Edge Function via fetch:', functionUrl);
+      console.log('📱 Request body size:', JSON.stringify(requestBody).length, 'bytes');
+
+      // Call Edge Function using fetch directly to ensure body is sent correctly
+      const response = await fetch(functionUrl, {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY as string,
         },
+        body: JSON.stringify(requestBody),
       });
 
       console.log('📱 ========== EDGE FUNCTION RESPONSE RECEIVED ==========');
-      console.log('📱 Has error:', !!error);
-      console.log('📱 Has data:', !!data);
-      console.log('📱 Error:', error ? JSON.stringify(error, null, 2) : 'none');
-      console.log('📱 Data:', data ? JSON.stringify(data, null, 2) : 'none');
+      console.log('📱 Response status:', response.status);
+      console.log('📱 Response ok:', response.ok);
 
-      if (error) {
-        console.error('❌ Edge Function error:', error.message || error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Edge Function HTTP error:', response.status, errorText);
         return false;
       }
+
+      const data = await response.json();
+      console.log('📱 Response data:', JSON.stringify(data, null, 2));
 
       if (!data || !data.success) {
         console.error('❌ Validation failed:', data?.error || 'Unknown error');
