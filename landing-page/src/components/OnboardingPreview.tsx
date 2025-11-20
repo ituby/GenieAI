@@ -2,7 +2,18 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Sparkle, Calendar, CheckCircle, TrendUp, Trophy, CalendarBlank, CaretDown, CaretUp, Sun, Moon } from "phosphor-react";
+import {
+  Sparkle,
+  Calendar,
+  CheckCircle,
+  TrendUp,
+  Trophy,
+  CalendarBlank,
+  CaretDown,
+  CaretUp,
+  Sun,
+  Moon,
+} from "phosphor-react";
 
 interface OnboardingSlide {
   key: string;
@@ -12,6 +23,7 @@ interface OnboardingSlide {
 }
 
 const OnboardingPreview: React.FC = () => {
+  const [mounted, setMounted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const preferencesScrollRef = useRef<HTMLDivElement>(null);
@@ -20,6 +32,11 @@ const OnboardingPreview: React.FC = () => {
   // Animation states for slide-up effects
   const [titleVisible, setTitleVisible] = useState(false);
   const [descriptionVisible, setDescriptionVisible] = useState(false);
+
+  // Ensure component only renders on client to avoid hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Demo states for internal animations
   const [promptText, setPromptText] = useState("");
@@ -53,7 +70,8 @@ const OnboardingPreview: React.FC = () => {
     {
       key: "slide1",
       title: "Talk with Genie",
-      description: "Share your goals and aspirations\nGenie will create a personalized plan\njust for you",
+      description:
+        "Share your goals and aspirations\nGenie will create a personalized plan\njust for you",
       icon: "sparkle",
     },
     {
@@ -66,19 +84,22 @@ const OnboardingPreview: React.FC = () => {
     {
       key: "slide3",
       title: "Complete Daily Tasks",
-      description: "Follow AI-generated daily tasks\ntailored to your goals\nand availability",
+      description:
+        "Follow AI-generated daily tasks\ntailored to your goals\nand availability",
       icon: "clipboard-check",
     },
     {
       key: "slide4",
       title: "Track Your Progress",
-      description: "Monitor your streaks,\ncompletion rate, and achievements\nas you move forward",
+      description:
+        "Monitor your streaks,\ncompletion rate, and achievements\nas you move forward",
       icon: "trend-up",
     },
     {
       key: "slide5",
       title: "Earn Rewards",
-      description: "Unlock achievements\nand collect points for every\nmilestone you reach",
+      description:
+        "Unlock achievements\nand collect points for every\nmilestone you reach",
       icon: "trophy",
     },
     {
@@ -139,7 +160,7 @@ const OnboardingPreview: React.FC = () => {
       setTimeout(() => {
         const nextIndex = (currentIndex + 1) % slides.length;
         setCurrentIndex(nextIndex);
-        
+
         // Don't start animations here for logo slide
         if (nextIndex !== slides.length - 1) {
           startSlideAnimations();
@@ -184,7 +205,7 @@ const OnboardingPreview: React.FC = () => {
     setCheckedTasks([false, false, false, false]);
     setStatValues([0, 0, 0]);
     setUnlockedRewards([false, false, false]);
-    
+
     // Reset scroll positions
     if (preferencesScrollRef.current) {
       preferencesScrollRef.current.scrollTop = 0;
@@ -253,7 +274,7 @@ const OnboardingPreview: React.FC = () => {
           if (preferencesScrollRef.current) {
             preferencesScrollRef.current.scrollTo({
               top: 200,
-              behavior: 'smooth',
+              behavior: "smooth",
             });
           }
         }, 4400);
@@ -301,12 +322,12 @@ const OnboardingPreview: React.FC = () => {
               newChecked[idx] = true;
               return newChecked;
             });
-            
+
             // Scroll to show the checked task (especially the last one)
             if (idx >= 2 && tasksScrollRef.current) {
               tasksScrollRef.current.scrollTo({
                 top: idx * 35,
-                behavior: 'smooth',
+                behavior: "smooth",
               });
             }
           }, delay);
@@ -364,15 +385,20 @@ const OnboardingPreview: React.FC = () => {
     if (index === 1) {
       // Talk with Genie demo - exact copy from app with typing animation
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkle size={24} color="#FCD34D" weight="fill" />
-            <span className="text-white font-semibold text-base">
+        <div className="bg-genie-background-card/95 rounded-lg px-4 pt-2 pb-0 sm:px-6 sm:pt-3 sm:pb-0 max-w-md w-full min-w-full sm:min-w-0 mt-2">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <Sparkle
+              size={20}
+              className="sm:w-6 sm:h-6"
+              color="#FCD34D"
+              weight="fill"
+            />
+            <span className="text-white font-semibold text-sm sm:text-base">
               Share Your Goal
             </span>
           </div>
-          <div className="bg-genie-background-primary/50 rounded-lg p-4 border border-genie-yellow-500/30 min-h-[100px]">
-            <p className="text-genie-text-secondary text-base leading-relaxed">
+          <div className="bg-genie-background-primary/50 rounded-lg px-3 py-3 sm:px-4 sm:py-4 border border-genie-yellow-500/30 w-full box-border min-h-[80px] sm:min-h-[100px]">
+            <p className="text-genie-text-secondary text-sm sm:text-base leading-relaxed wrap-break-word whitespace-pre-wrap">
               {promptText}
               {promptText.length > 0 && (
                 <span className="animate-pulse">|</span>
@@ -386,30 +412,53 @@ const OnboardingPreview: React.FC = () => {
     if (index === 2) {
       // Customize Plan demo - exact copy from app
       return (
-        <div ref={preferencesScrollRef} className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2 max-h-[380px] overflow-hidden">
-          <div className="flex items-center gap-3 mb-4">
-            <Calendar size={24} color="#FCD34D" weight="fill" />
-            <span className="text-white font-semibold text-base">
+        <div
+          ref={preferencesScrollRef}
+          className="bg-genie-background-card/95 rounded-lg px-4 pt-2 pb-0 sm:px-6 sm:pt-3 sm:pb-0 border border-genie-border-primary max-w-md w-full mt-2 max-h-[320px] sm:max-h-[380px] overflow-hidden"
+        >
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <Calendar
+              size={20}
+              className="sm:w-6 sm:h-6"
+              color="#FCD34D"
+              weight="fill"
+            />
+            <span className="text-white font-semibold text-sm sm:text-base">
               Your Personalized Plan
             </span>
           </div>
 
           {/* Plan Duration */}
-          <div className="mb-5">
-            <p className="text-genie-text-secondary text-sm font-semibold mb-3">
+          <div className="mb-3 sm:mb-4">
+            <p className="text-genie-text-secondary text-xs sm:text-sm font-semibold mb-2">
               Plan Duration
             </p>
-            <div className="bg-genie-background-primary/50 rounded-lg p-4 border border-genie-border-primary">
+            <div className="bg-genie-background-primary/50 rounded-lg p-2.5 sm:p-3 border border-genie-border-primary">
               <div className="flex items-center relative">
-                <CalendarBlank size={20} color="#FCD34D" weight="fill" className="absolute left-0" />
-                <span className="text-white text-base font-semibold w-full text-center">
+                <CalendarBlank
+                  size={18}
+                  className="absolute left-0 sm:w-5 sm:h-5"
+                  color="#FCD34D"
+                  weight="fill"
+                />
+                <span className="text-white text-sm sm:text-base font-semibold w-full text-center">
                   {planDuration} days ({planDuration / 7}{" "}
                   {planDuration === 7 ? "week" : "weeks"})
                 </span>
                 {showDurationDropdown ? (
-                  <CaretUp size={16} color="rgba(255, 255, 255, 0.5)" weight="fill" className="absolute right-0" />
+                  <CaretUp
+                    size={14}
+                    className="absolute right-0 sm:w-4 sm:h-4"
+                    color="rgba(255, 255, 255, 0.5)"
+                    weight="fill"
+                  />
                 ) : (
-                  <CaretDown size={16} color="rgba(255, 255, 255, 0.5)" weight="fill" className="absolute right-0" />
+                  <CaretDown
+                    size={14}
+                    className="absolute right-0 sm:w-4 sm:h-4"
+                    color="rgba(255, 255, 255, 0.5)"
+                    weight="fill"
+                  />
                 )}
               </div>
             </div>
@@ -425,7 +474,7 @@ const OnboardingPreview: React.FC = () => {
                     }`}
                   >
                     <span
-                      className={`text-base ${
+                      className={`text-sm sm:text-base ${
                         planDuration === days
                           ? "text-genie-yellow-500 font-semibold"
                           : "text-genie-text-secondary"
@@ -440,15 +489,15 @@ const OnboardingPreview: React.FC = () => {
           </div>
 
           {/* Days Selection */}
-          <div className="mb-5">
-            <p className="text-genie-text-secondary text-sm font-semibold mb-3">
+          <div className="mb-3 sm:mb-4">
+            <p className="text-genie-text-secondary text-xs sm:text-sm font-semibold mb-2">
               Choose Your Days
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => (
                 <div
                   key={idx}
-                  className={`w-10 h-10 rounded flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded flex items-center justify-center text-xs sm:text-sm font-semibold transition-all duration-300 ${
                     selectedDays.includes(idx)
                       ? "bg-genie-yellow-500 text-black"
                       : "bg-genie-background-primary/50 text-genie-text-tertiary border border-genie-border-primary"
@@ -462,10 +511,10 @@ const OnboardingPreview: React.FC = () => {
 
           {/* Time Ranges */}
           <div>
-            <p className="text-genie-text-secondary text-sm font-semibold mb-3">
+            <p className="text-genie-text-secondary text-xs sm:text-sm font-semibold mb-2">
               Preferred Times
             </p>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {[
                 { label: "Morning", icon: "sun" },
                 { label: "Afternoon", icon: "sun-horizon" },
@@ -473,33 +522,43 @@ const OnboardingPreview: React.FC = () => {
               ].map((time, idx) => (
                 <div
                   key={idx}
-                  className="bg-genie-background-primary/30 rounded-lg p-3 border border-genie-border-primary"
+                  className="bg-genie-background-primary/30 rounded-lg p-2 sm:p-2.5 border border-genie-border-primary"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 relative flex-1">
+                    <div className="flex items-center gap-2 sm:gap-3 relative flex-1">
                       {idx === 2 ? (
-                        <Moon size={20} color="#FCD34D" weight="fill" className="absolute left-0" />
+                        <Moon
+                          size={18}
+                          className="absolute left-0 sm:w-5 sm:h-5"
+                          color="#FCD34D"
+                          weight="fill"
+                        />
                       ) : (
-                        <Sun size={20} color="#FCD34D" weight="fill" className="absolute left-0" />
+                        <Sun
+                          size={18}
+                          className="absolute left-0 sm:w-5 sm:h-5"
+                          color="#FCD34D"
+                          weight="fill"
+                        />
                       )}
-                      <span className="text-white text-sm font-semibold w-full text-center">
+                      <span className="text-white text-xs sm:text-sm font-semibold w-full text-center">
                         {time.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="bg-genie-background-primary/50 rounded px-3 py-1">
-                        <span className="text-genie-text-secondary text-sm">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="bg-genie-background-primary/50 rounded px-2 sm:px-3 py-0.5 sm:py-1">
+                        <span className="text-genie-text-secondary text-xs sm:text-sm">
                           {timeRanges[idx].start_hour
                             .toString()
                             .padStart(2, "0")}
                           :00
                         </span>
                       </div>
-                      <span className="text-genie-text-tertiary text-sm">
+                      <span className="text-genie-text-tertiary text-xs sm:text-sm">
                         -
                       </span>
-                      <div className="bg-genie-background-primary/50 rounded px-3 py-1">
-                        <span className="text-genie-text-secondary text-sm">
+                      <div className="bg-genie-background-primary/50 rounded px-2 sm:px-3 py-0.5 sm:py-1">
+                        <span className="text-genie-text-secondary text-xs sm:text-sm">
                           {timeRanges[idx].end_hour.toString().padStart(2, "0")}
                           :00
                         </span>
@@ -517,14 +576,22 @@ const OnboardingPreview: React.FC = () => {
     if (index === 3) {
       // Complete Tasks demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
-          <div className="flex items-center gap-3 mb-4">
-            <CheckCircle size={24} color="#FCD34D" weight="fill" />
-            <span className="text-white font-semibold text-base">
+        <div className="bg-genie-background-card/95 rounded-lg px-4 pt-2 pb-0 sm:px-6 sm:pt-3 sm:pb-0 max-w-md w-full mt-2">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <CheckCircle
+              size={20}
+              className="sm:w-6 sm:h-6"
+              color="#FCD34D"
+              weight="fill"
+            />
+            <span className="text-white font-semibold text-sm sm:text-base">
               Today&apos;s Tasks
             </span>
           </div>
-          <div ref={tasksScrollRef} className="space-y-3 max-h-[160px] overflow-hidden">
+          <div
+            ref={tasksScrollRef}
+            className="space-y-2 max-h-[140px] sm:max-h-[160px] overflow-hidden"
+          >
             {[
               "Morning stretching routine",
               "Drink 8 glasses of water",
@@ -533,10 +600,10 @@ const OnboardingPreview: React.FC = () => {
             ].map((task, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-3 py-2 border-b border-genie-border-primary/20"
+                className="flex items-center gap-2 sm:gap-3 py-1.5 sm:py-2 border-b border-genie-border-primary/20"
               >
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 ${
                     checkedTasks[idx]
                       ? "bg-genie-yellow-500"
                       : "border-2 border-genie-border-primary"
@@ -544,7 +611,7 @@ const OnboardingPreview: React.FC = () => {
                 >
                   {checkedTasks[idx] && (
                     <svg
-                      className="w-3 h-3 text-black"
+                      className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-black"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -557,7 +624,7 @@ const OnboardingPreview: React.FC = () => {
                   )}
                 </div>
                 <span
-                  className={`text-sm flex-1 transition-all duration-300 ${
+                  className={`text-xs sm:text-sm flex-1 transition-all duration-300 ${
                     checkedTasks[idx]
                       ? "text-genie-text-tertiary line-through"
                       : "text-genie-text-secondary"
@@ -575,29 +642,42 @@ const OnboardingPreview: React.FC = () => {
     if (index === 4) {
       // Track Progress demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
-          <div className="flex items-center gap-3 mb-4">
-            <TrendUp size={24} color="#FCD34D" weight="fill" />
-            <span className="text-white font-semibold text-base">Your Stats</span>
+        <div className="bg-genie-background-card/95 rounded-lg px-4 pt-2 pb-0 sm:px-6 sm:pt-3 sm:pb-0 max-w-md w-full mt-2">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <TrendUp
+              size={20}
+              className="sm:w-6 sm:h-6"
+              color="#FCD34D"
+              weight="fill"
+            />
+            <span className="text-white font-semibold text-sm sm:text-base">
+              Your Stats
+            </span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-genie-yellow-500/20 rounded-lg p-4 text-center border border-genie-yellow-500/30">
-              <div className="text-genie-yellow-500 font-bold text-2xl mb-2">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="bg-genie-yellow-500/20 rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center border border-genie-yellow-500/30">
+              <div className="text-genie-yellow-500 font-bold text-lg sm:text-2xl mb-0.5">
                 {statValues[0]}
               </div>
-              <div className="text-genie-text-tertiary text-sm">Day Streak</div>
+              <div className="text-genie-text-tertiary text-xs sm:text-sm">
+                Day Streak
+              </div>
             </div>
-            <div className="bg-genie-yellow-500/20 rounded-lg p-4 text-center border border-genie-yellow-500/30">
-              <div className="text-genie-yellow-500 font-bold text-2xl mb-2">
+            <div className="bg-genie-yellow-500/20 rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center border border-genie-yellow-500/30">
+              <div className="text-genie-yellow-500 font-bold text-lg sm:text-2xl mb-0.5">
                 {statValues[1]}
               </div>
-              <div className="text-genie-text-tertiary text-sm">Tasks Done</div>
+              <div className="text-genie-text-tertiary text-xs sm:text-sm">
+                Tasks Done
+              </div>
             </div>
-            <div className="bg-genie-yellow-500/20 rounded-lg p-4 text-center border border-genie-yellow-500/30">
-              <div className="text-genie-yellow-500 font-bold text-2xl mb-2">
+            <div className="bg-genie-yellow-500/20 rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 text-center border border-genie-yellow-500/30">
+              <div className="text-genie-yellow-500 font-bold text-lg sm:text-2xl mb-0.5">
                 {statValues[2]}%
               </div>
-              <div className="text-genie-text-tertiary text-sm">Completion</div>
+              <div className="text-genie-text-tertiary text-xs sm:text-sm">
+                Completion
+              </div>
             </div>
           </div>
         </div>
@@ -607,14 +687,19 @@ const OnboardingPreview: React.FC = () => {
     if (index === 5) {
       // Earn Rewards demo - exact copy from app
       return (
-        <div className="bg-genie-background-card/95 rounded-lg p-6 border border-genie-border-primary max-w-md w-full mt-2">
-          <div className="flex items-center gap-3 mb-4">
-            <Trophy size={24} color="#FCD34D" weight="fill" />
-            <span className="text-white font-semibold text-base">
+        <div className="bg-genie-background-card/95 rounded-lg px-4 pt-2 pb-0 sm:px-6 sm:pt-3 sm:pb-0 max-w-md w-full mt-2">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <Trophy
+              size={20}
+              className="sm:w-6 sm:h-6"
+              color="#FCD34D"
+              weight="fill"
+            />
+            <span className="text-white font-semibold text-sm sm:text-base">
               Achievements
             </span>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[
               { title: "First Steps", points: "+50" },
               { title: "Week Warrior", points: "+100" },
@@ -622,7 +707,7 @@ const OnboardingPreview: React.FC = () => {
             ].map((reward, idx) => (
               <div
                 key={idx}
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${
+                className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all duration-500 ${
                   unlockedRewards[idx]
                     ? "bg-genie-yellow-500/20 border-genie-yellow-500/30"
                     : "bg-genie-background-primary/30 border-genie-border-primary opacity-50"
@@ -630,7 +715,7 @@ const OnboardingPreview: React.FC = () => {
               >
                 <div className="flex-1">
                   <div
-                    className={`text-base font-semibold transition-all duration-500 ${
+                    className={`text-sm sm:text-base font-semibold transition-all duration-500 ${
                       unlockedRewards[idx]
                         ? "text-white"
                         : "text-genie-text-tertiary"
@@ -639,7 +724,7 @@ const OnboardingPreview: React.FC = () => {
                     {reward.title}
                   </div>
                   <div
-                    className={`text-sm transition-all duration-500 ${
+                    className={`text-xs sm:text-sm transition-all duration-500 ${
                       unlockedRewards[idx]
                         ? "text-genie-yellow-500"
                         : "text-genie-text-tertiary opacity-50"
@@ -658,10 +743,21 @@ const OnboardingPreview: React.FC = () => {
     return null;
   };
 
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <div className="relative overflow-hidden w-full max-w-5xl mx-auto scale-100 sm:scale-110 md:scale-125 origin-top px-2 sm:px-4">
+        <div className="relative min-h-[550px] sm:h-[500px] md:h-[500px] overflow-hidden flex items-center justify-center">
+          <div className="text-genie-text-secondary">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative overflow-hidden w-full max-w-5xl mx-auto scale-125 origin-top">
+    <div className="relative overflow-hidden w-full max-w-5xl mx-auto scale-100 sm:scale-110 md:scale-125 origin-top px-2 sm:px-4">
       {/* Slides Container - increased size */}
-      <div className="relative h-[500px] overflow-hidden">
+      <div className="relative min-h-[550px] sm:h-[500px] md:h-[500px] overflow-hidden">
         {slides.map((slide, index) => {
           // First, second to last, and last slides stay centered
           const isCenteredSlide =
@@ -672,12 +768,12 @@ const OnboardingPreview: React.FC = () => {
           return (
             <div
               key={slide.key}
-              className={`absolute inset-0 transition-opacity duration-500 ease-in-out pt-16
+              className={`absolute inset-0 transition-opacity duration-500 ease-in-out pt-4 sm:pt-8 md:pt-16 pb-4 sm:pb-8
               ${index === currentIndex ? "opacity-100 z-10" : "opacity-0 -z-10"}
               ${
                 isCenteredSlide
                   ? "flex flex-col items-center justify-center text-center"
-                  : "flex flex-col md:flex-row items-center justify-between"
+                  : "flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 md:gap-8 overflow-y-auto md:overflow-visible"
               }`}
             >
               {isCenteredSlide ? (
@@ -698,7 +794,7 @@ const OnboardingPreview: React.FC = () => {
                           alt="Genie Logo"
                           width={90}
                           height={90}
-                          className="w-22 h-22"
+                          className="w-16 h-16 sm:w-20 sm:h-20 md:w-22 md:h-22"
                           style={{
                             objectFit: "contain",
                             width: "auto",
@@ -713,23 +809,27 @@ const OnboardingPreview: React.FC = () => {
                     <>
                       {/* Title with yellow background - exact styling from app */}
                       <div
-                        className={`${index === 0 || index === slides.length - 2 ? 'mb-3' : 'mb-6'} transition-all duration-500 ease-out ${
+                        className={`${
+                          index === 0 || index === slides.length - 2
+                            ? "mb-3"
+                            : "mb-4 sm:mb-6"
+                        } transition-all duration-500 ease-out ${
                           titleVisible
                             ? "opacity-100 transform translate-y-0"
                             : "opacity-0 transform translate-y-8"
                         }`}
                       >
-                        <span className="bg-genie-yellow-500 text-black px-4 py-2 rounded-none inline-block text-3xl font-black tracking-tight">
+                        <span className="bg-genie-yellow-500 text-black px-3 sm:px-4 py-1.5 sm:py-2 rounded-none inline-block text-xl sm:text-2xl md:text-3xl font-black tracking-tight">
                           {slide.title}
                         </span>
                       </div>
 
                       {/* Demo content - positioned exactly like app */}
-                      <div className="mb-6">{renderDemo(index)}</div>
+                      {/* <div className="mb-4 sm:mb-6">{renderDemo(index)}</div> */}
 
                       {/* Description - exact styling from app */}
                       <p
-                        className={`text-genie-text-secondary text-xl leading-relaxed max-w-2xl whitespace-pre-line px-4 transition-all duration-500 ease-out ${
+                        className={`text-genie-text-secondary text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed max-w-2xl whitespace-pre-line px-2 sm:px-4 transition-all duration-500 ease-out ${
                           descriptionVisible
                             ? "opacity-100 transform translate-y-0"
                             : "opacity-0 transform translate-y-8"
@@ -744,28 +844,28 @@ const OnboardingPreview: React.FC = () => {
                 // Side-by-side layout for middle slides
                 <>
                   {/* Demo content on the left */}
-                  <div className="flex-1 flex justify-center md:pr-8 mb-8 md:mb-0">
+                  <div className="flex-1 flex justify-center md:pr-8 mb-4 md:mb-0 w-full min-w-0">
                     {renderDemo(index)}
                   </div>
 
                   {/* Text content on the right */}
-                  <div className="flex-1 flex flex-col justify-center text-center md:text-left md:pl-8">
+                  <div className="flex-1 flex flex-col justify-center text-center md:text-left md:pl-8 px-2 sm:px-0 min-w-0 w-full">
                     {/* Title with yellow background */}
                     <div
-                      className={`mb-6 transition-all duration-500 ease-out ${
+                      className={`mb-3 sm:mb-4 md:mb-6 transition-all duration-500 ease-out ${
                         titleVisible
                           ? "opacity-100 transform translate-y-0"
                           : "opacity-0 transform translate-y-8"
                       }`}
                     >
-                      <span className="bg-genie-yellow-500 text-black px-4 py-2 rounded-none inline-block text-3xl font-black tracking-tight">
+                      <span className="bg-genie-yellow-500 text-black px-3 sm:px-4 py-1.5 sm:py-2 rounded-none inline-block text-lg sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tight">
                         {slide.title}
                       </span>
                     </div>
 
                     {/* Description */}
                     <p
-                      className={`text-genie-text-secondary text-xl leading-relaxed whitespace-pre-line transition-all duration-500 ease-out ${
+                      className={`text-genie-text-secondary text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed whitespace-pre-line transition-all duration-500 ease-out ${
                         descriptionVisible
                           ? "opacity-100 transform translate-y-0"
                           : "opacity-0 transform translate-y-8"
@@ -782,13 +882,15 @@ const OnboardingPreview: React.FC = () => {
       </div>
 
       {/* Progress Dots - exact positioning from app */}
-      <div className="flex justify-center space-x-4 mt-12 mb-0 px-4">
+      <div className="flex justify-center space-x-2 sm:space-x-4 mt-8 sm:mt-12 mb-0 px-4">
         {slides.map((_, index) => (
           <span
             key={index}
-            className={`block w-2 h-2 rounded-full transition-all duration-300
+            className={`block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300
             ${
-              index === currentIndex ? "bg-genie-yellow-500 w-6" : "bg-white/30"
+              index === currentIndex
+                ? "bg-genie-yellow-500 w-4 sm:w-6"
+                : "bg-white/30"
             }`}
           ></span>
         ))}
