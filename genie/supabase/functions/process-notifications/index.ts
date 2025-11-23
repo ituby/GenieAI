@@ -71,16 +71,27 @@ serve(async (req) => {
         try {
           console.log(`📤 Processing notification: ${notification.title} for user ${notification.user_id}`);
 
-          // Check if user has tokens before sending notification
+          // Check if user has tokens and if notifications are muted
           const { data: tokenData, error: tokenError } = await supabaseClient
             .from('user_tokens')
-            .select('tokens_remaining, tokens_used')
+            .select('tokens_remaining, tokens_used, is_subscribed, notifications_muted')
             .eq('user_id', notification.user_id)
             .single();
 
           if (tokenError) {
             console.error(`❌ Error checking tokens for user ${notification.user_id}:`, tokenError);
             throw new Error('Failed to check token balance');
+          }
+
+          // Check if notifications are muted for non-subscribed users
+          if (!tokenData?.is_subscribed && tokenData?.notifications_muted) {
+            console.warn(`🔇 User ${notification.user_id} has notifications muted (non-subscribed), skipping notification`);
+            // Delete the notification since it won't be sent
+            await supabaseClient
+              .from('scheduled_notifications')
+              .delete()
+              .eq('id', notification.id);
+            throw new Error('Notifications muted for non-subscribed user');
           }
 
           if (!tokenData || tokenData.tokens_remaining < 1) {

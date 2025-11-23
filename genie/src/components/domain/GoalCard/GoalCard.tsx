@@ -12,6 +12,7 @@ export interface GoalCardProps {
   onPress?: () => void;
   onEdit?: () => void;
   hasTimeReachedTasks?: boolean;
+  onContinueCreatingTasks?: () => void;
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
@@ -19,11 +20,47 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   onPress,
   onEdit,
   hasTimeReachedTasks = false,
+  onContinueCreatingTasks,
 }) => {
   const theme = useTheme();
 
-  // Check if goal is still loading (active but no tasks yet)
-  const isLoading = goal.status === 'active' && goal.total_tasks === 0;
+  // Calculate expected total tasks using the same formula as generate-tasks function
+  // This must match the calculation in generate-tasks/index.ts exactly
+  const calculateExpectedTasks = () => {
+    const maxTasks = goal.tasks_per_day_max || goal.preferred_time_ranges?.length || 3;
+    const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+    const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+    const daysPerWeek = goal.preferred_days?.length || 7;
+    const planDurationDays = goal.plan_duration_days || 21;
+    
+    // Calculate total tasks week by week (same as generate-tasks function)
+    const totalWeeks = Math.ceil(planDurationDays / 7);
+    let expectedTotalTasks = 0;
+    
+    for (let week = 1; week <= totalWeeks; week++) {
+      const startDay = (week - 1) * 7 + 1;
+      const endDay = Math.min(week * 7, planDurationDays);
+      const daysInThisWeek = endDay - startDay + 1;
+      const workingDaysInWeek = Math.ceil((daysInThisWeek / 7) * daysPerWeek);
+      const tasksInThisWeek = workingDaysInWeek * tasksPerDay;
+      expectedTotalTasks += tasksInThisWeek;
+    }
+    
+    return expectedTotalTasks;
+  };
+
+  // Check if goal is still loading (active but no tasks yet OR still generating tasks)
+  const expectedTasks = calculateExpectedTasks();
+  const currentTasks = goal.total_tasks || 0;
+  const isStillGenerating = goal.status === 'active' && currentTasks < expectedTasks;
+  const isLoading = goal.status === 'active' && (currentTasks === 0 || isStillGenerating);
+  
+  // Check if goal is paused due to insufficient tokens (has error_message about tokens)
+  const needsTokens = goal.status === 'paused' && 
+                      goal.error_message && 
+                      (goal.error_message.includes('tokens') || 
+                       goal.error_message.includes('Not enough') ||
+                       goal.error_message.includes('Insufficient'));
 
   // Animation for loading dots
   const dot1Opacity = useRef(new Animated.Value(0.3)).current;
@@ -289,6 +326,25 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+            
+            {/* Continue Creating Tasks Button - shown when paused due to tokens */}
+            {needsTokens && onContinueCreatingTasks && (
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={onContinueCreatingTasks}
+                activeOpacity={0.8}
+              >
+                <Icon
+                  name="play"
+                  size={16}
+                  color="#000000"
+                  weight="fill"
+                />
+                <Text style={styles.continueButtonText}>
+                  Continue Creating Tasks
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
       </Card>
@@ -458,5 +514,29 @@ const styles = StyleSheet.create({
     color: '#FFFF68',
     fontWeight: '500',
     fontStyle: 'italic',
+  },
+  continueButton: {
+    backgroundColor: '#FFFF68',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    shadowColor: '#FFFF68',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  continueButtonText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

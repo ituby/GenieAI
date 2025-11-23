@@ -638,6 +638,7 @@ async function checkAndFixSubscriptionSync(
         .update({
           is_subscribed: true,
           monthly_tokens: activeSubscription.monthly_tokens || 1000,
+          notifications_muted: false, // Unmute notifications when subscribing
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
@@ -851,6 +852,7 @@ async function processSubscriptionPurchase(
       .update({
         is_subscribed: true,
         monthly_tokens: monthlyTokens,
+        notifications_muted: false, // Unmute notifications when subscribing
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId);
@@ -908,15 +910,16 @@ async function processSubscriptionPurchase(
     throw new Error('Failed to create subscription');
   }
 
-  // Update user_tokens to mark as subscribed
-  const { error: tokenUpdateError } = await supabaseClient
-    .from('user_tokens')
-    .update({
-      is_subscribed: true,
-      monthly_tokens: 1000,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
+         // Update user_tokens to mark as subscribed
+         const { error: tokenUpdateError } = await supabaseClient
+           .from('user_tokens')
+           .update({
+             is_subscribed: true,
+             monthly_tokens: 1000,
+             notifications_muted: false, // Unmute notifications when subscribing
+             updated_at: new Date().toISOString(),
+           })
+           .eq('user_id', userId);
 
   if (tokenUpdateError) {
     console.error('Error updating user_tokens:', tokenUpdateError);

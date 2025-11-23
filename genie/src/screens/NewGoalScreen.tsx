@@ -121,11 +121,13 @@ import { Switch } from '../components/primitives/Switch';
 interface NewGoalScreenProps {
   onGoalCreated?: () => void;
   onBack?: () => void;
+  onShowTokenPurchase?: () => void;
 }
 
 export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
   onGoalCreated,
   onBack,
+  onShowTokenPurchase,
 }) => {
   const theme = useTheme();
   const { user } = useAuthStore();
@@ -284,6 +286,24 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
 
   const restoreProgress = async () => {
     try {
+      // Check if there's text from dashboard chat input
+      const categoryText = await AsyncStorage.getItem('genie:category');
+      const titleText = await AsyncStorage.getItem('genie:title_text');
+      const inputText = await AsyncStorage.getItem('genie:input_text');
+      
+      if (categoryText || titleText || inputText) {
+        setFormData(prev => ({
+          ...prev,
+          category: (categoryText as GoalCategory) || prev.category,
+          title: titleText?.trim() || '',
+          description: inputText?.trim() || '',
+        }));
+        // Clear the stored text
+        await AsyncStorage.removeItem('genie:category');
+        await AsyncStorage.removeItem('genie:title_text');
+        await AsyncStorage.removeItem('genie:input_text');
+      }
+
       // First, check database for paused goals (highest priority)
       if (user?.id) {
         const { data: pendingGoals, error: dbError } = await supabase
@@ -433,6 +453,21 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
     cleanupOrphanedGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Check for advanced settings flag on mount
+  useEffect(() => {
+    const checkAdvancedSettings = async () => {
+      const showAdvanced = await AsyncStorage.getItem('genie:show_advanced');
+      if (showAdvanced === 'true') {
+        // Small delay to ensure screen is mounted
+        setTimeout(() => {
+          setShowAdvancedSettings(true);
+        }, 100);
+        await AsyncStorage.removeItem('genie:show_advanced');
+      }
+    };
+    checkAdvancedSettings();
+  }, []);
 
   // Clean up orphaned goals (paused goals older than 24 hours with no progress)
   const cleanupOrphanedGoals = async () => {
@@ -1178,8 +1213,12 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
                 { 
                   text: 'Get Tokens', 
                   onPress: () => {
-                    // Navigate to subscription screen or show purchase options
-                    console.log('User needs to purchase tokens');
+                    // Show token purchase modal if callback provided
+                    if (onShowTokenPurchase) {
+                      onShowTokenPurchase();
+                    } else {
+                      console.log('User needs to purchase tokens - no callback provided');
+                    }
                   }
                 }
               ]
@@ -1745,6 +1784,39 @@ export const NewGoalScreen: React.FC<NewGoalScreenProps> = ({
       // Log the task generation request
       if (tasksResponse.error) {
         const errorMessage = tasksResponse.error.message || '';
+        const errorStatus = tasksResponse.error.status || 0;
+
+        // Check if it's a token insufficiency error (402)
+        const isTokenError = errorStatus === 402 || 
+                            errorMessage.includes('tokens') || 
+                            errorMessage.includes('Not enough') ||
+                            errorMessage.includes('Insufficient');
+
+        if (isTokenError) {
+          // Show token purchase modal
+          console.log('🚨 Token error during task generation - showing purchase modal');
+          // The goal is already marked as paused with error_message
+          // We'll show a button to continue after purchase in the dashboard
+          Alert.alert(
+            'Not Enough Tokens',
+            errorMessage + '\n\nPlease purchase tokens to continue creating tasks.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Get Tokens', 
+                onPress: () => {
+                  // Show token purchase modal if callback provided
+                  if (onShowTokenPurchase) {
+                    onShowTokenPurchase();
+                  } else {
+                    console.log('User needs to purchase tokens - no callback provided');
+                  }
+                }
+              }
+            ]
+          );
+          return; // Stop here - don't continue
+        }
 
         // Check if it's a timeout error (which is expected for long-running tasks)
         const isTimeoutError =

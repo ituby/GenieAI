@@ -16,7 +16,7 @@ interface FloatingBottomNavProps {
   onHomePress: () => void;
   onMyPlansPress: () => void;
   onDailyGoalsPress: () => void;
-  onCreatePress: () => void;
+  onCreatePress?: () => void; // Optional now
   activeTab?: 'home' | 'plans' | 'goals' | 'create';
 }
 
@@ -47,12 +47,6 @@ export const FloatingBottomNav: React.FC<FloatingBottomNavProps> = ({
       icon: 'calendar',
       label: 'Tasks',
       onPress: onDailyGoalsPress,
-    },
-    {
-      id: 'create',
-      icon: 'sparkle',
-      label: 'Genie',
-      onPress: onCreatePress,
     },
   ];
 

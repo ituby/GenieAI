@@ -27,6 +27,7 @@ interface TaskTemplate {
 }
 
 interface AIResult {
+  title: string; // AI-generated title
   iconName: string;
   color: string;
   milestones: any[];
@@ -666,7 +667,8 @@ CRITICAL INSTRUCTIONS:
 
 REQUIRED JSON STRUCTURE:
 {
-  "category": "lifestyle|career|mindset|character|custom",
+  "category": "lifestyle|career|mindset|character|goal|learning|health|finance|social|fitness|creativity|custom",
+  "title": "A clear, concise goal title (3-8 words max, in same language as description)",
   "icon_name": "star",
   "milestones": [{"week": 1, "title": "Week 1: Foundation", "description": "Detailed week description with specific goals and outcomes", "tasks": 21}],
   "plan_outline": [
@@ -786,10 +788,16 @@ CRITICAL - WEEK TITLES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📌 GOAL INFORMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Title: ${title}
 Description: ${description}
-Category: ${category}
+${title ? `Title: ${title}` : 'Title: (You must determine an appropriate title from the description)'}
+${category ? `Category: ${category}` : 'Category: (You must determine the most appropriate category from: lifestyle, career, mindset, character, goal, learning, health, finance, social, fitness, creativity, or custom)'}
 Intensity Level: ${intensity}
+
+🚨 CRITICAL: You MUST determine the category and title from the description!
+- Analyze the description carefully
+- Choose the most appropriate category from the list above
+- Create a clear, concise title (3-8 words) that captures the essence of the goal
+- Both title and category must be in the SAME LANGUAGE as the description
 
 🚨🚨🚨 MANDATORY LANGUAGE CHECK - DO THIS NOW! 🚨🚨🚨
 
@@ -942,6 +950,7 @@ OUTPUT JSON ONLY:`;
       );
 
       return {
+        title: title || 'New Goal',
         iconName: 'star',
         color: CATEGORY_COLOR_MAP[category] || 'yellow',
         milestones: buildTailoredMilestones(title, planDurationDays),
@@ -965,14 +974,15 @@ OUTPUT JSON ONLY:`;
     }));
 
     return {
+      title: planData.title || title || 'New Goal', // Use AI-generated title or fallback
       iconName: validateIcon(planData.icon_name),
-      color: CATEGORY_COLOR_MAP[category] || 'yellow',
+      color: CATEGORY_COLOR_MAP[planData.category || category] || 'yellow',
       milestones:
-        planData.milestones || buildTailoredMilestones(title, planDurationDays),
+        planData.milestones || buildTailoredMilestones(planData.title || title, planDurationDays),
       planOutline: truncatedPlanOutline,
       rewards: planData.rewards || [], // AI-generated rewards
       planReadyNotification: planData.plan_ready_notification || null, // AI-generated notification
-      category,
+      category: planData.category || category, // Use AI-determined category
       deliverables: planData.deliverables || {
         overview: { chosen_topic: '', rationale: '', synopsis: '' },
         sections: [],
@@ -998,6 +1008,7 @@ OUTPUT JSON ONLY:`;
     );
 
     return {
+      title: title || 'New Goal',
       iconName: 'star',
       color: CATEGORY_COLOR_MAP[category] || 'yellow',
       milestones: buildTailoredMilestones(title, planDurationDays),
@@ -1340,8 +1351,8 @@ serve(async (req) => {
     const {
       user_id,
       goal_id,
-      category,
-      title,
+      category, // Optional - AI will determine if not provided
+      title, // Optional - AI will determine if not provided
       description,
       intensity = 'easy',
       plan_duration_days = 21,
@@ -1357,9 +1368,9 @@ serve(async (req) => {
     // This function now only handles stage 1 (outline generation)
     // Stage 2 (task generation) is handled by the separate generate-tasks function
 
-    // Validate
-    if (!user_id || !goal_id || !category || !title || !description) {
-      return errorResponse(400, 'Missing required fields', requestId);
+    // Validate - only description is required, category and title will be determined by AI
+    if (!user_id || !goal_id || !description) {
+      return errorResponse(400, 'Missing required fields: user_id, goal_id, and description are required', requestId);
     }
 
     // Verify goal and get plan duration FIRST
@@ -1393,6 +1404,15 @@ serve(async (req) => {
       
       console.log(`[${requestId}] Insufficient tokens: has ${currentTokens}, needs ${tokensNeeded}`);
       
+      // Mark goal as paused with error message (partial state)
+      await supabase
+        .from('goals')
+        .update({
+          status: 'paused',
+          error_message: `Insufficient tokens. Need ${tokensNeeded} tokens but only have ${currentTokens}. Please purchase at least ${tokensToLoad} tokens to continue.`,
+        })
+        .eq('id', goal_id);
+      
       return errorResponse(
         402,
         `Not enough tokens to continue with Genie. You have ${currentTokens} tokens but need ${tokensNeeded}. Please load at least ${tokensToLoad} tokens to continue.`,
@@ -1403,7 +1423,8 @@ serve(async (req) => {
     
     console.log(`[${requestId}] User has ${tokenData.tokens_remaining} tokens - sufficient for ${totalWeeks} milestones`);
 
-    if (!VALID_CATEGORIES.includes(category)) {
+    // Validate category if provided, otherwise AI will determine it
+    if (category && !VALID_CATEGORIES.includes(category)) {
       return errorResponse(400, `Invalid category: ${category}`, requestId);
     }
 
@@ -1430,7 +1451,12 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single();
 
-    console.log(`[${requestId}] Generating outline for: ${title}`);
+    // AI will determine title and category from description if not provided
+    const aiTitle = title || 'New Goal'; // Temporary, AI will generate proper title
+    const aiCategory = category || 'custom'; // Temporary, AI will determine proper category
+    
+    console.log(`[${requestId}] Generating outline for description: ${description.substring(0, 50)}...`);
+    console.log(`[${requestId}] AI will determine category and title from description`);
     console.log(`[${requestId}] User preferences:`, userPrefs);
     console.log(`[${requestId}] User timezone from preferences:`, userPrefs?.timezone);
 
@@ -1477,9 +1503,10 @@ serve(async (req) => {
     );
 
     // STAGE 1: Generate and save outline
+    // AI will determine category and title from description
     const result = await generatePlanOutlineWithAI(
-      category,
-      title,
+      aiCategory, // Will be overridden by AI if not provided
+      aiTitle, // Will be overridden by AI if not provided
       description,
       intensity,
       finalPlanDuration,
@@ -1491,10 +1518,11 @@ serve(async (req) => {
 
     await savePlanOutline(supabase, goal_id, user_id, result, startTime);
 
-    // Update goal metadata and change status to 'paused' (waiting for user approval)
+    // Update goal metadata with AI-determined values and change status to 'paused' (waiting for user approval)
     const { error: goalUpdateError } = await supabase
       .from('goals')
       .update({
+        title: result.title || 'New Goal', // Use AI-generated title
         icon_name: result.iconName,
         color: result.color,
         category: result.category,
@@ -1590,6 +1618,7 @@ serve(async (req) => {
         processing_time_ms: totalTime,
         tokens_used: tokensToDeduct,
         tokens_remaining: tokenData.tokens_remaining - tokensToDeduct,
+        title: result.title,
         icon_name: result.iconName,
         color: result.color,
         category: result.category,

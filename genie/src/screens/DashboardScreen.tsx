@@ -13,6 +13,7 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 // i18n removed
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -26,7 +27,7 @@ import {
   LinearGradient as SvgLinearGradient,
   Stop,
 } from 'react-native-svg';
-import { Text, Card, Icon, Badge, FloatingBottomNav } from '../components';
+import { Text, Card, Icon, Badge, FloatingBottomNav, TextField, Dropdown, AILoadingModal, PlanPreviewModal } from '../components';
 import { TokenPurchaseModal } from '../components/domain/TokenPurchaseModal';
 import { paymentService } from '../services/paymentService';
 import { usePaymentNotifications } from '../hooks/usePaymentNotifications';
@@ -35,7 +36,6 @@ import { usePopupContext } from '../contexts/PopupContext';
 import { dataLoadingService } from '../services/dataLoadingService';
 import { CustomRefreshControl } from '../components/primitives/CustomRefreshControl';
 import { Button } from '../components/primitives/Button';
-import { TalkWithGenieButton } from '../components/primitives/TalkWithGenieButton';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalCard, GoalCardProps } from '../components/domain/GoalCard';
 import { ProgressRing } from '../components/domain/ProgressRing';
@@ -53,7 +53,6 @@ import {
 import { supabase } from '../services/supabase/client';
 import * as Linking from 'expo-linking';
 import { PushTokenService } from '../services/notifications/pushToken.service';
-import { NewGoalScreen } from './NewGoalScreen';
 import { GoalDetailsScreen } from './GoalDetailsScreen';
 import { TaskDetailsScreen } from './TaskDetailsScreen';
 import { NotificationsScreen } from './NotificationsScreen';
@@ -67,6 +66,7 @@ import { GoalWithProgress, Reward } from '../types/goal';
 import { TaskWithGoal } from '../types/task';
 import { useNotificationCount } from '../hooks/useNotificationCount';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 
 // Layout constants for evenly sized stat cards
 const WINDOW_WIDTH = Dimensions.get('window').width;
@@ -94,10 +94,26 @@ export const DashboardScreen: React.FC = () => {
     updateGoal,
     deleteGoal,
     refreshGoal,
+    createGoal,
   } = useGoalStore();
   const { unreadCount, refreshCount } = useNotificationCount();
   const [aiConnected, setAiConnected] = React.useState<boolean | null>(null);
-  const [showNewGoal, setShowNewGoal] = React.useState(false);
+  const [showAdvancedSettingsModal, setShowAdvancedSettingsModal] = React.useState(false);
+  const [advancedSettings, setAdvancedSettings] = React.useState({
+    planDurationDays: 21,
+    tasksPerDayRange: { min: 3, max: 5 },
+    preferredTimeRanges: [
+      { start_hour: 8, end_hour: 12, label: 'Morning' },
+      { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+      { start_hour: 19, end_hour: 23, label: 'Evening' },
+    ],
+    preferredDays: [1, 2, 3, 4, 5, 6],
+  });
+  const [isCreatingPlan, setIsCreatingPlan] = React.useState(false);
+  const [showPlanPreview, setShowPlanPreview] = React.useState(false);
+  const [planData, setPlanData] = React.useState<any>(null);
+  const [createdGoalId, setCreatedGoalId] = React.useState<string | null>(null);
+  const [isApprovingPlan, setIsApprovingPlan] = React.useState(false);
   const [selectedGoal, setSelectedGoal] =
     React.useState<GoalWithProgress | null>(null);
   const [selectedTask, setSelectedTask] = React.useState<TaskWithGoal | null>(
@@ -171,6 +187,8 @@ export const DashboardScreen: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = React.useState<number | null>(
     null
   );
+  const [genieInputText, setGenieInputText] = React.useState('');
+  const [showAdvancedSettings, setShowAdvancedSettings] = React.useState(false);
   const [userTokens, setUserTokens] = React.useState(() => {
     // Try to get cached data on initial render to avoid showing red button
     const cachedData = dataLoadingService.getCachedData();
@@ -184,6 +202,7 @@ export const DashboardScreen: React.FC = () => {
       total: 0,
       isSubscribed: false,
       monthlyTokens: 100,
+      notificationsMuted: false,
     };
   });
   const [showRefreshLoader, setShowRefreshLoader] = React.useState(false);
@@ -295,9 +314,8 @@ export const DashboardScreen: React.FC = () => {
                 '📋 Found pending goal waiting for approval:',
                 pendingGoals[0].id
               );
-              // Auto-open NewGoalScreen to show approval modal
-              // NewGoalScreen will handle the restoration, not Dashboard
-              setShowNewGoal(true);
+              // Goal creation is now handled directly from dashboard
+              // Goal creation is now handled directly from dashboard
               return;
             }
 
@@ -311,8 +329,8 @@ export const DashboardScreen: React.FC = () => {
               saved.state !== 'creating'
             ) {
               // Only auto-open for preview/success states, not creating
-              // (creating state is handled by NewGoalScreen's restoreProgress)
-              setShowNewGoal(true);
+              // Goal creation is now handled directly from dashboard
+              // Pending goals will be handled in the goal creation flow
             }
           } catch (err) {
             console.error('Error checking for pending goals:', err);
@@ -324,42 +342,77 @@ export const DashboardScreen: React.FC = () => {
     initializeDashboard();
   }, [user?.id]);
 
-  // Auto-refresh mechanism for goals that are loading (active but no tasks)
+  // Auto-refresh mechanism for goals that are loading (active but no tasks OR still generating)
   // Stop polling for failed goals - let user retry manually
+  // This continues to work even after app refresh/restart
+  // Continues polling until ALL tasks are generated (all weeks) based on plan_duration_days
   useEffect(() => {
     if (!user?.id) return;
 
     const checkForLoadingGoals = async () => {
-      // Only poll for goals that are 'active' with 0 tasks (not 'failed')
-      const loadingGoals = activeGoals.filter(
-        (goal) => goal.status === 'active' && goal.total_tasks === 0
-      );
+      // Get fresh activeGoals from store to ensure we have latest data
+      // This ensures we always check the most up-to-date goals, even after refresh
+      const currentActiveGoals = useGoalStore.getState().activeGoals;
+      
+      // Calculate expected total tasks for each goal and check if generation is complete
+      const loadingGoals = currentActiveGoals.filter((goal) => {
+        if (goal.status !== 'active') return false;
+        
+        // Always poll if no tasks yet
+        if (goal.total_tasks === 0) return true;
+        
+        // Calculate expected total tasks using the same formula as generate-tasks function
+        // This must match the calculation in generate-tasks/index.ts exactly
+        const maxTasks = goal.tasks_per_day_max || goal.preferred_time_ranges?.length || 3;
+        const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+        const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+        const daysPerWeek = goal.preferred_days?.length || 7;
+        const planDurationDays = goal.plan_duration_days || 21;
+        
+        // Calculate total tasks week by week (same as generate-tasks function)
+        const totalWeeks = Math.ceil(planDurationDays / 7);
+        let expectedTotalTasks = 0;
+        
+        for (let week = 1; week <= totalWeeks; week++) {
+          const startDay = (week - 1) * 7 + 1;
+          const endDay = Math.min(week * 7, planDurationDays);
+          const daysInThisWeek = endDay - startDay + 1;
+          const workingDaysInWeek = Math.ceil((daysInThisWeek / 7) * daysPerWeek);
+          const tasksInThisWeek = workingDaysInWeek * tasksPerDay;
+          expectedTotalTasks += tasksInThisWeek;
+        }
+        
+        // Continue polling if we haven't reached the expected total yet
+        // This ensures we keep listening until ALL tasks are generated (all weeks)
+        const currentTasks = goal.total_tasks || 0;
+        const isStillGenerating = currentTasks < expectedTotalTasks;
+        
+        return isStillGenerating;
+      });
 
       if (loadingGoals.length > 0) {
-        console.log(
-          `🔄 Found ${loadingGoals.length} loading goals, refreshing...`
-        );
-
-        // Refresh each loading goal
+        // Refresh each loading goal to get latest task count
         for (const goal of loadingGoals) {
           await refreshGoal(goal.id);
         }
 
         // Also refresh today's tasks to show new tasks
-        console.log("🔄 Refreshing today's tasks after goal update");
         fetchTodaysTasks();
       }
     };
 
-    // Check immediately
+    // Check immediately on mount/refresh
     checkForLoadingGoals();
 
     // Set up polling every 5 seconds for loading goals
     // This continues until all goals have tasks loaded or are marked as failed
+    // The interval will restart automatically when activeGoals changes (after refresh)
     const interval = setInterval(checkForLoadingGoals, 5000);
 
-    return () => clearInterval(interval);
-  }, [user?.id, activeGoals, refreshGoal]);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user?.id, activeGoals, refreshGoal, fetchTodaysTasks]);
 
   // Breathing animation for refresh loader
   useEffect(() => {
@@ -514,6 +567,7 @@ export const DashboardScreen: React.FC = () => {
           total: data.total_tokens,
           isSubscribed: data.is_subscribed,
           monthlyTokens: data.monthly_tokens,
+          notificationsMuted: data.notifications_muted || false,
         });
       } else {
         // User doesn't have tokens record yet, set defaults
@@ -523,10 +577,89 @@ export const DashboardScreen: React.FC = () => {
           total: 3,
           isSubscribed: false,
           monthlyTokens: 100,
+          notificationsMuted: false,
         });
       }
     } catch (error) {
       console.error('Error fetching user tokens:', error);
+    }
+  };
+
+  // Load user preferences when modal opens
+  useEffect(() => {
+    const loadAdvancedSettings = async () => {
+      if (showAdvancedSettingsModal && user?.id) {
+        try {
+          const { data: prefs, error } = await supabase
+            .from('user_preferences')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!error && prefs) {
+            setAdvancedSettings({
+              planDurationDays: prefs.plan_duration_days || 21,
+              tasksPerDayRange: {
+                min: prefs.tasks_per_day_min || 3,
+                max: prefs.tasks_per_day_max || 5,
+              },
+              preferredTimeRanges: prefs.preferred_time_ranges || [
+                { start_hour: 8, end_hour: 12, label: 'Morning' },
+                { start_hour: 14, end_hour: 18, label: 'Afternoon' },
+                { start_hour: 19, end_hour: 23, label: 'Evening' },
+              ],
+              preferredDays: prefs.preferred_days || [1, 2, 3, 4, 5, 6],
+            });
+          }
+        } catch (error) {
+          console.error('Error loading advanced settings:', error);
+        }
+      }
+    };
+    loadAdvancedSettings();
+  }, [showAdvancedSettingsModal, user?.id]);
+
+  const handleSaveAdvancedSettings = async () => {
+    if (!user?.id) {
+      setShowAdvancedSettingsModal(false);
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('timezone')
+        .eq('id', user.id)
+        .single();
+
+      const userTimezone = userData?.timezone || 'UTC';
+
+      const { error: prefsError } = await supabase
+        .from('user_preferences')
+        .upsert(
+          {
+            user_id: user.id,
+            plan_duration_days: advancedSettings.planDurationDays,
+            tasks_per_day_min: advancedSettings.tasksPerDayRange.min,
+            tasks_per_day_max: advancedSettings.tasksPerDayRange.max,
+            preferred_time_ranges: advancedSettings.preferredTimeRanges,
+            preferred_days: advancedSettings.preferredDays,
+            timezone: userTimezone,
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (prefsError) {
+        console.warn('⚠️ Failed to save advanced settings:', prefsError);
+        Alert.alert('Error', 'Failed to save settings');
+      } else {
+        console.log('✅ Advanced settings saved');
+        setShowAdvancedSettingsModal(false);
+        Alert.alert('Success', 'Settings saved successfully');
+      }
+    } catch (error) {
+      console.warn('⚠️ Error saving advanced settings:', error);
+      Alert.alert('Error', 'Failed to save settings');
     }
   };
 
@@ -810,7 +943,6 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   const handleGoalCreated = async () => {
-    setShowNewGoal(false);
     // Tokens are deducted server-side by the Edge Function; just refresh UI
     if (user?.id) {
       try {
@@ -825,16 +957,8 @@ export const DashboardScreen: React.FC = () => {
   };
 
   const checkTokensAndCreateGoal = () => {
-    if (userTokens.remaining <= 0) {
-      // Show appropriate modal based on subscription status
-      if (userTokens.isSubscribed) {
-        setShowTokenPurchaseModal(true);
-      } else {
-        setShowSubscriptionModal(true);
-      }
-      return;
-    }
-    setShowNewGoal(true);
+    // This function is no longer used - goal creation is done from dashboard chat
+    // Keeping for backward compatibility with navigation
   };
 
   const handleSubscribeClick = () => {
@@ -914,19 +1038,102 @@ export const DashboardScreen: React.FC = () => {
           console.error('Error calling update-rewards function:', rewardError);
         }
       }
+
+      // Check if user completed all first day tasks and is not subscribed
+      if (markAsCompleted && user?.id) {
+        try {
+          const task = todaysTasks.find((t) => t.id === taskId);
+          if (task) {
+            // Check if user is subscribed
+      const { data: tokenData } = await supabase
+        .from('user_tokens')
+        .select('is_subscribed, notifications_muted')
+        .eq('user_id', user.id)
+        .single();
+
+      const isSubscribed = tokenData?.is_subscribed || false;
+      const notificationsMuted = tokenData?.notifications_muted || false;
+
+      // Check if we already showed the modal for this goal (prevent showing multiple times)
+      const modalShownKey = `subscription_modal_shown_${task.goal_id}`;
+      const modalAlreadyShown = await AsyncStorage.getItem(modalShownKey);
+
+      // Only check if user is not subscribed, notifications are not already muted, and modal wasn't shown yet
+      if (!isSubscribed && !notificationsMuted && !modalAlreadyShown) {
+              // Get goal start date
+              const { data: goalData } = await supabase
+                .from('goals')
+                .select('start_date, created_at')
+                .eq('id', task.goal_id)
+                .single();
+
+              if (goalData) {
+                const goalStartDate = new Date(goalData.start_date || goalData.created_at);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                goalStartDate.setHours(0, 0, 0, 0);
+
+                // Check if this is the first day (start date is today or yesterday)
+                const daysDiff = Math.floor((today.getTime() - goalStartDate.getTime()) / (1000 * 60 * 60 * 24));
+                const isFirstDay = daysDiff === 0 || daysDiff === 1;
+
+                if (isFirstDay) {
+                  // Get all tasks for this goal on the first day
+                  const firstDayStart = new Date(goalStartDate);
+                  const firstDayEnd = new Date(goalStartDate);
+                  firstDayEnd.setDate(firstDayEnd.getDate() + 1);
+
+                  const { data: firstDayTasks } = await supabase
+                    .from('goal_tasks')
+                    .select('id, completed')
+                    .eq('goal_id', task.goal_id)
+                    .gte('run_at', firstDayStart.toISOString())
+                    .lt('run_at', firstDayEnd.toISOString());
+
+                  if (firstDayTasks) {
+                    const allCompleted = firstDayTasks.every((t: any) => t.completed);
+                    const hasTasks = firstDayTasks.length > 0;
+
+                    if (allCompleted && hasTasks) {
+                      // Mark that we showed the modal for this goal
+                      await AsyncStorage.setItem(modalShownKey, 'true');
+                      
+                      // Show subscription modal
+                      console.log('🎯 User completed all first day tasks - showing subscription modal');
+                      setShowSubscriptionModal(true);
+                      
+                      // Mute notifications for this user
+                      await supabase
+                        .from('user_tokens')
+                        .update({
+                          notifications_muted: true,
+                          notifications_muted_at: new Date().toISOString(),
+                        })
+                        .eq('user_id', user.id);
+                      
+                      // Update local state
+                      setUserTokens(prev => ({
+                        ...prev,
+                        notificationsMuted: true,
+                      }));
+                      
+                      console.log('🔇 Notifications muted for non-subscribed user');
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (checkError) {
+          console.error('Error checking first day completion:', checkError);
+          // Don't block task completion if this check fails
+        }
+      }
     } catch (error) {
       console.error('Error toggling task:', error);
     }
   };
 
-  if (showNewGoal) {
-    return (
-      <NewGoalScreen
-        onGoalCreated={handleGoalCreated}
-        onBack={() => setShowNewGoal(false)}
-      />
-    );
-  }
 
   if (selectedGoal) {
     return (
@@ -1065,6 +1272,266 @@ export const DashboardScreen: React.FC = () => {
             </Text>
           </Card>
 
+          {/* Genie Chat Input */}
+          <Card variant="gradient" padding="md" style={styles.genieChatCard}>
+            <TextField
+              value={genieInputText}
+              onChangeText={setGenieInputText}
+              placeholder="What's your wish? Tell me what you want to achieve..."
+              placeholderTextColor="rgba(255, 255, 255, 0.3)"
+              containerStyle={styles.genieInputContainer}
+              inputStyle={styles.genieInput}
+              multiline
+              numberOfLines={3}
+              maxLength={500}
+            />
+            {/* Advanced Settings Button */}
+            <TouchableOpacity
+              style={styles.genieAdvancedSettingsButton}
+              onPress={() => {
+                setShowAdvancedSettingsModal(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Icon
+                name="sliders"
+                size={18}
+                color="rgba(255, 255, 255, 0.5)"
+                weight="regular"
+              />
+              <Text
+                style={styles.genieAdvancedSettingsText}
+              >
+                Advanced Settings
+              </Text>
+              <Icon
+                name="caret-right"
+                size={14}
+                color="rgba(255, 255, 255, 0.5)"
+                weight="regular"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={async () => {
+                if (!genieInputText.trim()) {
+                  return;
+                }
+
+                if (!user?.id) {
+                  Alert.alert('Error', 'Please log in to create a goal');
+                  return;
+                }
+
+                // Check tokens first
+                if (userTokens.remaining <= 0 && !userTokens.isSubscribed) {
+                  setShowSubscriptionModal(true);
+                  return;
+                }
+
+                try {
+                  setIsCreatingPlan(true);
+
+                  // Create the goal with temporary values - AI will determine category and title
+                  const goal = await createGoal({
+                    user_id: user.id,
+                    title: 'New Goal', // Temporary - AI will update this
+                    description: genieInputText.trim(),
+                    category: 'custom', // Temporary - AI will update this
+                    status: 'paused',
+                    start_date: new Date().toISOString().split('T')[0],
+                    icon_name: 'star', // Temporary - AI will update this
+                    color: '#FFFF68', // Temporary - AI will update this
+                    plan_duration_days: advancedSettings.planDurationDays,
+                    preferred_time_ranges: advancedSettings.preferredTimeRanges,
+                    preferred_days: advancedSettings.preferredDays,
+                    tasks_per_day_min: advancedSettings.tasksPerDayRange.min,
+                    tasks_per_day_max: advancedSettings.tasksPerDayRange.max,
+                  });
+
+                  console.log('✅ Goal created:', goal.id);
+                  setCreatedGoalId(goal.id);
+
+                  // Get device timezone
+                  const calendars = Localization.getCalendars();
+                  const deviceTimezone = calendars[0]?.timeZone || 'UTC';
+                  const deviceNow = new Date();
+
+                  // Generate AI plan outline - AI will determine category and title from description
+                  const outlineResponse = await supabase.functions.invoke(
+                    'generate-plan',
+                    {
+                      body: {
+                        user_id: user.id,
+                        goal_id: goal.id,
+                        description: genieInputText.trim(), // Only send description - AI will determine category and title
+                        intensity: 'medium',
+                        timezone: deviceTimezone,
+                        device_now_iso: deviceNow.toISOString(),
+                        device_timezone: deviceTimezone,
+                        language: 'en',
+                        stage: 'outline',
+                        plan_duration_days: advancedSettings.planDurationDays,
+                        preferred_time_ranges: advancedSettings.preferredTimeRanges,
+                        preferred_days: advancedSettings.preferredDays.length > 0 ? advancedSettings.preferredDays : undefined,
+                        tasks_per_day_min: advancedSettings.tasksPerDayRange.min,
+                        tasks_per_day_max: advancedSettings.tasksPerDayRange.max,
+                      },
+                    }
+                  );
+
+                  // Check for errors - could be in error field or data field with success: false
+                  const hasError = outlineResponse.error || 
+                                  (outlineResponse.data && outlineResponse.data.success === false);
+                  
+                  if (hasError) {
+                    // Get status from multiple possible locations - FunctionsHttpError has context.status
+                    const errorObj = outlineResponse.error as any;
+                    const responseObj = outlineResponse.response as any;
+                    
+                    const errorStatus = errorObj?.context?.status || 
+                                       responseObj?.status ||
+                                       errorObj?.status || 
+                                       errorObj?.code;
+                    
+                    console.log('❌ Error detected:', { 
+                      errorStatus, 
+                      errorContextStatus: errorObj?.context?.status,
+                      responseStatus: responseObj?.status,
+                      hasError: !!outlineResponse.error
+                    });
+                    
+                    // Check for token errors - status 402 means insufficient tokens
+                    const isTokenError = errorStatus === 402;
+                    
+                    if (isTokenError) {
+                      console.log('💰 Token error detected (402), showing purchase modal');
+                      setIsCreatingPlan(false);
+                      
+                      // Clean up the goal that was created
+                      if (createdGoalId) {
+                        try {
+                          await deleteGoal(createdGoalId);
+                        } catch (e) {
+                          console.error('Error deleting goal:', e);
+                        }
+                        setCreatedGoalId(null);
+                      }
+                      
+                      // Show appropriate modal based on subscription status
+                      if (userTokens.isSubscribed) {
+                        // Subscribed user needs to buy more tokens
+                        console.log('💰 Showing token purchase modal for subscribed user');
+                        setShowTokenPurchaseModal(true);
+                      } else {
+                        // Non-subscribed user should see subscription modal
+                        console.log('💰 Showing subscription modal for non-subscribed user');
+                        setShowSubscriptionModal(true);
+                      }
+                      
+                      return;
+                    }
+                    
+                    // For other errors, show alert
+                    const errorMessage = errorObj?.message || 
+                                       errorObj?.error || 
+                                       'An error occurred while generating your plan. Please try again.';
+                    
+                    console.log('❌ Non-token error:', errorMessage);
+                    Alert.alert('Error', errorMessage);
+                    setIsCreatingPlan(false);
+                    
+                    // Clean up goal on other errors too
+                    if (createdGoalId) {
+                      try {
+                        await deleteGoal(createdGoalId);
+                      } catch (e) {
+                        console.error('Error deleting goal:', e);
+                      }
+                      setCreatedGoalId(null);
+                    }
+                    
+                    return;
+                  }
+
+                  // Parse the outline response
+                  const outlineData = outlineResponse.data;
+                  if (outlineData?.plan_outline) {
+                    const milestones = outlineData.plan_outline.map((milestone: any, index: number) => ({
+                      week: index + 1,
+                      title: milestone.title || `Week ${index + 1}`,
+                      description: milestone.description || '',
+                      tasks: 0,
+                    }));
+
+                    setPlanData({
+                      milestones,
+                      goalTitle: outlineData.title || 'New Goal', // Use AI-generated title
+                      subcategory: outlineData.subcategory || null,
+                      marketingDomain: outlineData.marketing_domain || null,
+                      planOutline: outlineData.plan_outline || [],
+                    });
+
+                    setIsCreatingPlan(false);
+                    setShowPlanPreview(true);
+                  } else {
+                    throw new Error('No plan outline received');
+                  }
+
+                  // Clear the field
+                  setGenieInputText('');
+
+                  // Refresh goals
+                  if (user.id) {
+                    fetchGoals(user.id);
+                    fetchUserTokens();
+                  }
+                } catch (error: any) {
+                  console.error('Error creating goal:', error);
+                  setIsCreatingPlan(false);
+                  Alert.alert(
+                    'Error',
+                    error.message || 'Failed to create goal. Please try again.'
+                  );
+                }
+              }}
+              disabled={userTokens.remaining <= 0 && userTokens.isSubscribed}
+              activeOpacity={0.8}
+              style={[
+                styles.genieSendButton,
+                (userTokens.remaining <= 0 && userTokens.isSubscribed) && styles.genieSendButtonDisabled
+              ]}
+            >
+              <Text
+                style={[
+                  styles.genieSendButtonText,
+                  userTokens.remaining <= 0 && !userTokens.isSubscribed && { color: '#FFFFFF' },
+                  userTokens.remaining <= 0 && userTokens.isSubscribed && { opacity: 0.5 },
+                ]}
+              >
+                Ask Genie
+              </Text>
+              <Icon
+                name="sparkle"
+                size={18}
+                color={
+                  userTokens.remaining <= 0 && !userTokens.isSubscribed
+                    ? '#FFFFFF'
+                    : userTokens.remaining <= 0 && userTokens.isSubscribed
+                      ? 'rgba(255, 255, 104, 0.5)'
+                      : '#FFFF68'
+                }
+                weight="fill"
+              />
+            </TouchableOpacity>
+            {userTokens.remaining <= 0 && !userTokens.isSubscribed && (
+              <View style={styles.genieChatFooter}>
+                <Text variant="caption" color="secondary" style={styles.genieChatFooterText}>
+                  Subscribe to continue creating goals
+                </Text>
+              </View>
+            )}
+          </Card>
+
           {/* Usage Rate Card */}
           <Card variant="gradient" padding="md" style={styles.usageRateCard}>
             <View style={styles.usageRateHeader}>
@@ -1172,62 +1639,6 @@ export const DashboardScreen: React.FC = () => {
               )}
             </View>
           </Card>
-
-          <View style={styles.greetingButtonContainer}>
-            <AnimatedLinearGradient
-              colors={
-                userTokens.remaining <= 0 && !userTokens.isSubscribed
-                  ? ['#FF6B6B', '#FF8E8E', '#FF6B6B']
-                  : ['#FFFF68', '#FFFF68', '#FFFF68']
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.addGoalButtonGradient}
-            >
-              <TouchableOpacity
-                onPress={checkTokensAndCreateGoal}
-                activeOpacity={0.8}
-                style={[
-                  styles.addGoalButton,
-                  userTokens.remaining <= 0 &&
-                    userTokens.isSubscribed &&
-                    styles.addGoalButtonDisabled,
-                ]}
-              >
-                <View style={styles.addGoalButtonContent}>
-                  <Text
-                    style={[
-                      styles.addGoalButtonText,
-                      userTokens.remaining <= 0 &&
-                        !userTokens.isSubscribed && { color: '#FFFFFF' },
-                      userTokens.remaining <= 0 &&
-                        userTokens.isSubscribed && { opacity: 0.5 },
-                    ]}
-                  >
-                    {userTokens.remaining <= 0 && !userTokens.isSubscribed
-                      ? 'Subscribe now to talk with Genie'
-                      : 'Talk with Genie'}
-                  </Text>
-                  <Icon
-                    name={
-                      userTokens.remaining <= 0 && !userTokens.isSubscribed
-                        ? 'crown'
-                        : 'sparkle'
-                    }
-                    size={16}
-                    color={
-                      userTokens.remaining <= 0 && !userTokens.isSubscribed
-                        ? '#FFFFFF'
-                        : userTokens.remaining <= 0 && userTokens.isSubscribed
-                          ? 'rgba(255, 255, 104, 0.5)'
-                          : '#FFFF68'
-                    }
-                    weight="fill"
-                  />
-                </View>
-              </TouchableOpacity>
-            </AnimatedLinearGradient>
-          </View>
         </View>
 
         {/* Quick Stats */}
@@ -1435,6 +1846,86 @@ export const DashboardScreen: React.FC = () => {
                     onPress={() => setSelectedGoal(goal)}
                     onEdit={() => setShowGoalMenu(goal.id)}
                     hasTimeReachedTasks={hasGoalTasksTimeReached(goal.id)}
+                    onContinueCreatingTasks={async () => {
+                      // Check tokens first
+                      const { data: tokenData } = await supabase
+                        .from('user_tokens')
+                        .select('tokens_remaining')
+                        .eq('user_id', user?.id)
+                        .single();
+                      
+                      const currentTokens = tokenData?.tokens_remaining || 0;
+                      
+                      if (currentTokens <= 0) {
+                        // Show token purchase modal
+                        setShowTokenPurchaseModal(true);
+                        return;
+                      }
+                      
+                      // Continue task generation
+                      try {
+                        const deviceNow = new Date();
+                        const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+                        
+                        // Calculate which week to continue from
+                        const totalWeeks = Math.ceil((goal.plan_duration_days || 21) / 7);
+                        const { count: existingTaskCount } = await supabase
+                          .from('goal_tasks')
+                          .select('*', { count: 'exact', head: true })
+                          .eq('goal_id', goal.id);
+                        
+                        // Estimate which week we're on based on existing tasks
+                        const maxTasks = goal.tasks_per_day_max || 3;
+                        const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+                        const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+                        const daysPerWeek = goal.preferred_days?.length || 7;
+                        const tasksPerWeek = Math.ceil((7 / 7) * daysPerWeek) * tasksPerDay;
+                        const currentWeek = Math.min(
+                          Math.floor((existingTaskCount || 0) / tasksPerWeek) + 1,
+                          totalWeeks
+                        );
+                        
+                        // Update goal status to active
+                        await supabase
+                          .from('goals')
+                          .update({
+                            status: 'active',
+                            error_message: null,
+                          })
+                          .eq('id', goal.id);
+                        
+                        // Call generate-tasks function
+                        const tasksResponse = await supabase.functions.invoke('generate-tasks', {
+                          body: {
+                            user_id: user?.id,
+                            goal_id: goal.id,
+                            device_now_iso: deviceNow.toISOString(),
+                            device_timezone: deviceTimezone,
+                            week_number: currentWeek,
+                          },
+                        });
+                        
+                        if (tasksResponse.error) {
+                          const errorMessage = tasksResponse.error.message || '';
+                          const isTokenError = tasksResponse.error.status === 402 || 
+                                              errorMessage.includes('tokens');
+                          
+                          if (isTokenError) {
+                            setShowTokenPurchaseModal(true);
+                          } else {
+                            Alert.alert('Error', errorMessage || 'Failed to continue creating tasks');
+                          }
+                        } else {
+                          // Refresh goals to show updated status
+                          if (user?.id) {
+                            fetchGoals(user.id);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error continuing task creation:', error);
+                        Alert.alert('Error', 'Failed to continue creating tasks. Please try again.');
+                      }
+                    }}
                   />
                 ))}
               </View>
@@ -1630,15 +2121,6 @@ export const DashboardScreen: React.FC = () => {
 
             <View style={styles.sideMenuHeader}>
               {/* Header content can go here if needed */}
-            </View>
-            <View style={styles.sideMenuGreetingButton}>
-              <TalkWithGenieButton
-                onPress={() => {
-                  closeSideMenu();
-                  checkTokensAndCreateGoal();
-                }}
-                size="medium"
-              />
             </View>
             <View style={styles.sideMenuContent}>
               {/* My Plans */}
@@ -1845,6 +2327,135 @@ export const DashboardScreen: React.FC = () => {
         />
       )}
 
+      {/* AI Loading Modal */}
+      <AILoadingModal
+        visible={isCreatingPlan}
+        step={1}
+        message="Creating your personalized plan..."
+      />
+
+      {/* Plan Preview Modal */}
+      {showPlanPreview && planData && createdGoalId && (
+        <PlanPreviewModal
+          visible={showPlanPreview}
+          onClose={() => {
+            setShowPlanPreview(false);
+            setPlanData(null);
+            setCreatedGoalId(null);
+            setIsApprovingPlan(false);
+          }}
+          onApprove={async () => {
+            if (!user?.id || !createdGoalId || isApprovingPlan) return;
+
+            try {
+              setIsApprovingPlan(true);
+              
+              // Update goal status to active immediately
+              await updateGoal(createdGoalId, { status: 'active' });
+
+              // Close modal immediately - loading will be shown in goal card
+              setShowPlanPreview(false);
+              setPlanData(null);
+              setCreatedGoalId(null);
+              setIsApprovingPlan(false);
+
+              // Refresh goals immediately to show loading state in goal card
+              await fetchGoals(user.id);
+              fetchUserTokens();
+              fetchTodaysTasks();
+              fetchTotalPoints();
+
+              // Generate tasks in the background (non-blocking)
+              // The goal card will show loading state automatically (status='active' && total_tasks=0)
+              supabase.functions.invoke(
+                'generate-tasks',
+                {
+                  body: {
+                    user_id: user.id,
+                    goal_id: createdGoalId,
+                    week_number: 1,
+                    device_now_iso: new Date().toISOString(),
+                    device_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                  },
+                }
+              )
+              .then((response: any) => {
+                if (response.error) {
+                  console.error('Error generating tasks:', response.error);
+                  const errorMessage = response.error.message || 'Failed to generate tasks';
+                  const errorStatus = response.error.status || response.error.context?.status;
+                  
+                  // Check if it's a token error
+                  if (errorStatus === 402 || errorMessage.includes('tokens') || errorMessage.includes('Insufficient')) {
+                    // Update goal with error message
+                    updateGoal(createdGoalId, {
+                      status: 'paused',
+                      error_message: errorMessage,
+                    }).then(() => {
+                      fetchGoals(user.id);
+                      // Show token modal
+                      if (userTokens.isSubscribed) {
+                        setShowTokenPurchaseModal(true);
+                      } else {
+                        setShowSubscriptionModal(true);
+                      }
+                    });
+                  } else {
+                    // Update goal with error message
+                    updateGoal(createdGoalId, {
+                      status: 'paused',
+                      error_message: errorMessage,
+                    }).then(() => {
+                      fetchGoals(user.id);
+                    });
+                  }
+                } else {
+                  // Success - refresh goals to show updated task count
+                  console.log('Task generation started successfully');
+                  fetchGoals(user.id);
+                }
+              })
+              .catch((error: any) => {
+                console.error('Error generating tasks:', error);
+                // Update goal with error message
+                updateGoal(createdGoalId, {
+                  status: 'paused',
+                  error_message: error.message || 'Failed to generate tasks',
+                }).then(() => {
+                  fetchGoals(user.id);
+                });
+              });
+            } catch (error: any) {
+              console.error('Error approving plan:', error);
+              setIsApprovingPlan(false);
+              Alert.alert('Error', error.message || 'Failed to approve plan');
+            }
+          }}
+          onReject={async () => {
+            if (!createdGoalId) return;
+            
+            try {
+              // Delete the goal if user rejects
+              await deleteGoal(createdGoalId);
+              setShowPlanPreview(false);
+              setPlanData(null);
+              setCreatedGoalId(null);
+              
+              if (user?.id) {
+                fetchGoals(user.id);
+                fetchUserTokens();
+              }
+            } catch (error: any) {
+              console.error('Error deleting goal:', error);
+              Alert.alert('Error', 'Failed to delete goal');
+            }
+          }}
+          goalTitle={planData.goalTitle}
+          milestones={planData.milestones}
+          isApproving={isApprovingPlan}
+        />
+      )}
+
       {/* Token Purchase Modal */}
       <TokenPurchaseModal
         visible={showTokenPurchaseModal}
@@ -1854,6 +2465,341 @@ export const DashboardScreen: React.FC = () => {
           fetchUserTokens();
         }}
       />
+
+      {/* Advanced Settings Modal */}
+      <Modal
+        visible={showAdvancedSettingsModal}
+        animationType="slide"
+        presentationStyle="formSheet"
+        onRequestClose={() => setShowAdvancedSettingsModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0C12' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.1)' }}>
+            <View style={{ width: 24 }} />
+            <Text variant="h3" color="primary" style={{ color: '#FFFF68', fontWeight: '700' }}>
+              Advanced Settings
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowAdvancedSettingsModal(false)}
+              activeOpacity={0.8}
+            >
+              <Icon name="x" size={24} color="#FFFF68" weight="bold" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+            {/* Plan Duration */}
+            <View style={{ marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                {!userTokens.isSubscribed && (
+                  <Icon name="crown" size={16} color="#FFFF68" weight="fill" style={{ marginRight: 8 }} />
+                )}
+                <Text variant="h4" color="primary" style={{ color: '#FFFFFF', fontWeight: '600' }}>
+                  Plan duration
+                </Text>
+              </View>
+              <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: 12 }}>
+                {userTokens.isSubscribed 
+                  ? 'How long should your plan last?'
+                  : '3 weeks plan available. Subscribe to customize duration.'}
+              </Text>
+              {userTokens.isSubscribed ? (
+                <Dropdown
+                  options={[
+                    { label: '1 week', value: '7' },
+                    { label: '2 weeks', value: '14' },
+                    { label: '3 weeks', value: '21' },
+                    { label: '1 month', value: '30' },
+                    { label: '6 weeks', value: '42' },
+                    { label: '2 months', value: '60' },
+                    { label: '3 months', value: '90' },
+                    { label: '6 months', value: '180' },
+                    { label: '1 year', value: '365' },
+                  ]}
+                  value={advancedSettings.planDurationDays.toString()}
+                  onValueChange={(value) =>
+                    setAdvancedSettings(prev => ({ ...prev, planDurationDays: parseInt(value) }))
+                  }
+                  placeholder="Select duration"
+                />
+              ) : (
+                <View style={{ padding: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text variant="body" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                    3 weeks (21 days)
+                  </Text>
+                  <Icon name="lock" size={16} color="rgba(255, 255, 255, 0.3)" weight="fill" />
+                </View>
+              )}
+            </View>
+
+            {/* Tasks Per Day Range */}
+            <View style={{ marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                {!userTokens.isSubscribed && (
+                  <Icon name="crown" size={16} color="#FFFF68" weight="fill" style={{ marginRight: 8 }} />
+                )}
+                <Text variant="h4" color="primary" style={{ color: '#FFFFFF', fontWeight: '600' }}>
+                  Tasks per day
+                </Text>
+              </View>
+              <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: 12 }}>
+                {userTokens.isSubscribed 
+                  ? 'Choose your daily task range'
+                  : 'Default range (3-5 tasks). Subscribe to customize.'}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: 8 }}>
+                    From:
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (userTokens.isSubscribed && advancedSettings.tasksPerDayRange.min > 1) {
+                          setAdvancedSettings(prev => ({
+                            ...prev,
+                            tasksPerDayRange: { ...prev.tasksPerDayRange, min: prev.tasksPerDayRange.min - 1 }
+                          }));
+                        }
+                      }}
+                      disabled={!userTokens.isSubscribed}
+                      style={{ padding: 8, backgroundColor: userTokens.isSubscribed ? 'rgba(255, 255, 104, 0.2)' : 'rgba(255, 255, 255, 0.05)', borderRadius: 8 }}
+                    >
+                      <Icon name="minus" size={16} color={userTokens.isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"} weight="bold" />
+                    </TouchableOpacity>
+                    <Text variant="h4" color="primary" style={{ color: '#FFFFFF', minWidth: 40, textAlign: 'center' }}>
+                      {advancedSettings.tasksPerDayRange.min}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (userTokens.isSubscribed && advancedSettings.tasksPerDayRange.min < advancedSettings.tasksPerDayRange.max - 1) {
+                          setAdvancedSettings(prev => ({
+                            ...prev,
+                            tasksPerDayRange: { ...prev.tasksPerDayRange, min: prev.tasksPerDayRange.min + 1 }
+                          }));
+                        }
+                      }}
+                      disabled={!userTokens.isSubscribed}
+                      style={{ padding: 8, backgroundColor: userTokens.isSubscribed ? 'rgba(255, 255, 104, 0.2)' : 'rgba(255, 255, 255, 0.05)', borderRadius: 8 }}
+                    >
+                      <Icon name="plus" size={16} color={userTokens.isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"} weight="bold" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: 8 }}>
+                    To:
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (userTokens.isSubscribed && advancedSettings.tasksPerDayRange.max > advancedSettings.tasksPerDayRange.min + 1) {
+                          setAdvancedSettings(prev => ({
+                            ...prev,
+                            tasksPerDayRange: { ...prev.tasksPerDayRange, max: prev.tasksPerDayRange.max - 1 }
+                          }));
+                        }
+                      }}
+                      disabled={!userTokens.isSubscribed}
+                      style={{ padding: 8, backgroundColor: userTokens.isSubscribed ? 'rgba(255, 255, 104, 0.2)' : 'rgba(255, 255, 255, 0.05)', borderRadius: 8 }}
+                    >
+                      <Icon name="minus" size={16} color={userTokens.isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"} weight="bold" />
+                    </TouchableOpacity>
+                    <Text variant="h4" color="primary" style={{ color: '#FFFFFF', minWidth: 40, textAlign: 'center' }}>
+                      {advancedSettings.tasksPerDayRange.max}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (userTokens.isSubscribed && advancedSettings.tasksPerDayRange.max < 10) {
+                          setAdvancedSettings(prev => ({
+                            ...prev,
+                            tasksPerDayRange: { ...prev.tasksPerDayRange, max: prev.tasksPerDayRange.max + 1 }
+                          }));
+                        }
+                      }}
+                      disabled={!userTokens.isSubscribed}
+                      style={{ padding: 8, backgroundColor: userTokens.isSubscribed ? 'rgba(255, 255, 104, 0.2)' : 'rgba(255, 255, 255, 0.05)', borderRadius: 8 }}
+                    >
+                      <Icon name="plus" size={16} color={userTokens.isSubscribed ? "#FFFF68" : "rgba(255, 255, 104, 0.3)"} weight="bold" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Preferred Days */}
+            <View style={{ marginBottom: 24 }}>
+              <Text variant="h4" color="primary" style={{ color: '#FFFFFF', fontWeight: '600', marginBottom: 8 }}>
+                Preferred days
+              </Text>
+              <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: 12 }}>
+                Select your available days (or leave blank for every day)
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { value: 0, label: 'S' },
+                  { value: 1, label: 'M' },
+                  { value: 2, label: 'T' },
+                  { value: 3, label: 'W' },
+                  { value: 4, label: 'T' },
+                  { value: 5, label: 'F' },
+                  { value: 6, label: 'S' },
+                ].map((day) => (
+                  <TouchableOpacity
+                    key={day.value}
+                    onPress={() => {
+                      const newDays = advancedSettings.preferredDays.includes(day.value)
+                        ? advancedSettings.preferredDays.filter((d) => d !== day.value)
+                        : [...advancedSettings.preferredDays, day.value];
+                      setAdvancedSettings(prev => ({ ...prev, preferredDays: newDays }));
+                    }}
+                    activeOpacity={0.8}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: advancedSettings.preferredDays.includes(day.value) ? 'rgba(255, 255, 104, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: advancedSettings.preferredDays.includes(day.value) ? '#FFFF68' : 'rgba(255, 255, 255, 0.1)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text variant="body" style={{ color: advancedSettings.preferredDays.includes(day.value) ? '#FFFF68' : 'rgba(255, 255, 255, 0.5)', fontWeight: '600' }}>
+                      {day.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Preferred Time Ranges */}
+            <View style={{ marginBottom: 24 }}>
+              <Text variant="h4" color="primary" style={{ color: '#FFFFFF', fontWeight: '600', marginBottom: 8 }}>
+                Preferred times
+              </Text>
+              <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginBottom: 12 }}>
+                Choose up to 3 time ranges that work for you
+              </Text>
+              {advancedSettings.preferredTimeRanges.map((range, index) => (
+                <View key={index} style={{ marginBottom: 16, padding: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <Icon
+                      name={index === 0 ? 'sun' : index === 1 ? 'sun-horizon' : 'moon'}
+                      size={20}
+                      color="#FFFF68"
+                      weight="fill"
+                    />
+                    <Text variant="caption" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)', marginLeft: 8 }}>
+                      {index === 0 ? 'Morning' : index === 1 ? 'Afternoon' : 'Evening'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (range.start_hour > 0) {
+                            const newRanges = [...advancedSettings.preferredTimeRanges];
+                            newRanges[index].start_hour = range.start_hour - 1;
+                            setAdvancedSettings(prev => ({ ...prev, preferredTimeRanges: newRanges }));
+                          }
+                        }}
+                        style={{ padding: 8, backgroundColor: 'rgba(255, 255, 104, 0.2)', borderRadius: 8 }}
+                      >
+                        <Icon name="minus" size={14} color="#FFFF68" weight="bold" />
+                      </TouchableOpacity>
+                      <Text variant="h4" color="primary" style={{ color: '#FFFFFF', minWidth: 60, textAlign: 'center' }}>
+                        {range.start_hour.toString().padStart(2, '0')}:00
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (range.start_hour < range.end_hour - 1) {
+                            const newRanges = [...advancedSettings.preferredTimeRanges];
+                            newRanges[index].start_hour = range.start_hour + 1;
+                            setAdvancedSettings(prev => ({ ...prev, preferredTimeRanges: newRanges }));
+                          }
+                        }}
+                        style={{ padding: 8, backgroundColor: 'rgba(255, 255, 104, 0.2)', borderRadius: 8 }}
+                      >
+                        <Icon name="plus" size={14} color="#FFFF68" weight="bold" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text variant="body" color="secondary" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                      To
+                    </Text>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (range.end_hour > range.start_hour + 1) {
+                            const newRanges = [...advancedSettings.preferredTimeRanges];
+                            newRanges[index].end_hour = range.end_hour - 1;
+                            setAdvancedSettings(prev => ({ ...prev, preferredTimeRanges: newRanges }));
+                          }
+                        }}
+                        style={{ padding: 8, backgroundColor: 'rgba(255, 255, 104, 0.2)', borderRadius: 8 }}
+                      >
+                        <Icon name="minus" size={14} color="#FFFF68" weight="bold" />
+                      </TouchableOpacity>
+                      <Text variant="h4" color="primary" style={{ color: '#FFFFFF', minWidth: 60, textAlign: 'center' }}>
+                        {range.end_hour.toString().padStart(2, '0')}:00
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (range.end_hour < 24) {
+                            const newRanges = [...advancedSettings.preferredTimeRanges];
+                            newRanges[index].end_hour = Math.min(24, range.end_hour + 1);
+                            setAdvancedSettings(prev => ({ ...prev, preferredTimeRanges: newRanges }));
+                          }
+                        }}
+                        style={{ padding: 8, backgroundColor: 'rgba(255, 255, 104, 0.2)', borderRadius: 8 }}
+                      >
+                        <Icon name="plus" size={14} color="#FFFF68" weight="bold" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+              {advancedSettings.preferredTimeRanges.length < 3 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const newRanges = [...advancedSettings.preferredTimeRanges];
+                    newRanges.push({ start_hour: 9, end_hour: 17, label: `Range ${newRanges.length + 1}` });
+                    setAdvancedSettings(prev => ({ ...prev, preferredTimeRanges: newRanges }));
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, backgroundColor: 'rgba(255, 255, 104, 0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 255, 104, 0.3)' }}
+                >
+                  <Icon name="plus" size={16} color="#FFFF68" weight="bold" />
+                  <Text variant="body" color="primary" style={{ color: '#FFFF68', marginLeft: 8, fontWeight: '600' }}>
+                    Add Time Range
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
+
+          {/* Modal Buttons */}
+          <View style={{ flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.1)' }}>
+            <TouchableOpacity
+              onPress={() => setShowAdvancedSettingsModal(false)}
+              activeOpacity={0.8}
+              style={{ flex: 1, padding: 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 12, alignItems: 'center' }}
+            >
+              <Text variant="body" color="primary" style={{ color: '#FFFFFF', fontWeight: '600' }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSaveAdvancedSettings}
+              activeOpacity={0.8}
+              style={{ flex: 1, padding: 16, backgroundColor: '#FFFF68', borderRadius: 12, alignItems: 'center' }}
+            >
+              <Text variant="body" color="primary" style={{ color: '#000000', fontWeight: '600' }}>
+                Save
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       {/* Subscription Modal */}
       {showSubscriptionModal && (
@@ -1883,7 +2829,9 @@ export const DashboardScreen: React.FC = () => {
                   color="secondary"
                   style={styles.modalDescription}
                 >
-                  Join Genie Premium and unlock the full potential with advanced AI features and unlimited access.
+                  {userTokens.notificationsMuted 
+                    ? "Keep your smart Genie notifications active! Subscribe to Genie Premium and never miss a task reminder."
+                    : "Join Genie Premium and unlock the full potential with advanced AI features and unlimited access."}
                 </Text>
 
                 <View style={styles.modalFeatures}>
@@ -2120,7 +3068,7 @@ export const DashboardScreen: React.FC = () => {
         }}
         onMyPlansPress={() => setShowMyPlans(true)}
         onDailyGoalsPress={() => setShowDailyGoals(true)}
-        onCreatePress={checkTokensAndCreateGoal}
+        onCreatePress={() => {}}
         activeTab="home"
       />
     </View>
@@ -2155,7 +3103,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dashboardSloganCard: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   dashboardSloganHeader: {
     flexDirection: 'row',
@@ -2253,6 +3201,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     marginBottom: 0,
+  },
+  genieChatCard: {
+    marginTop: 8,
+    marginBottom: 0,
+  },
+  genieInputContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    minHeight: 80,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  genieInput: {
+    textAlign: 'left',
+    fontSize: 14,
+    color: '#FFFFFF',
+    paddingVertical: 0,
+  },
+  genieSendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 104, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 104, 0.3)',
+    width: '100%',
+  },
+  genieSendButtonDisabled: {
+    opacity: 0.5,
+  },
+  genieSendButtonText: {
+    color: '#FFFF68',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  genieChatFooter: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  genieChatFooterText: {
+    fontSize: 11,
+    opacity: 0.7,
+  },
+  genieAdvancedSettingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  genieAdvancedSettingsText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   greeting: {
     marginBottom: 0,

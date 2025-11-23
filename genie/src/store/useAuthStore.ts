@@ -249,6 +249,41 @@ export const useAuthStore = create<AuthState>()(
           userId = authData.user.id;
           console.log('✅ User created successfully:', userId);
           
+          // The trigger will create the row in public.users automatically
+          // since terms_accepted is true in user_metadata
+          // Wait a bit for the trigger to create the row
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Verify the row was created (trigger should have done it)
+          const { data: userRow, error: checkError } = await supabase
+            .from('users')
+            .select('id, terms_accepted')
+            .eq('id', userId)
+            .single();
+          
+          if (checkError || !userRow) {
+            console.error('⚠️ Row not created by trigger, creating manually...', checkError);
+            // If trigger didn't create it, create it manually
+            const termsAcceptedAt = new Date().toISOString();
+            const { error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: userId,
+                email: email,
+                full_name: fullName,
+                terms_accepted: true,
+                terms_accepted_at: termsAcceptedAt,
+              });
+            
+            if (insertError) {
+              console.error('⚠️ Failed to create user row manually:', insertError);
+            } else {
+              console.log('✅ User row created manually in public.users');
+            }
+          } else {
+            console.log('✅ User row created by trigger in public.users');
+          }
+          
           // Keep user signed in - don't sign out after registration
           console.log('✅ User staying signed in for OTP verification');
 
@@ -582,14 +617,67 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('📋 Accepting terms and conditions...');
 
-          const { error } = await supabase.auth.updateUser({
+          const termsAcceptedAt = new Date().toISOString();
+          
+          // Get current user
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (!currentUser?.id) {
+            throw new Error('User not authenticated');
+          }
+          
+          // Update auth.users user_metadata
+          const { error: authError, data: authData } = await supabase.auth.updateUser({
             data: {
               terms_accepted: true,
-              terms_accepted_at: new Date().toISOString(),
+              terms_accepted_at: termsAcceptedAt,
             },
           });
 
-          if (error) throw error;
+          if (authError) throw authError;
+
+          // Check if row exists in public.users
+          const { data: existingUser, error: checkError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', currentUser.id)
+            .single();
+
+          if (checkError || !existingUser) {
+            // Row doesn't exist, create it (trigger should have done it, but just in case)
+            console.log('📋 Creating user row in public.users after terms acceptance...');
+            const { error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: currentUser.id,
+                email: currentUser.email || '',
+                full_name: currentUser.user_metadata?.full_name || '',
+                terms_accepted: true,
+                terms_accepted_at: termsAcceptedAt,
+              });
+
+            if (insertError) {
+              console.error('⚠️ Failed to create user row in public.users:', insertError);
+              // Don't throw - auth.users is updated, just log the warning
+            } else {
+              console.log('✅ User row created in public.users after terms acceptance');
+            }
+          } else {
+            // Row exists, update it
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({
+                terms_accepted: true,
+                terms_accepted_at: termsAcceptedAt,
+              })
+              .eq('id', currentUser.id);
+
+            if (updateError) {
+              console.error('⚠️ Failed to update terms_accepted in public.users:', updateError);
+              // Don't throw - auth.users is updated, just log the warning
+            } else {
+              console.log('✅ Terms accepted updated in public.users table');
+            }
+          }
 
           set({
             termsAccepted: true,

@@ -8,6 +8,7 @@ import {
   Dimensions,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from '../../primitives';
 import { useTheme } from '../../../theme';
@@ -27,6 +28,7 @@ interface PlanPreviewModalProps {
   planOutline?: Array<{ title: string; description: string }>;
   onApprove: () => void;
   onTryAgain: () => void;
+  isApproving?: boolean;
 }
 
 export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
@@ -36,6 +38,7 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
   planOutline,
   onApprove,
   onTryAgain,
+  isApproving = false,
 }) => {
   const theme = useTheme();
   const [fadeAnimation] = useState(new Animated.Value(0));
@@ -144,18 +147,28 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
 
             {/* Approve Button */}
             <TouchableOpacity
-              style={styles.approveButton}
+              style={[styles.approveButton, isApproving && styles.approveButtonDisabled]}
               onPress={onApprove}
               activeOpacity={0.8}
+              disabled={isApproving}
             >
               <View style={styles.approveButtonContent}>
-                <Icon
-                  name="check-circle"
-                  size={20}
-                  color="#000000"
-                  weight="fill"
-                />
-                <Text style={styles.approveButtonText}>Approve Plan</Text>
+                {isApproving ? (
+                  <>
+                    <ActivityIndicator size="small" color="#000000" />
+                    <Text style={styles.approveButtonText}>Creating Goal...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Icon
+                      name="check-circle"
+                      size={20}
+                      color="#000000"
+                      weight="fill"
+                    />
+                    <Text style={styles.approveButtonText}>Approve Plan</Text>
+                  </>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -166,8 +179,9 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
           style={styles.notForMeTextButton}
           onPress={onTryAgain}
           activeOpacity={0.7}
+          disabled={isApproving}
         >
-          <Text style={styles.notForMeTextButtonText}>Not for Me</Text>
+          <Text style={[styles.notForMeTextButtonText, isApproving && { opacity: 0.5 }]}>Not for Me</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -322,5 +336,8 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 16,
     fontWeight: '700',
+  },
+  approveButtonDisabled: {
+    opacity: 0.6,
   },
 });

@@ -1737,6 +1737,61 @@ serve(async (req) => {
       );
     }
 
+    // 🚨 CHECK TOKENS BEFORE GENERATING TASKS
+    // Estimate tasks needed for this week
+    const maxTasks = goal.tasks_per_day_max || goal.preferred_time_ranges?.length || 3;
+    const availableTimeSlots = goal.preferred_time_ranges?.length || 3;
+    const tasksPerDay = Math.min(maxTasks, availableTimeSlots);
+    const daysPerWeek = goal.preferred_days?.length || 7;
+    const daysInThisWeek = Math.min(7, goal.plan_duration_days - (currentWeek - 1) * 7);
+    const workingDaysInWeek = Math.ceil((daysInThisWeek / 7) * daysPerWeek);
+    const estimatedTasksForWeek = workingDaysInWeek * tasksPerDay;
+    
+    console.log(`[${requestId}] Estimated ${estimatedTasksForWeek} tasks needed for week ${currentWeek}`);
+    
+    // Check if user has enough tokens BEFORE generating
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('user_tokens')
+      .select('tokens_remaining, tokens_used')
+      .eq('user_id', user_id)
+      .single();
+
+    if (tokenError) {
+      console.error(`[${requestId}] Error checking tokens:`, tokenError);
+      return errorResponse(
+        500,
+        'Failed to check token balance',
+        requestId,
+        Date.now() - startTime
+      );
+    }
+
+    const currentTokens = tokenData?.tokens_remaining || 0;
+    
+    if (currentTokens < estimatedTasksForWeek) {
+      const tokensToLoad = Math.max(100, estimatedTasksForWeek - currentTokens);
+      
+      console.log(`[${requestId}] Insufficient tokens: has ${currentTokens}, needs ${estimatedTasksForWeek}`);
+      
+      // Mark goal as needing tokens (partial state)
+      await supabase
+        .from('goals')
+        .update({
+          status: 'paused',
+          error_message: `Insufficient tokens. Need ${estimatedTasksForWeek} tokens but only have ${currentTokens}. Please purchase at least ${tokensToLoad} tokens to continue.`,
+        })
+        .eq('id', goal_id);
+      
+      return errorResponse(
+        402,
+        `Not enough tokens to continue creating tasks. You have ${currentTokens} tokens but need ${estimatedTasksForWeek} for week ${currentWeek}. Please purchase at least ${tokensToLoad} tokens to continue.`,
+        requestId,
+        Date.now() - startTime
+      );
+    }
+    
+    console.log(`[${requestId}] User has ${currentTokens} tokens - sufficient for week ${currentWeek}`);
+
     // Generate tasks for this specific week
     console.log(`[${requestId}] Generating tasks for week ${currentWeek}...`);
     const tasksResult = await generateTasksWithAI(
@@ -1914,23 +1969,85 @@ serve(async (req) => {
         `[${requestId}] Triggering generation for week ${currentWeek + 1}/${totalWeeks}`
       );
 
-      // Call the function again for the next week (non-blocking)
-      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-tasks`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: user_id,
-          goal_id: goal_id,
-          device_now_iso: finalDeviceNow,
-          device_timezone: finalTimezone,
-          week_number: currentWeek + 1,
-        }),
-      }).catch((error) => {
-        console.error(`[${requestId}] Failed to trigger next week:`, error);
-      });
+      // Call the function again for the next week (non-blocking, fire-and-forget)
+      // Start the fetch BEFORE returning response, then use Deno.waitUntil() to keep it alive
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (!serviceRoleKey) {
+        console.error(`[${requestId}] ❌ SUPABASE_SERVICE_ROLE_KEY not found - cannot trigger next week`);
+        await supabase
+          .from('goals')
+          .update({
+            error_message: `Failed to trigger task generation for week ${currentWeek + 1}: Service role key not configured.`,
+            status: 'active',
+          })
+          .eq('id', goal_id);
+      } else {
+        // Start the fetch immediately - this is critical!
+        // For service-to-service calls, use both apikey and Authorization headers
+        const nextWeekPromise = fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-tasks`, {
+          method: 'POST',
+          headers: {
+            'apikey': serviceRoleKey,
+            'Authorization': `Bearer ${serviceRoleKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: user_id,
+            goal_id: goal_id,
+            device_now_iso: finalDeviceNow,
+            device_timezone: finalTimezone,
+            week_number: currentWeek + 1,
+          }),
+        })
+        .then(async (response) => {
+          const asyncSupabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          );
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(
+              `[${requestId}] ❌ Failed to trigger week ${currentWeek + 1}: ${response.status} - ${errorText}`
+            );
+            await asyncSupabase
+              .from('goals')
+              .update({
+                error_message: `Failed to generate tasks for week ${currentWeek + 1}. The system will retry automatically.`,
+                status: 'active',
+              })
+              .eq('id', goal_id);
+          } else {
+            const responseData = await response.json();
+            console.log(
+              `[${requestId}] ✅ Successfully triggered week ${currentWeek + 1}: ${responseData.tasks_count || 0} tasks`
+            );
+            await asyncSupabase
+              .from('goals')
+              .update({
+                error_message: null,
+              })
+              .eq('id', goal_id);
+          }
+        })
+        .catch(async (error) => {
+          console.error(`[${requestId}] ❌ Failed to trigger next week:`, error);
+          const asyncSupabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          );
+          await asyncSupabase
+            .from('goals')
+            .update({
+              error_message: `Failed to trigger task generation for week ${currentWeek + 1}. The system will retry automatically.`,
+              status: 'active',
+            })
+            .eq('id', goal_id);
+        });
+        
+        // CRITICAL: Use Deno.waitUntil() to keep the promise alive after function returns
+        Deno.waitUntil(nextWeekPromise);
+      }
 
       // Return success for this week
       return new Response(
